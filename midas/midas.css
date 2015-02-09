@@ -1,0 +1,36 @@
+
+<style type="text/css">
+
+    h1 {
+        font-family: Tahoma;
+    }
+
+	.alt_table{
+		width:85%;
+		border-collapse:collapse;
+		font-family: Tahoma;
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+        .alt_table thead{
+            text-transform:uppercase;
+            }
+    	.alt_table td{
+    		padding:7px; border:#4e95f4 1px solid;
+    	}
+    	.alt_table tr{ /* provide some minimal visual accomodation for IE8 and below */
+    		background: #b8d1f3;
+    	}
+    	.alt_table tr:nth-child(odd){
+    		background: #b8d1f3;
+    	}
+    	.alt_table tr:nth-child(even){
+    		background: #dae5f4;
+    	}
+        .alt_table tr:hover {
+              background-color: #ffff99;
+        }
+</style>
+
+<H2 align=center><a href=http://common.iwf.oeaw.ac.at>MIDAS server</a></H2>

@@ -1364,7 +1364,7 @@ class tm:
 
 
 
-    def get_events(self, ignore_giada=True, info=False, html=False):
+    def get_events(self, ignore_giada=True, info=False, html=False, verbose=True):
         """List MIDAS events. If the keyword info= is set to True,
         additional information will be decoded from events that support it.
 
@@ -1428,7 +1428,7 @@ class tm:
 
 
         uhoh = events[events.severity!='PROGRESS']
-        if len(uhoh)>0:
+        if (len(uhoh)>0) & verbose:
             print('WARNING: non-nominal events detected:\n')
             printtable(uhoh[['obt','event']])
 
@@ -1669,6 +1669,9 @@ class tm:
                 lines.append(ax_right.plot( obt, data, label=param.description, linestyle='-.' )[0])
                 ax_right.set_ylabel( "%s" % (param.unit))
 
+        if not start: start = obt[0]
+        if not end: end = obt[-1]
+
         labs = [l.get_label() for l in lines]
         leg = ax_left.legend(lines, labs, loc=0, fancybox=True)
         leg.get_frame().set_alpha(0.7)
@@ -1698,7 +1701,7 @@ class tm:
                 42512, # EvScanProgress
                 42699] # KernelHello
 
-            events = self.get_events(ignore_giada=True)
+            events = self.get_events(ignore_giada=True, verbose=False)
             events = events[-events.sid.isin(ignore_sids)]
 
             if label_events=='scan':
@@ -1706,13 +1709,12 @@ class tm:
                 scan_events = [42656, 42756, 42513, 42713]
                 events = events[events.sid.isin(scan_events)]
 
+                # Fixing mark/MIDAS#2 - filter events to given time range first
+                events = events[ (events.obt>start) & (events.obt<end) ]
+
             for idx, event in events.iterrows():
                 ax_left.axvline(event.obt,color='r')
                 ax_left.text(event.obt,max(data)*0.9,event.event,rotation=90)
-
-        if not start: start = ax_left.get_xlim()[0]
-        if not end: end = ax_left.get_xlim()[1]
-        ax_left.set_xlim(start,end)
 
         plt.draw()
 

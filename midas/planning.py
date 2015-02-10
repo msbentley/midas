@@ -1078,6 +1078,17 @@ def update_tiplist(filename, tip_num, update):
 
 
 class ptrm:
+    """The PTRM class reads and manipulates pointing timeline (PTRM) files.
+
+    If no parameters are given, the currently directory is searched for the latest
+    PTRM file, otherwise the latest file is read from the given directory.
+
+    Otherwise a filename can be optionally specified; in this case the full path
+    to the file should be given.
+
+    The show() and merge() functions can then be used to display the PTRM and
+    to produce a merged timeline consisting of OK and NOK blocks of time for
+    MIDAS operations."""
 
     def __init__(self, directory='.', filename=None):
 
@@ -1331,7 +1342,8 @@ class itl:
     are represented by methods in this class, e.g. power_on() and scan(). Each call
     generates an ITL fragment and when complete itl.write() will create the final file.
 
-    itl.time always represents the current end of the timeline sequence.
+    itl.time always represents the current end of the timeline sequence. itl.abs_time
+    holds the equivalent absolute time.
 
     To generate an ITL referencing multiple observations/events, set itl.current_obs to
     the observation of interest (returned by validate_observations()) before any calls"""

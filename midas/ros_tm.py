@@ -1392,7 +1392,11 @@ class tm:
 
             # TC accept/reject events return the listed telecommand
             tcs = self.get_tc_status()
-            if len(tcs)>0:
+
+            if tcs is None:
+                info = False
+            else:
+
                 pkts = pd.merge(pkts,tcs,left_index=True, right_index=True, how='outer')
                 pkts.rename(columns={'telecommand':'information'}, inplace=True)
 
@@ -1409,9 +1413,6 @@ class tm:
                         indices.append(idx)
 
                 if ignore_giada: pkts = pkts[pkts.information!='GiadaDustFluxDist']
-
-            else:
-                info = False
 
         pkts['severity'] = [event_severity[pkt.subtype-1] for idx,pkt in pkts.iterrows()]
 
@@ -1808,7 +1809,7 @@ class tm:
         ack = self.pkts[ (self.pkts.apid==1079) & ( (self.pkts.sid==42501) | (self.pkts.sid==42701) ) ]
         if len(ack)==0:
             print('WARNING: no TC ACK packets found')
-            return False
+            return None
 
         pkts = pd.DataFrame()
 

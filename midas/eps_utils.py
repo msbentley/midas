@@ -5,7 +5,8 @@ example ITL timeline files, and outputs (e.g. power and data profiles)."""
 
 debug = True
 import numpy as np
-import os, midas
+import os
+from midas import common, planning
 
 dateformat = '%d-%B-%Y_%H:%M:%S'
 
@@ -109,7 +110,7 @@ def parse_itl(filename, header=True):
 def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.'):
     """Spawn an external process to run and EPS and validate a given EPS and ITL file"""
 
-    import subprocess, planning
+    import subprocess
 
     if ros_sgs:
         os.environ["EPS_DATA"] = os.path.join(common.ros_sgs_path, 'CONFIG')
@@ -147,7 +148,7 @@ def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, c
 def run_mtp(mtp, case):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
-    import planning, glob
+    import glob
 
     mtp_folder = planning.locate_mtp(mtp, case)
 

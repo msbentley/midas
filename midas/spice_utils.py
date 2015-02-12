@@ -337,43 +337,43 @@ def anisotropic(times):
 
 
 
-def mtp_kernels(mtp, case='P'):
-    """Looks for the latest kernels for a given MTP - these will be the CORL
-    and RORL corresponding to the chosen LTP and the MTP level RATM"""
-
-    # Example filenames
-    # 012345678901234567890123456789
-    # RORL_DL_001_02____A__00002.BSP
-    # CORL_DL_002_02____A__00040.BSP
-    # RATM_DM_008_01____A__00057.BC
-
-    import planning
-
-    ltp = planning.ltp_from_mtp(mtp)
-    cases = ['A','B','C','H','P']
-
-    import glob
-
-    spk_path = os.path.join(kernel_path,'spk')
-    ck_path = os.path.join(kernel_path,'ck')
-
-    # Find all files of the correct type and case
-    rorl = glob.glob(os.path.join(spk_path, 'RORL_DL_%03i_??____%c__00???.BSP') % (ltp, case.upper()))
-    corl = glob.glob(os.path.join(spk_path, 'CORL_DL_%03i_??____%c__00???.BSP') % (ltp,case.upper()))
-    ratm = glob.glob(os.path.join(ck_path,  'RATM_DM_%03i_??____%c__00???.BC') % (mtp,case.upper()))
-    catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_______00???.BC'))
-
-    if len(rorl)==0 or len(corl)==0 or len(ratm)==0:
-        print('ERROR: no matching RORL/CORL/RATM files found in folder')
-        return False
-
-    # Find the latest file
-    rorl = sorted(rorl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    corl = sorted(corl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    ratm = sorted(ratm, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-
-    return [rorl, corl, ratm, catt]
+# def mtp_kernels(mtp, case='P'):
+#     """Looks for the latest kernels for a given MTP - these will be the CORL
+#     and RORL corresponding to the chosen LTP and the MTP level RATM"""
+#
+#     # Example filenames
+#     # 012345678901234567890123456789
+#     # RORL_DL_001_02____A__00002.BSP
+#     # CORL_DL_002_02____A__00040.BSP
+#     # RATM_DM_008_01____A__00057.BC
+#
+#     import planning
+#
+#     ltp = planning.ltp_from_mtp(mtp)
+#     cases = ['A','B','C','H','P']
+#
+#     import glob
+#
+#     spk_path = os.path.join(kernel_path,'spk')
+#     ck_path = os.path.join(kernel_path,'ck')
+#
+#     # Find all files of the correct type and case
+#     rorl = glob.glob(os.path.join(spk_path, 'RORL_DL_%03i_??____%c__00???.BSP') % (ltp, case.upper()))
+#     corl = glob.glob(os.path.join(spk_path, 'CORL_DL_%03i_??____%c__00???.BSP') % (ltp,case.upper()))
+#     ratm = glob.glob(os.path.join(ck_path,  'RATM_DM_%03i_??____%c__00???.BC') % (mtp,case.upper()))
+#     catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_______00???.BC'))
+    #
+    # if len(rorl)==0 or len(corl)==0 or len(ratm)==0:
+    #     print('ERROR: no matching RORL/CORL/RATM files found in folder')
+    #     return False
+    # 
+    # # Find the latest file
+    # rorl = sorted(rorl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
+    # corl = sorted(corl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
+    # ratm = sorted(ratm, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
+    # catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
+    #
+    # return [rorl, corl, ratm, catt]
 
 
 def get_timesteps(start, end, timestep=60.):

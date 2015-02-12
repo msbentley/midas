@@ -305,7 +305,8 @@ def ltp_from_mtp(mtp):
         1: range(1,6+1),
         2: range(7,8+1),
         3: range(9,10+1),
-        4: range(11,14+1) }
+        4: range(11,13+1),
+        5: range(14,17+1) }
 
     return [ltp for (ltp,mtps) in ltps.iteritems() if mtp in mtps][0]
 
@@ -1615,7 +1616,7 @@ class itl:
 
 
     def scan(self, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
-        xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, op_amp=False, set_pt=False, \
+        xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
@@ -1798,13 +1799,14 @@ class itl:
         return
 
     def tip_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10,
-        xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False):
+        xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
+        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
-        self.scan(cantilever=cantilever, facet=3, channels=['ZS'], openloop=openloop, \
-            xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep, \
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0,
-            xorigin=xorigin, yorigin=yorigin)
+        self.scan(cantilever=cantilever, facet=3, channels=['ZS'], openloop=openloop,
+            xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
+            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
+            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl)
 
         return
 

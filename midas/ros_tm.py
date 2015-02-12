@@ -842,10 +842,15 @@ class tm:
 
         self.pkts.to_pickle(filename)
 
-    def load_index(self, filename):
+    def load_index(self, filename, append=False):
         """Reads a packet index saved with save_index()"""
 
-        self.pkts = pd.read_pickle(filename)
+        if append and self.pkts is not None:
+            self.pkts = self.pkts.append(pd.read_pickle(filename))
+
+        else:
+            self.pkts = pd.read_pickle(filename)
+
         self.pkts.sort('obt', inplace=True)
         print('INFO: packet index restored with %i packets' % (len(self.pkts)))
 

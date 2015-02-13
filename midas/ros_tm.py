@@ -205,6 +205,7 @@ def plot_fscan(fscans, showfit=False, legend=True, plotfile=False, xmin=False, x
     return
 
 def plot_ctrl_data(ctrl):
+    """Accepts a single control data entry and plots all four channels"""
 
     import matplotlib.pyplot as plt
 
@@ -251,6 +252,168 @@ def plot_ctrl_data(ctrl):
     plt.subplots_adjust(hspace=0.0)
     plt.suptitle('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( \
         ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
+
+
+def calibrate_amplitude(ctrl):
+    """Interactively calibrate the cantilever amplitude via control data. Accepts a
+    single point approach and the user must select the end of the linear approach
+    section. A straight line is fit and the amplitude returned."""
+
+    class pickpoint:
+
+        def __init__(self,xs,ys):
+
+            import numpy as np
+            import matplotlib.pyplot as plt
+
+            self.xs = np.array(xs)
+            self.ys = np.array(ys)
+
+            self.fig = plt.figure()
+            self.ax = self.fig.add_subplot(1,1,1)
+            self.ax.set_xlabel('Z displacement (nm)')
+            self.ax.set_ylabel('Peak cantilever amplitude (V)')
+
+            self.line, = self.ax.plot(self.xs,self.ys,'ro ', picker=1)
+
+            self.text = self.ax.text(0.05, 0.05, 'Datapoint index selected: none',
+                                transform=self.ax.transAxes, va='top')
+
+            self.lastind = 0
+
+            self.ax.set_title('Click point and hit any key')
+
+            self.selected,  = self.ax.plot([self.xs[0]],
+                                           [self.ys[0]], 'o', ms=12, alpha=0.4,
+                                           color='yellow', visible=False)
+
+
+            self.cid = self.fig.canvas.mpl_connect('pick_event', self.onpick)
+
+
+        def onpick(self, event):
+
+            import numpy as np
+
+            if event.artist!=self.line: return True
+
+            N = len(event.ind)
+            if not N: return True
+
+            # the click locations
+            x = event.mouseevent.xdata
+            y = event.mouseevent.ydata
+
+            dx = np.array(x-self.xs[event.ind],dtype=float)
+            dy = np.array(y-self.ys[event.ind],dtype=float)
+
+            distances = np.hypot(dx,dy)
+            indmin = distances.argmin()
+            dataind = event.ind[indmin]
+
+            self.lastind = dataind
+            self.update()
+
+
+        def update(self):
+
+            if self.lastind is None:
+                self.fig.canvas.mpl_disconnect(self.cid)
+                return
+
+            dataind = self.lastind
+
+            self.selected.set_visible(True)
+            self.selected.set_data(self.xs[dataind], self.ys[dataind])
+
+            self.text.set_text('Datapoint index selected: %d'%dataind)
+
+            self.fig.canvas.draw()
+
+    import matplotlib.pyplot as plt
+    from scipy import stats
+    import numpy as np
+    import common
+
+    # Interpolate piezo Z piezo values
+    # First calibrate into nm (factor 0.328)
+
+    z_nm = ctrl['zpos'] * common.zcal * 2.0
+    z_nm =z_nm - max(z_nm)
+    xdata = range(len(z_nm))
+
+    amp_v = (20.0/65535)*ctrl['ac']
+    peak_amp_v = amp_v * np.sqrt(2)
+
+    # Fit Z piezo data with a straight line
+    (m,c) = np.polyfit(xdata,z_nm,1)
+
+    # And calculate fitted values
+    z_fit = np.polyval([m,c],xdata)
+
+    # Check confidence of fit and warn if too large/multi-valued etc.
+    rms_err = np.sqrt(np.sum((z_fit-z_nm)**2)/256)
+    # numpy.sum((yi - ybar)**2)
+
+    # Prompt user to pick the end of the linear approach
+    #
+    plt.ion()
+    p = pickpoint(z_fit,peak_amp_v)
+    plt.draw()
+
+    # Need to pause the script here to wait for the user to respond
+    while not plt.waitforbuttonpress():
+        pass
+
+    plt.ioff()
+
+    # Read out the index of the selected data point
+    start = p.lastind
+
+    print 'Start of linear approaching fitting at point: ', start
+
+    # Fit a straight line from this point until the end of the data set
+    #
+    (m2,c2) = np.polyfit(z_fit[start:],peak_amp_v[start:],1)
+    slopefit = np.polyval([m2,c2],z_fit[start:])
+
+    # Also fit using the linregress function
+    gradient, intercept, r_value, p_value, std_err = stats.linregress(z_fit[start:],peak_amp_v[start:])
+    print gradient, intercept, r_value, p_value, std_err
+
+    # With assumptions about gradient, calibrate the Y axis into nm
+    # This gradient should be ~1.0 for a hard surface
+    #
+    print 'Gradient of actual slope (V/nm): ', m2
+    cal_amp = peak_amp_v / m2
+
+    print 'Calibrate amplitude of first point: ', cal_amp[0]
+
+    # Plot calibrated approach curve!
+    #
+    # plt.close()
+    fig = plt.figure()
+    ax_approach = fig.add_subplot(1,1,1) # 1x1 plot grid, 1st plot # creates an object of class "Axes"
+    ax_approach.grid(True)
+    ax_approach.set_xlabel('Z displacement (nm)')
+    ax_approach.set_ylabel('Cantilever amplitude (nm)')
+
+    # ax_approach.set_title(os.path.basename(filename))
+
+    # Tuple unpacking used to get first item in list returned from plot (one per line)
+    amp_line, = ax_approach.plot(z_fit,cal_amp,'x')
+    fit_line, = ax_approach.plot(z_fit[start:],slopefit/m2)
+    fit_line, = ax_approach.plot(z_fit[start:],(slopefit+std_err)/m2)
+    fit_line, = ax_approach.plot(z_fit[start:],(slopefit-std_err)/m2)
+
+    plt.show()
+
+    return (z_nm,cal_amp)
+
+
+
+
+
 
 
 def combine_linescans(linescans, bcr=False):

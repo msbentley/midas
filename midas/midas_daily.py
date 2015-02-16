@@ -105,13 +105,14 @@ def run_daily():
 
         import glob
         tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD*.DAT')))
+
+        # remove the cruise phase data until calculation of exposure time is fixed!
+        tm_files.remove('TLM__MD_M000_S000_CRUISE_PHASE_________COUNT_00.DAT')
+
         tm = ros_tm.tm()
         for f in tm_files:
             tm.get_pkts(f, append=True)
             tm.pkts = tm.pkts[tm.pkts.apid==1084]
-
-        # tm=ros_tm.tm('TLM__MD*.DAT', tlm_dir, recursive=True)
-        # tm.save_index(os.path.join(tlm_dir,'packet_index.pkl'))
 
         images = tm.get_images(info_only=True)
 

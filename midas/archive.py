@@ -224,6 +224,8 @@ def query(param, start=None, end=None, archfile='tm_archive.h5'):
 
     data = store.select(table, where="index>Timestamp(%r) and index<Timestamp(%r)" % (start,end), columns=[param])
 
+    print('DEBUG: retrieval complete, starting calibration')
+
     # If data is uncalibrated, run the calibration
     if not store.root._v_attrs.calibrated:
         data['%s' % param] = ros_tm.calibrate('%s' % param,data['%s' % param])

@@ -59,7 +59,8 @@ other_templates = {
     'CANT_SURVEY': 'ITLS_MD_FSCAN_SURVEY_CANT.itl',
     'ABORT': 'ITLS_MD_ABORT.itl',
     'APP_MIN': 'ITLS_MD_APPROACH_MIN.itl',
-    'PSTP': 'ITLS_MD_PSTP_PLACEHOLDER.itl' }
+    'PSTP': 'ITLS_MD_PSTP_PLACEHOLDER.itl',
+    'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl' }
 
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
@@ -1612,6 +1613,76 @@ class itl:
 
     def close_shutter(self):
         self.generate({'template': 'CLOSE_SHUTTER', 'params': {}}, timedelta(minutes=2))
+        return
+
+    def instrument_setup(self, fscan_phase=False, last_z_lf=False, zero_lf=False, calc_retract=False,
+        line_tx=True, ctrl_full=False, ctrl_retract=False, anti_creep=True, auto_exp=False,
+        auto_thresh=32768, auto_trig=10, auto_seg=0, acreep=0, x_zoom=256, y_zoom=256, retr_m2=0, retr_m3=0):
+        """Calls SQ AMDF034B, which performs a variety of instrument setup tasks, including:
+
+        - Set software flags
+        - Setup automatic exposure parameters
+        - Setup anti-creep parameters
+        - Setup feature vector zoom parameters
+        - Setup magnetic retraction parameters"""
+
+        # The following parameters can be set by this routineL
+        #
+        #        VMDDE212 = <sw_flags> \         # SetSwFlagsPar
+        #        VMDD2432 = <auto_exp_thresh> \  # SetAutoExpThresPar
+        #        VMDD2442 = <auto_exp_trig> \    # SetAutoExpTriggerPar
+        #        VMDD2452 = <auto_exp_seg> \     # SetAutoExpSegmentPar
+        #        VMDD5082 = <acreep_factor> \    # SetAcreepFactorPar
+        #        VMDD5102 = <xsteps_zoom> \      # SetXStepsZoomPar
+        #        VMDD5112 = <ysteps_zoom> \      # SetYStepsZoomPar
+        #        VMDDF122 = <mag_retr_2> \       # SetZRetractMag2Par
+        #        VMDDF132 = <mag_retr_3> \       # SetZRetractMag3Par
+
+        # Where sw_flags can be:
+        #
+        # Bit 0 (value = 0x0001) : SW_FSCAN_PHASE     1 = return phase signal during f-scan
+        # Bit 1 (value = 0x0002) : SW_MOVEZ_LASTZ     1 = use last Z position on line feed
+        # Bit 2 (value = 0x0004) : SW_MOVEZ_ZERO      1 = use zero position on line feed else use minimum Z position of last line
+        # Bit 3 (value = 0x0008) : SW_CALC_RETRACT    1 = calculate Z retraction from X/Y step size
+        #
+        # Bit 4 (value = 0x0010) : SW_LSCAN_FULL      1 = transfer line scan data during full scan
+        # Bit 5 (value = 0x0020) : SW_CDATA_FULL      1 = transfer control data during full scan
+        # Bit 6 (value = 0x0040) : SW_CDATA_RETR      1 = transfer control data from retraction
+        # Bit 7 (value = 0x0080) : SW_ANTI_CREEP      1 = perform anti-creep scan before full scan
+        #
+        # Bit 8 (value = 0x0100) : SW_AUTO_EXP        1 = enable auto-exposure mode
+        proc = {}
+        proc['template'] = 'SETUP'
+
+        # Build the software flags word
+
+        sw_flags = 0
+        if fscan_phase: sw_flags  += 0x0001
+        if last_z_lf: sw_flags    += 0x0002
+        if zero_lf: sw_flags      += 0x0004
+        if calc_retract: sw_flags += 0x0008
+        if line_tx: sw_flags      += 0x0010
+        if ctrl_full: sw_flags    += 0x0020
+        if ctrl_retract: sw_flags += 0x0040
+        if anti_creep: sw_flags   += 0x0080
+        if auto_exp: sw_flags     += 0x0100
+
+        # Pass the rest directly, for now...
+        # TODO: do some limit checking on these parameters!
+
+        proc['params'] = {
+            'sw_flags': sw_flags,
+            'auto_exp_thresh': auto_thresh,
+            'auto_exp_trig': auto_trig,
+            'auto_exp_seg': auto_seg,
+            'acreep_factor': acreep,
+            'xsteps_zoom': x_zoom,
+            'ysteps_zoom': y_zoom,
+            'mag_retr_2': retr_m2,
+            'mag_retr_3': retr_m3 }
+
+        self.generate(proc)
+
         return
 
 

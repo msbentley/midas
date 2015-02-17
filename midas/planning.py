@@ -1617,7 +1617,7 @@ class itl:
 
     def instrument_setup(self, fscan_phase=False, last_z_lf=False, zero_lf=False, calc_retract=False,
         line_tx=True, ctrl_full=False, ctrl_retract=False, anti_creep=True, auto_exp=False,
-        auto_thresh=32768, auto_trig=10, auto_seg=0, acreep=0, x_zoom=256, y_zoom=256, retr_m2=0, retr_m3=0):
+        auto_thresh=32768, auto_trig=10, auto_seg=0, acreep=4, x_zoom=256, y_zoom=256, retr_m2=0, retr_m3=0):
         """Calls SQ AMDF034B, which performs a variety of instrument setup tasks, including:
 
         - Set software flags
@@ -1667,8 +1667,29 @@ class itl:
         if anti_creep: sw_flags   += 0x0080
         if auto_exp: sw_flags     += 0x0100
 
-        # Pass the rest directly, for now...
-        # TODO: do some limit checking on these parameters!
+        if not(0 <= auto_thresh <= 65535):
+            print('ERROR: auto exposure dust count threshold must be between 0 and 65535 - setting default 32768')
+            auto_thresh = 32768
+
+        if not(0 <= auto_trig <= 65535):
+            print('ERROR: auto exposure trigger count must be between 0 and 65535 - setting default 10')
+            auto_trig = 10
+
+        if not(0 <= auto_seg <= 1023):
+            print('ERROR: auto exposure wheel segment must be between 0 and 1023 - setting default 0')
+            auto_seg = 0
+
+        if not(0 <= acreep <= 7):
+            print('ERROR: anti-creep factor must be between 0 (2**0) and 7 (2**7) - setting default 4')
+            auto_seg = 0
+
+        x_zoom = int(x_zoom)
+        y_zoom = int(y_zoom)
+
+        if (x_zoom % 32 != 0) or (y_zoom % 32 != 0):
+            print('ERROR: the number of pixels in X and Y for zooming must be a multiple of 32 - setting default 256')
+            x_zoom = 256
+            y_zoom = 256
 
         proc['params'] = {
             'sw_flags': sw_flags,

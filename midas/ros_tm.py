@@ -19,6 +19,8 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from midas import common
+import matplotlib.pyplot as plt
+
 
 # datefmt='%m/%d/%Y %I:%M:%S %p'
 isofmt = '%Y-%m-%dT%H%M%SZ'
@@ -159,8 +161,6 @@ def plot_fscan(fscans, showfit=False, legend=True, plotfile=False, xmin=False, x
     if type(fscans) == pd.Series:
         fscans = pd.DataFrame(columns=fscans.to_dict().keys()).append(fscans)
 
-    import matplotlib.pyplot as plt
-
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
 
@@ -206,8 +206,6 @@ def plot_fscan(fscans, showfit=False, legend=True, plotfile=False, xmin=False, x
 
 def plot_ctrl_data(ctrl):
     """Accepts a single control data entry and plots all four channels"""
-
-    import matplotlib.pyplot as plt
 
     xdata = range(0,ctrl.num_meas/4)
 
@@ -262,8 +260,6 @@ def calibrate_amplitude(ctrl, return_data=False):
     class pickpoint:
 
         def __init__(self,xs,ys):
-
-            import matplotlib.pyplot as plt
 
             self.xs = np.array(xs)
             self.ys = np.array(ys)
@@ -329,7 +325,6 @@ def calibrate_amplitude(ctrl, return_data=False):
 
     ### Start of function
 
-    import matplotlib.pyplot as plt
     from scipy import stats
 
     # Interpolate piezo Z piezo values
@@ -804,7 +799,6 @@ def show(images, planesub=True, realunits=True, dacunits=False, title=True, fig=
     placesub=True will peform a least-square plane subtraction.
     realunits=True will plot in physical units, otherwise in pix"""
 
-    import matplotlib.pyplot as plt
     import matplotlib.cm as cm
     from matplotlib.colors import LightSource
 
@@ -877,7 +871,6 @@ def locate_scans(images, facet=None, segment=None, tip=None):
     filter scans by a given tip."""
 
     from matplotlib.patches import Rectangle
-    import matplotlib.pyplot as plt
 
     title = ''
 
@@ -1751,7 +1744,9 @@ class tm:
         if frame:
             return obt[0], real_val[0]
         else:
-            return np.array(obt), real_val
+            # return np.array(obt), real_val
+            # return a pandas series instead, with the OBT as the index
+            return pd.Series(real_val, index=obt)
 
 
     def hk_as_image(self, param, image):
@@ -1763,17 +1758,18 @@ class tm:
         start = image.start_time
         end = image.end_time
 
-        obt, values = self.get_param(param, start=start, end=end)
+        values = self.get_param(param, start=start, end=end).values
 
         # NMDA0165 = ScnLineCnt
         # NMDA0170 = ScnMainCnt
 
-        obt, line = self.get_param('NMDA0165', start=start, end=end)
-        obt, main = self.get_param('NMDA0170', start=start, end=end)
+        line = self.get_param('NMDA0165', start=start, end=end).values
+        main = self.get_param('NMDA0170', start=start, end=end).values
 
         hk_img = np.zeros( (image.xsteps,image.ysteps) )
 
-        print('DEBUG: image (%ix%i), main scan min/max: %i/%i, line scan min/max: %i/%i' % \
+        if debug:
+            print('DEBUG: image (%ix%i), main scan min/max: %i/%i, line scan min/max: %i/%i' % \
                 (image.xsteps, image.ysteps, main.min(), main.max(), line.min(), line.max()))
 
         if (len(line) != len(main)) & (len(line) != len(values)):
@@ -1783,7 +1779,7 @@ class tm:
         for (idx, coord) in enumerate(zip(line,main)):
             hk_img[coord[0],coord[1]] = values[idx]
 
-        imshow(hk_img,  interpolation='nearest')
+        plt.imshow(hk_img,  interpolation='nearest')
 
         return hk_img
 
@@ -1794,7 +1790,6 @@ class tm:
         """Plot a TM parameter vs OBT. Requires a packet list and parameter
         name. label_events= can optionally be set to label key events."""
 
-        import matplotlib.pyplot as plt
         import matplotlib.dates as md
         import math
 
@@ -1819,19 +1814,19 @@ class tm:
 
         for param_name in param_names:
 
-            obt, data = self.get_param(param_name, start=start, end=end)
+            data = self.get_param(param_name, start=start, end=end)
             param = pcf[pcf.param_name==param_name].squeeze()
 
             if param.unit==units[0] or (pd.isnull(param.unit) & (pd.isnull(units[0]))): # plot on left axis
-                lines.append(ax_left.plot( obt, data, label=param.description, linestyle='-' )[0])
+                lines.append(ax_left.plot( data.index, data, label=param.description, linestyle='-' )[0])
                 ax_left.set_ylabel( "%s" % (param.unit))
             else:
                 ax_left._get_lines.color_cycle.next()
-                lines.append(ax_right.plot( obt, data, label=param.description, linestyle='-.' )[0])
+                lines.append(ax_right.plot( data.index, data, label=param.description, linestyle='-.' )[0])
                 ax_right.set_ylabel( "%s" % (param.unit))
 
-        if not start: start = obt[0]
-        if not end: end = obt[-1]
+        if not start: start = data.index[0]
+        if not end: end = data.index[-1]
 
         labs = [l.get_label() for l in lines]
         leg = ax_left.legend(lines, labs, loc=0, fancybox=True)
@@ -2619,7 +2614,6 @@ class tm:
         print('INFO: %i frequency scans found and extracted' % (len(freqscans)))
 
         if show and singleplot:
-            import matplotlib.pyplot as plt
             fig = plt.figure()
             ax = fig.add_subplot(1,1,1)
             [ax.plot(scan['frequency'],scan['amplitude'],label='%i / %i' % (scan['info']['cant_block'],\
@@ -2632,7 +2626,6 @@ class tm:
                 plt.legend(loc=0)
 
         if show and not singleplot:
-            import matplotlib.pyplot as plt
             for scan in freqscans:
                 fig = plt.figure()
                 ax = fig.add_subplot(1,1,1)

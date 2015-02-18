@@ -99,16 +99,18 @@ def get_packet_format(apid=1076, sid=1):
     return pkt_name, fmt, param_names, param_desc, status_len
 
 
-def search_params(search):
+def search_params(search=''):
     """Performs a case insensitive search of the MIDAS HK parameter descriptions; useful
     if you can't remember the parameter name you want to retrieve from the archive!"""
 
     return ros_tm.search_params(search)[ ['param_name','description', 'unit'] ]
 
 
-def read_data(files, apid, sid, calibrate=False):
+def read_data(files, apid, sid, calibrate=False, tsync=True):
     """Read in data for a given APID and SID and return a dataframe of calibrated
-    data for all matching frames. This can then be written to an archive."""
+    data for all matching frames. This can then be written to an archive.
+
+    If tsync=True packets with no time synch are ignored."""
 
     # Look up the packet format in the database
     pkt_name, fmt, param_names, param_desc, status_len = get_packet_format(apid=apid, sid=sid)
@@ -117,6 +119,9 @@ def read_data(files, apid, sid, calibrate=False):
     # Index TM files and filter by APID and SID
     tm = ros_tm.tm(files)
     pkts = tm.pkts[ (tm.pkts.apid==apid) & (tm.pkts.sid==sid) ]
+
+    if tsync:
+        pkts = pkts[ pkts.tsync ]
 
     print('INFO: packet index complete (%i %s packets)' % (len(pkts),pkt_name))
 
@@ -224,22 +229,26 @@ def query(param, start=None, end=None, archfile='tm_archive.h5'):
         return False
 
     if (start is None) and (end is None): # read the entire column (fast!)
-        data = pd.DataFrame(store.select_column(table,param).values, index=store.select_column(table,'index').values, columns=['%s'%param])
+        data = pd.Series(store.select_column(table,param).values, index=store.select_column(table,'index').values, name=param)
     else:
 
+        obt = store.select_column(table,'index')
+
         if start is None:
-            start = store.select_column(table,'index').min()
+            start = obt.min()
 
         if end is None:
-            end = store.select_column(table,'index').max()
+            end = obt.max()
 
-        data = store.select(table, where="index>Timestamp(%r) and index<Timestamp(%r)" % (start,end), columns=[param])
+        where = obt[ (obt>start) & (obt<end) ].index
 
-    # print('DEBUG: retrieval complete, starting calibration')
+        # data = store.select(table, where="index>Timestamp(%r) and index<Timestamp(%r)" % (start,end), columns=[param])
+        data = store.select(table, where=where, columns=[param])
+        data = data['%s' % param]
 
     # If data is uncalibrated, run the calibration
     if not store.root._v_attrs.calibrated:
-        data['%s' % param] = ros_tm.calibrate('%s' % param,data['%s' % param])
+        data = pd.Series( ros_tm.calibrate('%s' % param,data.values), index=data.index, name=data.name)
 
     store.close()
 

@@ -103,7 +103,12 @@ def search_params(search=''):
     """Performs a case insensitive search of the MIDAS HK parameter descriptions; useful
     if you can't remember the parameter name you want to retrieve from the archive!"""
 
-    return ros_tm.search_params(search)[ ['param_name','description', 'unit'] ]
+    params = ros_tm.search_params(search)[ ['param_name','description', 'unit'] ]
+    print(params.to_string(index=False))
+
+    return # params
+
+
 
 
 def read_data(files, apid, sid, calibrate=False, tsync=True):

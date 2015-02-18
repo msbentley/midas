@@ -1074,6 +1074,10 @@ class tm:
                 pkt_header = pkt_header_names(*struct.unpack_from(pkt_header_fmt,tm,offset))
                 delta_t = timedelta(seconds=pkt_header.obt_sec, milliseconds=(pkt_header.obt_frac * 2.**-16 * 1000.))
 
+                # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
+                # of the 32 bit coarse time (= seconds since reference date) is set to "1".
+                pkt['tsync'] = bool(pkt_header.obt_sec >> 13)
+
                 pkt['offset'] = offset
                 pkt['type'] = pkt_header.pkt_type
                 pkt['length'] = pkt_header.pkt_len
@@ -2820,6 +2824,11 @@ def simple_get_pkts(filename, dds_header=True, verbose=False):
 
         # Calculate OBT - the format here uses 6 octets to represent OBT, 4 octects for the number
         # of seconds, and two octects for fractional seconds. The reference epoch is 01/01/2013 00:00:00.0
+
+        # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
+        # of the 32 bit coarse time (= seconds since reference date) is set to "1".
+        pkt['tsync'] = bool(pkt_header.obt_sec >> 13)
+
         delta_t = timedelta(seconds=pkt_header.obt_sec, milliseconds=(pkt_header.obt_frac * 2.**-16 * 1000.))
 
         # version = pkt_header.pkt_id  & 0b1110000000000000

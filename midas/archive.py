@@ -99,6 +99,13 @@ def get_packet_format(apid=1076, sid=1):
     return pkt_name, fmt, param_names, param_desc, status_len
 
 
+def search_params(search):
+    """Performs a case insensitive search of the MIDAS HK parameter descriptions; useful
+    if you can't remember the parameter name you want to retrieve from the archive!"""
+
+    return ros_tm.search_params(search)[ ['param_name','description', 'unit'] ]
+
+
 def read_data(files, apid, sid, calibrate=False):
     """Read in data for a given APID and SID and return a dataframe of calibrated
     data for all matching frames. This can then be written to an archive."""
@@ -188,8 +195,8 @@ def create(files='TLM*.DAT', path=tlm_path, archfile='tm_archive.h5', calibrate=
         hk = read_data(f, apid=apid, sid=2, calibrate=calibrate)
         store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
 
-    store.root._v_attrs.hk1_names = hk._metadata[0]
-    store.root._v_attrs.hk2_names = hk._metadata[0]
+    # store.root._v_attrs.hk1_names = hk._metadata[0]
+    # store.root._v_attrs.hk2_names = hk._metadata[0]
     store.root._v_attrs.calibrated = calibrate
 
     store.close()
@@ -216,15 +223,19 @@ def query(param, start=None, end=None, archfile='tm_archive.h5'):
         print('ERROR: parameter %s not found in the archive' % (param))
         return False
 
-    if start is None:
-        start = store.select_column(table,'index').min()
+    if (start is None) and (end is None): # read the entire column (fast!)
+        data = pd.DataFrame(store.select_column(table,param).values, index=store.select_column(table,'index').values, columns=['%s'%param])
+    else:
 
-    if end is None:
-        end = store.select_column(table,'index').max()
+        if start is None:
+            start = store.select_column(table,'index').min()
 
-    data = store.select(table, where="index>Timestamp(%r) and index<Timestamp(%r)" % (start,end), columns=[param])
+        if end is None:
+            end = store.select_column(table,'index').max()
 
-    print('DEBUG: retrieval complete, starting calibration')
+        data = store.select(table, where="index>Timestamp(%r) and index<Timestamp(%r)" % (start,end), columns=[param])
+
+    # print('DEBUG: retrieval complete, starting calibration')
 
     # If data is uncalibrated, run the calibration
     if not store.root._v_attrs.calibrated:

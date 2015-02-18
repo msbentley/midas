@@ -1076,7 +1076,7 @@ class tm:
 
                 # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
                 # of the 32 bit coarse time (= seconds since reference date) is set to "1".
-                pkt['tsync'] = bool(pkt_header.obt_sec >> 13)
+                pkt['tsync'] = not bool(pkt_header.obt_sec >> 31)
 
                 pkt['offset'] = offset
                 pkt['type'] = pkt_header.pkt_type
@@ -1644,7 +1644,7 @@ class tm:
 
 
 
-    def get_param(self, param, frame=False, start=False, end=False):
+    def get_param(self, param, frame=False, start=False, end=False, tsync=True):
         """Accepts a packet list (containing offsets to the start of previously located
         packets), and a parameter ID. Uses the SCOS-2K tables to search packets for this
         parameter, reads the relevant binary data and applies necessary calibration.
@@ -1672,6 +1672,10 @@ class tm:
         # filter packet list to those containing the parameter in question
         pkts = pkts[ (pkts.type.isin(pkt_info.type)) & (pkts.subtype.isin(pkt_info.subtype)) \
             & (pkts.apid.isin(pkt_info.apid)) & (pkts.sid.isin(pkt_info.sid)) ]
+
+        # If requested, filter out packets that are not time-sync'd
+        if tsync:
+            pkts = pkts[ pkts.tsync ]
 
         num_params = len(pkts)
 
@@ -1818,7 +1822,7 @@ class tm:
 
         for param_name in param_names:
 
-            data = self.get_param(param_name, start=start, end=end)
+            data = self.get_param(param_name, start=start, end=end, tsync=True)
             param = pcf[pcf.param_name==param_name].squeeze()
 
             if param.unit==units[0] or (pd.isnull(param.unit) & (pd.isnull(units[0]))): # plot on left axis
@@ -2827,7 +2831,7 @@ def simple_get_pkts(filename, dds_header=True, verbose=False):
 
         # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
         # of the 32 bit coarse time (= seconds since reference date) is set to "1".
-        pkt['tsync'] = bool(pkt_header.obt_sec >> 13)
+        pkt['tsync'] = not bool(pkt_header.obt_sec >> 31)
 
         delta_t = timedelta(seconds=pkt_header.obt_sec, milliseconds=(pkt_header.obt_frac * 2.**-16 * 1000.))
 

@@ -127,12 +127,10 @@ def run_daily():
         # rename the filename column to be clear that this is the TLM source file
         images.rename(columns={'filename':'tlm_file'}, inplace=True)
 
-        # Add an index per scan (rather than per channel)
-        # images.start_time
-
-        # Write to XLS and CSV format
+        # Write to XLS, CSV and msgpack format
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
+        images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
 
         # Update the list of exposures
         print('INFO: updating table of exposures')

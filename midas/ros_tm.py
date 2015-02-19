@@ -2615,7 +2615,7 @@ class tm:
                 fit_params['res_freq'] = popt[2]
                 fit_params['half_width'] = popt[3]
 
-                fit_params['q'] = fit_params['res_freq'] / 2. * fit_params['half_width']
+                fit_params['q'] = fit_params['res_freq'] / (2. * fit_params['half_width'])
 
                 scan['fit_params'] = fit_params
 

@@ -59,7 +59,8 @@ other_templates = {
     'CANT_SURVEY': 'ITLS_MD_FSCAN_SURVEY_CANT.itl',
     'ABORT': 'ITLS_MD_ABORT.itl',
     'APP_MIN': 'ITLS_MD_APPROACH_MIN.itl',
-    'PSTP': 'ITLS_MD_PSTP_PLACEHOLDER.itl' }
+    'PSTP': 'ITLS_MD_PSTP_PLACEHOLDER.itl',
+    'XYZ_MOVE': 'ITLS_MD_XYZ_MOVE.itl' }
 
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
@@ -1614,10 +1615,37 @@ class itl:
         self.generate({'template': 'CLOSE_SHUTTER', 'params': {}}, timedelta(minutes=2))
         return
 
+    def xyz_move(self, x_dac=0, y_dac=0, z_dac=0, scan_mode='DYN', fsynth=False, zout=False):
+        """Run SQ AMDF035B to manually set the XYZ stage to a given position"""
+
+        proc = {}
+        proc['template'] = 'XYZ_MOVE'
+
+        if not(0 <= x_dac <= 65535) or not(0 <= y_dac <= 65535) or not(0 <= z_dac <= 65535):
+            print('ERROR: DAC values must be between 0 and 65535')
+            return None
+
+        scan_type = ['DYN','CON','MAG']
+        if scan_mode not in scan_type:
+            print('ERROR: scan mode must be one of %s' % scan_type)
+            return None
+
+        proc['params'] = {
+            'x_dac': x_dac,
+            'y_dac': y_dac,
+            'z_dac': z_dac,
+            'scan_mode': scan_type.index(scan_mode),
+            'fsynth_onoff': 'ON*' if fsynth else 'OFF*',
+            'zout_onoff': 'ON*' if zout else 'OFF*' }
+
+        self.generate(proc)
+
+        return
+
 
     def scan(self, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False):
+        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1647,7 +1675,7 @@ class itl:
 
         # Return parameters for selected cantilever
         fscan = cantilever_select(cantilever)
-        fscan_params = self.freq_scan(cantilever, params_only=True)
+        fscan_params = self.freq_scan(cantilever, num_scans=num_fcyc, params_only=True)
 
         # Centre the scan on the XY table unless specified
         if type(xorigin)==bool and type(yorigin)==bool:
@@ -1721,6 +1749,7 @@ class itl:
             'exc_lvl': fscan['exc_lvl'] if type(exc_lvl)==bool else exc_lvl,
             'freq_hi': fscan_params['freq_hi'],
             'freq_lo': fscan_params['freq_lo'],
+            'num_scans': fscan_params['num_scans'],
             'fstep_fine': fscan['fstep_fine'],
             'op_amp_per': -90 if type(op_amp)==bool else op_amp,
             'set_pt_amp': 80 if type(set_pt)==bool else set_pt }
@@ -2089,7 +2118,7 @@ class itl:
 
     def ctrl_data(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
-        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False):
+        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8):
 
         import scanning
         proc = {}
@@ -2164,6 +2193,7 @@ class itl:
             'fstep_fine': fscan['fstep_fine'],
             'op_amp_per': -90 if type(op_amp)==bool else op_amp,
             'set_pt_amp': 80 if type(set_pt)==bool else set_pt,
+            'num_scans': num_fcyc,
 
             # Scan related parameters
             'y_op_cl': 'OPEN' if openloop else 'CLOSED',

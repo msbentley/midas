@@ -1983,7 +1983,7 @@ class itl:
 
 
     def freq_scan(self, cantilever, ac_gain=False, excitation=False, fstep_coarse=1, fstep_fine=False, num_scans=8, \
-        op_amp=-90, set_pt=80, params_only=False):
+        op_amp=-90, set_pt=80, fadj=85, params_only=False):
 
         proc = {}
         proc['template'] = 'FSCAN'
@@ -2028,7 +2028,8 @@ class itl:
             'fstep_fine': fscan['fstep_fine'] if type(fstep_fine) == bool else fstep_fine,
             'num_scans': num_scans,
             'op_amp_per': op_amp,
-            'set_pt_amp': set_pt }
+            'set_pt_amp': set_pt,
+            'freq_adj': fadj }
 
         if params_only:
             return proc['params']

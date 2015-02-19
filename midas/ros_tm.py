@@ -862,24 +862,30 @@ def show(images, planesub=True, realunits=True, dacunits=False, title=True, fig=
 
 
 
-def locate_scans(images, facet=None, segment=None, tip=None):
+def locate_scans(images, facet=None, segment=None, tip=None, show=True):
     """Accepts a list of scans returned by get_images() and plots the positions of the scans
     as annotated rectangles. If images only contains one facet/segment, that is used.
 
     If facet= is set and there is only one segment available, this
     is used - otherwise segment= must be set also. tip= can be used to
-    filter scans by a given tip."""
+    filter scans by a given tip.
+
+    The origin of each scan, relative to the wheel/target centre, are also
+    added to the images DataFrame and returned."""
 
     from matplotlib.patches import Rectangle
 
     title = ''
 
-    if len(images.target.unique()==1):
+    if len(images.target.unique())==1 and len(images.wheel_pos.unique())==1:
         scans = images[ (images.channel=='ZS') ]
-    elif segment==None:
+    elif segment is None and facet is not None:
         scans = images[ (images.channel=='ZS') & (images.target==facet) ]
-    else:
+    elif segment is not None and facet is None:
+        scans = images[ (images.channel=='ZS') & (images.wheel_pos==segment) ]
+    else: # segment is not None and facet is not None:
         scans = images[ (images.channel=='ZS') & (images.target==facet) & (images.wheel_pos==segment) ]
+
 
     if (tip is not None):
         scans = images[ images.tip_num == tip ]
@@ -887,19 +893,29 @@ def locate_scans(images, facet=None, segment=None, tip=None):
     if len(scans.tip_num.unique())==1:
         title = title.join('Tip %i, ' % scans.tip_num.unique()[0] )
 
+    print(scans.wheel_pos.unique())
+    if len(scans.wheel_pos.unique())>1:
+        print('ERROR: more than one segment specified - filter images or use keyword segment=')
+        return None
+
     if len(scans)==0:
         print('ERROR: no matching images for the given facet and segment')
         return None
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-    ax.invert_yaxis()
+    if show:
 
-    title += ('Target %i (%s), segment %i' % (scans.target.unique()[0], scans.target_type.unique()[0], scans.wheel_pos.unique()[0]))
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.invert_yaxis()
 
-    ax.set_title(title)
-    ax.set_xlabel('Offset from wheel centre (microns)')
-    ax.set_ylabel('Offset from segment centre (microns)')
+        title += ('Target %i (%s), segment %i' % (scans.target.unique()[0], scans.target_type.unique()[0], scans.wheel_pos.unique()[0]))
+
+        ax.set_title(title)
+        ax.set_xlabel('Offset from wheel centre (microns)')
+        ax.set_ylabel('Offset from segment centre (microns)')
+
+    x_orig_um = []
+    y_orig_um = []
 
     for idx, scan in scans.iterrows():
 
@@ -914,15 +930,13 @@ def locate_scans(images, facet=None, segment=None, tip=None):
         y_cal /= 1000.
         y_offset = (scan.y_orig - y_centre) * y_cal
 
-        # print('Center: (%i,%i)' % (x_centre,y_centre))
-        # print('Scan origin: (%i,%i)' % (scan.x_orig,scan.y_orig))
-        # print('Offset: (%i,%i)' % (x_offset,y_offset))
-
         # Take the cantilever and linear stage position into account for X position
         left = ( (scan.lin_pos-common.lin_centre_pos[scan.tip_num-1]) / common.linearcal ) + x_offset
+        x_orig_um.append(left)
 
         # Y position in this stripe is simple related to the offset from the Y origin
         bottom = y_offset
+        y_orig_um.append(bottom)
 
         # The box is plotted with left,bottom coords and a width,height
         width = scan.xsteps * scan.x_step * x_cal
@@ -936,13 +950,18 @@ def locate_scans(images, facet=None, segment=None, tip=None):
         edgecolor=closedcolor if scan.y_closed else opencolor
 
         # Display using a rectangle patch (unfilled)
-        ax.add_patch(Rectangle((left, bottom), width, height, fill=False, linewidth=1, edgecolor=edgecolor))
+        if show:
+            ax.add_patch(Rectangle((left, bottom), width, height, fill=False, linewidth=1, edgecolor=edgecolor))
 
     # Make sure we plpot fix a fixed aspect ratio!
-    ax.autoscale(enable=True)
-    ax.set_aspect('equal')
+    if show:
+        ax.autoscale(enable=True)
+        ax.set_aspect('equal')
 
-    return
+    scans['x_orig_um'] = x_orig_um
+    scans['y_orig_um'] = y_orig_um
+
+    return scans
 
 
 def locate(pattern, root_path):

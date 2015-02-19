@@ -1869,31 +1869,43 @@ class tm:
 
         if label_events:
 
-            # specific scan events to filter by
-            # 42656 - EvFullScanStarted
-            # 42756 - EvFullScanAborted
-            # 42513 - EvScanFinished
-            # 42713 - EvScanAborted
-
-            ignore_sids = [ \
-                42501, # TC accept
-                42701, # TC reject
-                42642, # EvFScanCycleStarted
-                42643, # EvFScanCycleFinished
-                42611, # EvLineScanFinished
-                42512, # EvScanProgress
-                42699] # KernelHello
-
             events = self.get_events(ignore_giada=True, verbose=False)
-            events = events[-events.sid.isin(ignore_sids)]
 
             if label_events=='scan':
-
+                # 42656 - EvFullScanStarted
+                # 42756 - EvFullScanAborted
+                # 42513 - EvScanFinished
+                # 42713 - EvScanAborted
                 scan_events = [42656, 42756, 42513, 42713]
                 events = events[events.sid.isin(scan_events)]
 
-                # Fixing mark/MIDAS#2 - filter events to given time range first
-                events = events[ (events.obt>start) & (events.obt<end) ]
+            elif label_events=='fscan':
+                # 42641 - EvFScanStarted
+                # 42645 - EvAutoFScanFinshed
+                scan_events = [42641, 42645]
+                events = events[events.sid.isin(scan_events)]
+
+            elif label_events=='lines':
+                # 42655 - EvLineScanStarted
+                # 42611 - EvLineScanFinished
+                scan_events = [42655, 42611]
+            elif label_events=='all':
+                # Ignore events that don't bring much diagonstic info or flood the plot
+                ignore_sids = [ \
+                    42501, # TC accept
+                    42701, # TC reject
+                    42611, # EvLineScanFinished
+                    42512, # EvScanProgress
+                    42642, # EvFScanCycleStarted
+                    42643, # EvFScanCycleFinished
+                    42699] # KernelHello
+                events = events[-events.sid.isin(ignore_sids)]
+            else:
+                print('WARNING: invalid event label, ignoring')
+                events = pd.DataFrame()
+
+            # Fixing mark/MIDAS#2 - filter events to given time range first
+            events = events[ (events.obt>start) & (events.obt<end) ]
 
             for idx, event in events.iterrows():
                 ax_left.axvline(event.obt,color='r')

@@ -171,7 +171,6 @@ def plot_fscan(fscans, showfit=False, legend=True, plotfile=False, xmin=False, x
     for idx, scan in fscans.iterrows():
 
         ax.plot(scan['frequency'],scan['amplitude'], label='%s' % scan.start_time)
-        # fig.suptitle('Frequency scan start: %s' % (scan.start_time))
 
         if showfit:
             if not 'offset' in scan.index:
@@ -182,7 +181,14 @@ def plot_fscan(fscans, showfit=False, legend=True, plotfile=False, xmin=False, x
 
     if len(fscans)==1:
         ax.set_title('Ex/Gn: %i/%i, Freq start/step: %3.2f/%3.2f, Peak amp %3.2f V @ %3.2f Hz' % \
-            (scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq) )
+            (scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
+            fontsize=12 )
+
+        # Also drawn lines showing the working point and set point
+        ax.axhline(scan.res_amp,color='b')
+        ax.axhline(scan.work_pt,color='r')
+        ax.axhline(scan.set_pt,color='g')
+        ax.axhline(scan.fadj,color='g', ls='--')
 
     # ax.set_xlim()
     ax.set_ylim(0)
@@ -862,7 +868,7 @@ def show(images, planesub=True, realunits=True, dacunits=False, title=True, fig=
 
 
 
-def locate_scans(images, facet=None, segment=None, tip=None, show=True):
+def locate_scans(images, facet=None, segment=None, tip=None, show=False):
     """Accepts a list of scans returned by get_images() and plots the positions of the scans
     as annotated rectangles. If images only contains one facet/segment, that is used.
 
@@ -873,51 +879,26 @@ def locate_scans(images, facet=None, segment=None, tip=None, show=True):
     The origin of each scan, relative to the wheel/target centre, are also
     added to the images DataFrame and returned."""
 
-    from matplotlib.patches import Rectangle
+    if tip is not None:
+        images = images[ images.tip_num == tip ]
 
-    title = ''
+    if segment is not None:
+        images = images[ images.wheel_pos==segment ]
 
-    if len(images.target.unique())==1 and len(images.wheel_pos.unique())==1:
-        scans = images[ (images.channel=='ZS') ]
-    elif segment is None and facet is not None:
-        scans = images[ (images.channel=='ZS') & (images.target==facet) ]
-    elif segment is not None and facet is None:
-        scans = images[ (images.channel=='ZS') & (images.wheel_pos==segment) ]
-    else: # segment is not None and facet is not None:
-        scans = images[ (images.channel=='ZS') & (images.target==facet) & (images.wheel_pos==segment) ]
+    if facet is not None:
+        images = images[ images.target==facet ]
 
-
-    if (tip is not None):
-        scans = images[ images.tip_num == tip ]
-
-    if len(scans.tip_num.unique())==1:
-        title = title.join('Tip %i, ' % scans.tip_num.unique()[0] )
-
-    print(scans.wheel_pos.unique())
-    if len(scans.wheel_pos.unique())>1:
-        print('ERROR: more than one segment specified - filter images or use keyword segment=')
-        return None
-
-    if len(scans)==0:
+    if len(images)==0:
         print('ERROR: no matching images for the given facet and segment')
         return None
 
-    if show:
+    title = ''
+    if len(images.tip_num.unique())==1:
+        title = title.join('Tip %i, ' % images.tip_num.unique()[0] )
 
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.invert_yaxis()
+    x_orig_um = []; y_orig_um = []
 
-        title += ('Target %i (%s), segment %i' % (scans.target.unique()[0], scans.target_type.unique()[0], scans.wheel_pos.unique()[0]))
-
-        ax.set_title(title)
-        ax.set_xlabel('Offset from wheel centre (microns)')
-        ax.set_ylabel('Offset from segment centre (microns)')
-
-    x_orig_um = []
-    y_orig_um = []
-
-    for idx, scan in scans.iterrows():
+    for idx, scan in images.iterrows():
 
         # Calculate offset from centre of table in X and Y
         x_centre =  common.centre_closed if scan.x_closed else common.centre_open
@@ -938,30 +919,42 @@ def locate_scans(images, facet=None, segment=None, tip=None, show=True):
         bottom = y_offset
         y_orig_um.append(bottom)
 
-        # The box is plotted with left,bottom coords and a width,height
-        width = scan.xsteps * scan.x_step * x_cal
-        height = scan.ysteps * scan.y_step * y_cal
+    images['x_orig_um'] = x_orig_um
+    images['y_orig_um'] = y_orig_um
 
-        # print('L/B (%3.2f,%3.2f), W/H (%3.2f,%3.2f)' % (left, bottom, width, height))
+    if not show:
+        return images
+    else:
+
+        if len(images.wheel_pos.unique())>1:
+            print('ERROR: more than one segment specified - filter images or use keyword segment=')
+            return None
+
+        from matplotlib.patches import Rectangle
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        ax.invert_yaxis()
 
         # Plot open and closed loop scans in different colours
         opencolor='red'
         closedcolor='blue'
-        edgecolor=closedcolor if scan.y_closed else opencolor
 
-        # Display using a rectangle patch (unfilled)
-        if show:
-            ax.add_patch(Rectangle((left, bottom), width, height, fill=False, linewidth=1, edgecolor=edgecolor))
+        title += ('Target %i (%s), segment %i' % (images.target.unique()[0], images.target_type.unique()[0], images.wheel_pos.unique()[0]))
+        ax.set_title(title)
+        ax.set_xlabel('Offset from wheel centre (microns)')
+        ax.set_ylabel('Offset from segment centre (microns)')
 
-    # Make sure we plpot fix a fixed aspect ratio!
-    if show:
+        for idx, scan in images.iterrows():
+            edgecolor=closedcolor if scan.y_closed else opencolor
+            ax.add_patch(Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor))
+
+        # Make sure we plpot fix a fixed aspect ratio!
         ax.autoscale(enable=True)
         ax.set_aspect('equal')
+        plt.show()
 
-    scans['x_orig_um'] = x_orig_um
-    scans['y_orig_um'] = y_orig_um
-
-    return scans
+    return
 
 
 def locate(pattern, root_path):
@@ -1664,11 +1657,16 @@ class tm:
 
 
     def get_param(self, param, frame=False, start=False, end=False, tsync=True):
-        """Accepts a packet list (containing offsets to the start of previously located
-        packets), and a parameter ID. Uses the SCOS-2K tables to search packets for this
+        """Accepts a parameter ID. Uses the SCOS-2K tables to search packets for this
         parameter, reads the relevant binary data and applies necessary calibration.
 
-        Returns a list of OBTs and calibrated parameter values."""
+        Returns a pd.Series object of calibrated parameter values indexed by OBT.
+
+        start= and false= can be used to constrain the time period of returned values.
+
+        tsync=True will only return values from packets which are time synchronised.
+
+        If frame= is provided, a specific HK frame is used to return a single value."""
 
         import struct
         from bitstring import Bits
@@ -1730,7 +1728,6 @@ class tm:
         # This is mostly done by calling the relevant bitstring function, but sometimes extra
         # conversions are needed.
 
-
         # PTC = 1: 1-bit boolean (extract byte, bit offset is 0-7)
         if param.ptc == 1:
             if param.pfc == 0: # boolean
@@ -1771,8 +1768,6 @@ class tm:
         if frame:
             return obt[0], real_val[0]
         else:
-            # return np.array(obt), real_val
-            # return a pandas series instead, with the OBT as the index
             return pd.Series(real_val, index=obt)
 
 
@@ -2551,7 +2546,6 @@ class tm:
         for idx,pkt in freq_scan_pkts.iterrows():
             fscans.append(freq_scan_names(*struct.unpack(freq_scan_fmt,pkt['data'][0:freq_scan_size])))
         fscans = pd.DataFrame(fscans,columns=freq_scan_names._fields,index=freq_scan_pkts.index)
-        # return fscans
 
         # if the cantilever keyword is set, filter the fscans
         if cantilever:
@@ -2567,6 +2561,9 @@ class tm:
 
         # find the number of unique scans (unique start OBTs)
         start_times = fscans.start_time.unique()
+
+        # Find the index of HK2 packets, used to extract anciliary info
+        hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
         freqscans = []
 
@@ -2590,6 +2587,18 @@ class tm:
             # take the scan info from the first packet where generic to entire scan
             scan = {}
             scan['info'] = {}
+
+            # Look at HK2 data to retrieve the resonance amplitude, working point, frequency
+            # adjust point and set-point derived from this scan...
+            frame = hk2[hk2.obt>start].index
+            if len(frame)==0:
+                print('WARNING: no HK2 frame found after frequency scan at %s' % start)
+                continue
+            else:
+                frame = frame[0]
+
+            print('Building dataset')
+
             scan['info'] = {
                 'sw_ver': '%i.%i.%i' % (first_pkt.sw_major & 0x0F, first_pkt.sw_major >> 4, first_pkt.sw_minor),
                 'start_time': obt_epoch + timedelta(seconds=first_pkt.start_time),
@@ -2602,7 +2611,12 @@ class tm:
                 'cant_block': first_pkt.cant_block,
                 'excitation': first_pkt.exc_lvl,
                 'gain': first_pkt.ac_gain,
-                'is_phase': True if first_pkt.fscan_type else False }
+                'is_phase': True if first_pkt.fscan_type else False,
+                'res_amp': self.get_param('NMDA0306', frame=frame)[1],
+                'set_pt': self.get_param('NMDA0245', frame=frame)[1],
+                'fadj': self.get_param('NMDA0347', frame=frame)[1] }
+
+            scan['info']['work_pt'] = scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.
 
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \

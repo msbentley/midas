@@ -154,12 +154,19 @@ def midas_events():
     return pid[ (pid.type==5) & (pid.apid==1079) ]
 
 
-def plot_fscan(fscans, showfit=False, legend=True, plotfile=False, xmin=False, xmax=False, ymin=False, ymax=False):
+def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, xmax=False, ymin=False, ymax=False):
     """Plots one or more frequency scan (read previously with get_freq_scans()). Optionally
     plot a Lorentzian fit"""
 
     if type(fscans) == pd.Series:
         fscans = pd.DataFrame(columns=fscans.to_dict().keys()).append(fscans)
+
+    if cantilever is not None:
+        fscans = fscans[ fscans.cant_num==cantilever ]
+
+    if len(fscans)==0:
+        print('ERROR: no frequency scans available (for selected cantilever)')
+        return None
 
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
@@ -203,10 +210,6 @@ def plot_fscan(fscans, showfit=False, legend=True, plotfile=False, xmin=False, x
 
     ax.set_xlim(xmin,xmax)
     ax.set_ylim(ymin,ymax)
-
-    if plotfile:
-        fig.savefig(plotfile)
-        plt.close(fig)
 
     return
 
@@ -2521,10 +2524,13 @@ class tm:
         return images.sort('start_time')
 
 
-    def get_freq_scans(self, show=False, singleplot=True, printdata=False, cantilever=False, fit=False, legend=True, info_only=False):
-        """Extracts frequency scans from TM packets. If show is set, all values are plotted on
-        separate plots. If singleplot is true, values are combined. If cantilever= is set to a
-        cantilever number from 1-16, only fscans for that cantilever are extracted."""
+    def get_freq_scans(self, printdata=False, cantilever=False, fit=False, info_only=False):
+        """Extracts frequency scans from TM packets. If cantilever= is set to a
+        cantilever number from 1-16, only fscans for that cantilever are extracted.
+
+        fit=True fits a Lorentzian to all curves and returns the fit parameters.
+        printdata=True displays the parameters
+        info_only=True returns the meta-data without the raw data"""
 
         # Define frequency packet format
         # M.S.Bentley 11/09/2014 - updating for latest OBSW
@@ -2597,8 +2603,6 @@ class tm:
             else:
                 frame = frame[0]
 
-            print('Building dataset')
-
             scan['info'] = {
                 'sw_ver': '%i.%i.%i' % (first_pkt.sw_major & 0x0F, first_pkt.sw_major >> 4, first_pkt.sw_minor),
                 'start_time': obt_epoch + timedelta(seconds=first_pkt.start_time),
@@ -2665,35 +2669,6 @@ class tm:
                 scan['fit_params'] = fit_params
 
         print('INFO: %i frequency scans found and extracted' % (len(freqscans)))
-
-        if show and singleplot:
-            fig = plt.figure()
-            ax = fig.add_subplot(1,1,1)
-            [ax.plot(scan['frequency'],scan['amplitude'],label='%i / %i' % (scan['info']['cant_block'],\
-                scan['info']['cant_num'])) for scan in freqscans]
-            ax.set_xlabel('Frequency (Hz)')
-            ax.set_ylabel('Amplitude (V)')
-            ax.grid(True)
-            ax.set_ylim(0)
-            if legend:
-                plt.legend(loc=0)
-
-        if show and not singleplot:
-            for scan in freqscans:
-                fig = plt.figure()
-                ax = fig.add_subplot(1,1,1)
-                ax.plot(scan['frequency'],scan['amplitude'], \
-                    label='%i / %i' % (scan['info']['cant_block'],scan['info']['cant_num']))
-                ax.set_xlabel('Frequency (Hz)')
-                ax.set_ylabel('Amplitude (V)')
-                fig.suptitle('Frequency scan start: %s' % (scan['info']['start_time']))
-                ax.set_title('Ex/Gn: %i/%i, Freq start/step: %3.2f/%3.2f, Peak amp %3.2f V @ %3.2f Hz' % \
-                    (scan['info']['excitation'], scan['info']['gain'], scan['info']['freq_start'], \
-                    scan['info']['freq_step'], scan['info']['max_amp'], scan['info']['max_freq']) )
-                ax.grid(True)
-                ax.set_ylim(0)
-                if legend:
-                    plt.legend(loc=0)
 
         # Convert to a DataFrame for return
         scans = pd.DataFrame( [scan['info'] for scan in freqscans], columns=freqscans[0]['info'].keys())

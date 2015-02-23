@@ -2277,6 +2277,8 @@ class tm:
 
             feature = pd.DataFrame(feature, columns=fvec_names._fields)
 
+        print('INFO: %i feature vectors extracted' % len(feature))
+
         return fvec_header, feature
 
 

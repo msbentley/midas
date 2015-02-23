@@ -2230,15 +2230,20 @@ class itl:
         else:
             xpixels = 1
 
-        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep)
+        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep, ctrl=True)
+        # print('DEBUG: real duration: %s' % duration_s)
+        # print('DEBUG: xpix: %i, ypix: %i, ntypes: %i, retract: %i, zstep: %i' % (xpixels, ypixels, ntypes, zretract, zstep))
 
         # Control data packets: 1048 words (2096 bytes), one packet per line point, max 32
         # Line scan as well: 1072 bytes (single line)
 
-        if duration_s < 60.: duration_s = 60.
+        # Round up to the next minute
+        duration_s = int(60 * round(duration_s/60))
+        # if duration_s < 60.: duration_s = 60.
 
         data_bytes = (32 * 2096) + 1072
         data_rate = data_bytes*8/duration_s
+        print('DEBUG: control data line generates %i bytes in %f seconds' % (data_bytes, duration_s))
 
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = { \
@@ -2271,7 +2276,7 @@ class itl:
             'x_low_high': 'L_H' if xlh else 'H_L',
             'y_low_high': 'L_H' if ylh else 'H_L',
             'z_ret': zretract,
-            'freq_adj': hex(int(round((fadj/100.)*65535.))),
+            'freq_adj': fadj,
             'channel': dtype,
 
             'scan_data_rate': "%3.2f" % (data_rate) }

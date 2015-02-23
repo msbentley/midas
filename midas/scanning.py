@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 debug = True
 
-def calc_duration(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, zstep=4, avg=1):
+def calc_duration(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False):
 
     ifact_1 = 0.0003
     ofact_1 = 0.00035
@@ -22,6 +22,10 @@ def calc_duration(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, z
     innerloop = xpoints*zretract/zstep*(ifact_1+avg*afact_1)*ypoints # seconds
     outerloop = zretract/(subcycles*zstep)*ofact_1*xpoints*ypoints # seconds
     duration = xytotal + ztotal + innerloop + outerloop + ypoints*1.0625 + xpoints*ypoints*ntypes*0.001 # seconds
+
+    # Extend duration if control data is enabled
+    if ctrl:
+        duration += ((xpoints*ypoints)*zretract/zstep)*(0.00334)
 
     # duration = duration * 0.75 # approx. speedup factor for latest OBSW version
 

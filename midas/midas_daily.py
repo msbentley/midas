@@ -93,8 +93,8 @@ def run_daily():
     #    events = ev.get_events(info=True, html=os.path.join(event_dir,'latest.html'))
     #    os.remove(tm_file)
 
-    else:
-        print('INFO: no event data available for %s' % (yesterday))
+    # else:
+    #     print('INFO: no event data available for %s' % (yesterday))
 
     if new_data:
         print('\nGenerating meta-data spreadsheet for all images')
@@ -107,7 +107,7 @@ def run_daily():
         tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD*.DAT')))
 
         # remove the cruise phase data until calculation of exposure time is fixed!
-        tm_files.remove('TLM__MD_M000_S000_ALL_CRUISE_PHASE_____COUNT_00.DAT')
+        tm_files.remove(os.path.join(tlm_dir,'TLM__MD_M000_S000_ALL_CRUISE_PHASE_____COUNT_00.DAT'))
 
         tm = ros_tm.tm()
         for f in tm_files:

@@ -21,7 +21,7 @@ def run_daily():
     new_data = False
 
     # set display to virtual desktop 1, served by xvfb
-    os.environ["DISPLAY"]=":1"
+    os.environ["DISPLAY"] = ":1"
 
     # Dump all messages to a log file (append)
     sys.stdout = open(os.path.join(log_dir,'log.txt'), 'a')
@@ -33,7 +33,6 @@ def run_daily():
 
     # Download any new NAVCAM images (via rsync)
     print('\nINFO: Downloading new NAVCAM images')
-    # status = subprocess.call( '/home/mbentley/navcam/get_navcam.sh', shell=True )
     get_navcam()
 
     # Check for new auto-pushed files from FDyn
@@ -44,7 +43,7 @@ def run_daily():
     print('\nINFO: Retrieving RSGS OFPM pushed files\n')
     dds_utils.get_sgs_files()
 
-    # Perform a pull of the ROS_SGS Git arcchive
+    # Perform a pull of the ROS_SGS Git archive
     print('\nINFO: Pulling the ROS_SGS git archive\n')
     tunnel = open_rostun()
     time.sleep(30)
@@ -77,21 +76,22 @@ def run_daily():
         # Attempt to free some memory (though still have to wait for garbage collection)
         del(tm)
 
-    print('\nRequesting latest event data')
+    # Removing the below since ongoing observations are now extracted anyway...
+    # print('\nRequesting latest event data')
     # Request event data for the previous day (0-24)
-    yesterday = date.today() - timedelta(days=1)
-    start_time = datetime.combine(yesterday, datetime.min.time())
-    end_time = start_time + timedelta(days=1)
+    # yesterday = date.today() - timedelta(days=1)
+    # start_time = datetime.combine(yesterday, datetime.min.time())
+    # end_time = start_time + timedelta(days=1)
 
     # event_file = 'TLM__1079_'+start_time.date().isoformat()
-    tm_file, apid = dds_utils.get_data(start_time.isoformat(), end_time.isoformat(), outputpath=tempdir, apid=1079, delfiles=False)
+    # tm_file, apid = dds_utils.get_data(start_time.isoformat(), end_time.isoformat(), outputpath=tempdir, apid=1079, delfiles=False)
 
-    if tm_file: # file exists, i.e. MIDAS was on and generating events yesterday
-
-        tm_file = tm_file[0]
-        ev = ros_tm.tm(tm_file)
-        events = ev.get_events(info=True, html=os.path.join(event_dir,'latest.html'))
-        os.remove(tm_file)
+    # if tm_file: # file exists, i.e. MIDAS was on and generating events yesterday
+    #
+    #    tm_file = tm_file[0]
+    #    ev = ros_tm.tm(tm_file)
+    #    events = ev.get_events(info=True, html=os.path.join(event_dir,'latest.html'))
+    #    os.remove(tm_file)
 
     else:
         print('INFO: no event data available for %s' % (yesterday))

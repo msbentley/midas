@@ -157,31 +157,44 @@ def run_mtp(mtp, case):
     if not os.path.exists(local_folder):
         os.makedirs(local_folder)
 
+    # Find the MTp level scenario file:
+    # SCEN_MTP014P_01_01_________PTRM.ini
+    scen=glob.glob(os.path.join(mtp_folder,'SCENARIOS','SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
+    if len(scen)>1:
+        print('ERROR: more than one scenario file present!')
+        return None
+
+    # Open the scenario file and find the eventInputFile (EVF) file entry
+    evf = False
+    f=open(scen[0],'r')
+    data=f.readlines()
+    for item in data:
+        if item.split('=')[0]=='MTP_VER_A\InputData\TimelineEvents\eventInputFile':
+            evf = os.path.join(mtp_folder,item.split('=')[1])
+            break
+    f.close()
+
+    print('DEBUG: EVF file: %s' % evf)
+    if not evf:
+        print('ERROR: eventInputFile entry not found in scenario file %s' % scen)
+
     # Find the latest TLIS*.evf and TLIS*.itl files
     # e.g. TLIS_PL_M009______01_A_OPS0001A.evf
     itl=glob.glob(os.path.join(mtp_folder,'TLIS_PL_M%03i______01_%c_OPS?????.itl' % (mtp, case.upper())))
-    evf=glob.glob(os.path.join(mtp_folder,'TLIS_PL_M%03i______01_%c_OPS?????.evf' % (mtp, case.upper())))
+    # evf=glob.glob(os.path.join(mtp_folder,'TLIS_PL_M%03i______01_%c_OPS?????.evf' % (mtp, case.upper())))
 
-    if (len(itl)>1 or len(itl)==0) or (len(evf)>1 or len(evf)==0):
-        print('ERROR: cannot find latest TLIS file')
+    if len(itl)!=1: # or (len(evf)>1 or len(evf)==0):
+        print('ERROR: cannot find latest TLIS ITL file')
         return None
 
     os.chdir(mtp_folder)
     # files = os.listdir(mtp_folder)
 
-    status = run_eps(itl[0], evf[0], ng=True, ros_sgs=True, mtp=mtp, case=case, outputdir=local_folder)
+    status = run_eps(itl[0], evf, ng=True, ros_sgs=True, mtp=mtp, case=case, outputdir=local_folder)
 
     if not status: return False
 
-    # EPS only writes to the current directory, so listing files before and after the
-    # run in order to return the name of the new directory
-    # newfiles = os.listdir(mtp_folder)
-    # eps_dir = [f for f in newfiles if f not in files]
-    # if len(eps_dir)>1:
-    #    """ERROR: could not determine EPS output directory"""
-    #    return None
-
-    return status # eps_dir[0]
+    return status
 
 
 

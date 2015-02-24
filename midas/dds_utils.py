@@ -496,10 +496,12 @@ def get_new_observations(outputdir=data_path, mtpstp_dir=True, max_retry=10, ret
     dl_time = timedelta(hours=12)
 
     observations = read_obs_file()
-    now = datetime.now()
+    now = datetime.utcnow()
 
     # filter observations by those that have ended > a day ago and have not yet been retrieved
-    new_obs = observations[ (observations.retrieved==False) & ((observations.end+dl_time) < now) ]
+    # new_obs = observations[ (observations.retrieved==False) & ((observations.end+dl_time) < now) ]
+    # Retrieving ongoing observations as well, but not flagging them as retrieved
+    new_obs = observations[ (observations.retrieved==False) & (observations.start < now) ]
 
     if len(new_obs)==0: # nothing to see here
 
@@ -544,8 +546,9 @@ def get_new_observations(outputdir=data_path, mtpstp_dir=True, max_retry=10, ret
         # Files are also combined into a single TM
         get_files(filelist, stp_dir, apid=aplist, outputfile=obs_filename, delfiles=True, strip_dds=False, max_retry=max_retry, retry_delay=retry_delay)
 
-        # Update the status of this observation
-        observations.retrieved.ix[idx]=True
+        # Update the status of this observation - only if the end time is >12 hours in the past
+        if (obs.end + dl_time) < now:
+            observations.retrieved.ix[idx]=True
 
     write_obs_file(observations)
 

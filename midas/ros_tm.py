@@ -2518,6 +2518,9 @@ class tm:
         if len(images)<num_images:
             print('WARNING: duplicate images or image headers detected and removed!')
 
+        # Add the origin of the scan, in microns, from the wheel centre
+        images = locate_scans(images)
+
         if not info_only:
             images['data'] = pd.Series([image['data'] for image in image_temp])
 

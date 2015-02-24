@@ -169,19 +169,13 @@ def regenerate(from_index=False, what='all', files='TLM__MD*.DAT'):
                 print('ERROR: no files matching pattern')
                 return False
             for f in tm_files:
-                # tm.get_pkts(f), append=True)
-                # tm.pkts = tm.pkts[ (tm.pkts.apid==1084) & ((tm.pkts.sid==129) | (tm.pkts.sid==130)) ]
-		tm=ros_tm.tm(f)
-
-                # Extract image data
+                tm=ros_tm.tm(f)
                 images = tm.get_images(info_only=False)
 
                 # Save BCR and GWY files
-		if type(images)!=bool:
-	                ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
-        	        ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
-
-        # images.drop('data', inplace=True, axis=1)
+        if type(images)!=bool:
+            ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
+            ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
 
     if what=='all' or what=='meta':
         if from_index:
@@ -205,6 +199,8 @@ def regenerate(from_index=False, what='all', files='TLM__MD*.DAT'):
         images.rename(columns={'filename':'tlm_file'}, inplace=True)
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
+        images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
+
 
     if what=='exposures' or what=='all':
 

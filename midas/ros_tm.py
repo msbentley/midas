@@ -25,8 +25,8 @@ import matplotlib.pyplot as plt
 # datefmt='%m/%d/%Y %I:%M:%S %p'
 isofmt = '%Y-%m-%dT%H%M%SZ'
 
-obt_epoch = datetime(year=2003, month=1, day=1, hour=0, minute=0, second=0, tzinfo=pytz.UTC)
-dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0, tzinfo=pytz.UTC)
+obt_epoch = datetime(year=2003, month=1, day=1, hour=0, minute=0, second=0) # , tzinfo=pytz.UTC)
+dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0) # , tzinfo=pytz.UTC)
 
 # File path config
 s2k_path = os.path.join(common.ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL')
@@ -753,17 +753,17 @@ def save_png(images, outputdir='.'):
     [bcrutils.plot2d(bcr,writefile=True) for bcr in bcrs]
 
 
-def show_images(images, planesub=False, realunits=True):
-    """Accepts a list of images returned by get_images(), converts to BCR
-    on the fly, performs and plane subtraction and displays with bcrutils"""
-
-    import bcrutils
-    bcrs=to_bcr(images)
-    if not bcrs: return False
-    if type(bcrs) != list: bcrs=[bcrs]
-    if planesub:
-        bcrs = [bcrutils.planesub(bcr) for bcr in bcrs]
-    [bcrutils.plot2d(bcr, realunits=realunits) for bcr in bcrs]
+# def show_images(images, planesub=False, realunits=True):
+#     """Accepts a list of images returned by get_images(), converts to BCR
+#     on the fly, performs and plane subtraction and displays with bcrutils"""
+#
+#     import bcrutils
+#     bcrs=to_bcr(images)
+#     if not bcrs: return False
+#     if type(bcrs) != list: bcrs=[bcrs]
+#     if planesub:
+#         bcrs = [bcrutils.planesub(bcr) for bcr in bcrs]
+#     [bcrutils.plot2d(bcr, realunits=realunits) for bcr in bcrs]
 
 
 
@@ -801,17 +801,56 @@ def do_planesub(image):
     return image
 
 
+def do_polysub(image, order=3):
+    """Accepts an image and performs a polynomial plane subtraction of order n"""
 
-def show(images, planesub=True, realunits=True, dacunits=False, title=True, fig=None, ax=None, shade=False):
+    import itertools
+
+    def polyfit2d(x, y, z, order=order):
+        ncols = (order + 1)**2
+        G = np.zeros((x.size, ncols))
+        ij = itertools.product(range(order+1), range(order+1))
+        for k, (i,j) in enumerate(ij):
+            G[:,k] = x**i * y**j
+        m, _, _, _ = np.linalg.lstsq(G, z)
+        return m
+
+    def polyval2d(x, y, m):
+        order = int(np.sqrt(len(m))) - 1
+        ij = itertools.product(range(order+1), range(order+1))
+        z = np.zeros_like(x)
+        for a, (i,j) in zip(m, ij):
+            z += a * x**i * y**j
+        return z
+
+    data = image['data']
+
+    xvals = np.arange(data.shape[0])
+    yvals = np.arange(data.shape[1])
+    xs, ys = np.meshgrid(xvals, yvals)
+
+    x = xs.ravel()
+    y = ys.ravel()
+    z = data.ravel()
+
+    m = polyfit2d(x,y,z,order=order)
+    z = polyval2d(x, y, m)
+    newdata = data - z.reshape((data.shape[0],data.shape[1]))
+    image['data'] = (newdata - newdata.min())
+    return image
+
+
+def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, shade=False, show_fscans=False):
     """Accepts one or more images from get_images() and plots them in 2D.
 
-    placesub=True will peform a least-square plane subtraction.
-    realunits=True will plot in physical units, otherwise in pix"""
+    units= can be 'real', 'dac' or 'pix'
+    planesub= can be 'plane', 'poly'  or 'median'
+    placesub=True will peform a least-square plane subtraction
+    shade=True will add surface illumination and shading
+    show_fscans=True marks lines where frequency re-tuning has occured (note - slow!)"""
 
     import matplotlib.cm as cm
     from matplotlib.colors import LightSource
-
-    if dacunits: realunits=False
 
     if type(images) == pd.Series:
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
@@ -820,13 +859,31 @@ def show(images, planesub=True, realunits=True, dacunits=False, title=True, fig=
         print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')
         return False
 
+    unit_types = ['real', 'dac', 'pix']
+    units = units.lower()
+    if units not in unit_types:
+        print('ERROR: unit type %s invalid' % units.lower() + " must be one of " + ", ".join(unit_types))
+        return None
+
+    if planesub is not None:
+        planetypes = ['plane', 'poly']
+        planesub = planesub.lower()
+        if planesub not in planetypes:
+            print('ERROR: planesub type %s invalid' % planesub.lower() + " must be one of " + ", ".join(planetypes))
+            return None
+
+    if show_fscans: # for now just use pix, then identifying the line of the fscan is straightforward
+        units = 'pix'
+
     ls = LightSource(azdeg=0,altdeg=65)
     cmap = cm.afmhot
 
     for idx, image in images.iterrows():
 
-        if planesub:
+        if planesub=='plane':
             image = do_planesub(image)
+        elif planesub=='poly':
+            image = do_polysub(image)
 
         chan_idx = common.data_channels.index(image.channel)
         unit = common.units[chan_idx]
@@ -835,24 +892,22 @@ def show(images, planesub=True, realunits=True, dacunits=False, title=True, fig=
         if fig is None: fig = plt.figure()
         if ax is None: ax = fig.add_subplot(1,1,1)
 
-        if realunits:
-            data = (image['data']-image['data'].min()) * common.cal_factors[chan_idx]
-            if shade: data = ls.shade(data,cmap)
+        data = image['data']
+
+        if units == 'real':
+            data = (data - data.min()) * common.cal_factors[chan_idx]
             plot1 = ax.imshow(data, origin='upper', interpolation='nearest', extent=[0,image.xlen_um,0,image.ylen_um], cmap=cmap)
             ax.set_xlabel('X (microns)')
             ax.set_ylabel('Y (microns)')
 
-        elif dacunits:
-
+        elif units == 'dac':
             xstart = image.x_orig
             xstop = image.x_orig + image.xsteps * image.x_step
             ystart = image.y_orig
             ystop = image.y_orig + image.ysteps * image.y_step
-            data = image['data']
             plot1 = ax.imshow(data, origin='upper', interpolation='nearest', extent=[xstart,xstop,ystop,ystart], cmap=cmap)
-            if debug: print('DEBUG: x start/stop %i/%i, y start/stop %i/%i' % (xstart,xstop,ystart,ystop))
 
-        else:
+        elif units == 'pix':
             plot1 = ax.imshow(data, origin='upper', interpolation='nearest', cmap=cmap)
             ax.set_xlabel('X (pixels)')
             ax.set_ylabel('Y (pixels)')
@@ -860,12 +915,45 @@ def show(images, planesub=True, realunits=True, dacunits=False, title=True, fig=
 
         ax.grid(True)
 
+        if shade:
+            data = ls.shade(data,cmap)
+
         if not shade:
             cbar = fig.colorbar(plot1, ax=ax) # Now plot using a colourbar
-            if realunits:
+            if units=='real':
                 cbar.set_label(unit, rotation=90)
 
-        if title: ax.set_title(image.scan_file)
+        if title:
+            ax.set_title(image.scan_file, fontsize=12)
+
+        # If show_fscans is True, index the appropriate TLM file, get the OBTs of frequency scans
+        # between the start and end times, find the line number of these times in HK and then
+        # plot as arrows on the axis...
+        if show_fscans:
+
+            telem = tm(image.filename)
+            fscans = telem.get_freq_scans(info_only=True)
+            fscans = fscans[ (fscans.start_time > image.start_time) & (fscans.start_time < image.end_time) ]
+
+            hk2 = telem.pkts[ (telem.pkts.type==3) & (telem.pkts.subtype==25) & (telem.pkts.apid==1076) & (telem.pkts.sid==2) ]
+
+            if len(fscans) > 0:
+                print('INFO: %i frequency re-tunes occured during the image at OBT %s' % (len(fscans), image.start_time))
+                obts = fscans.start_time.values
+                for obt in obts:
+
+                    frame = hk2[hk2.obt>obt].index
+                    if len(frame)==0:
+                        print('WARNING: no HK2 frame found after frequency scan at %s' % start)
+                        continue
+                    else:
+                        frame = frame[0]
+
+                    line = telem.get_param('NMDA0165', frame=frame)[1]
+
+                    xstart, xstop = ax.get_xlim()
+                    arrow_delta = (xstop-xstart)*0.025
+                    ax.arrow(xstop+arrow_delta*2, line, -arrow_delta, 0, head_width=4, head_length=arrow_delta, fc='k', ec='k', clip_on=False)
 
     return fig, ax
 
@@ -2529,7 +2617,7 @@ class tm:
         return images.sort('start_time')
 
 
-    def get_freq_scans(self, printdata=False, cantilever=False, fit=False, info_only=False):
+    def get_freq_scans(self, printdata=False, cantilever=False, fit=False, info_only=False, get_thresh=False):
         """Extracts frequency scans from TM packets. If cantilever= is set to a
         cantilever number from 1-16, only fscans for that cantilever are extracted.
 
@@ -2574,7 +2662,8 @@ class tm:
         start_times = fscans.start_time.unique()
 
         # Find the index of HK2 packets, used to extract anciliary info
-        hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+        if get_thresh:
+            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
         freqscans = []
 
@@ -2601,12 +2690,13 @@ class tm:
 
             # Look at HK2 data to retrieve the resonance amplitude, working point, frequency
             # adjust point and set-point derived from this scan...
-            frame = hk2[hk2.obt>start].index
-            if len(frame)==0:
-                print('WARNING: no HK2 frame found after frequency scan at %s' % start)
-                continue
-            else:
-                frame = frame[0]
+            if get_thresh:
+                frame = hk2[hk2.obt>start].index
+                if len(frame)==0:
+                    print('WARNING: no HK2 frame found after frequency scan at %s' % start)
+                    continue
+                else:
+                    frame = frame[0]
 
             scan['info'] = {
                 'sw_ver': '%i.%i.%i' % (first_pkt.sw_major & 0x0F, first_pkt.sw_major >> 4, first_pkt.sw_minor),
@@ -2620,12 +2710,14 @@ class tm:
                 'cant_block': first_pkt.cant_block,
                 'excitation': first_pkt.exc_lvl,
                 'gain': first_pkt.ac_gain,
-                'is_phase': True if first_pkt.fscan_type else False,
-                'res_amp': self.get_param('NMDA0306', frame=frame)[1],
-                'set_pt': self.get_param('NMDA0245', frame=frame)[1],
-                'fadj': self.get_param('NMDA0347', frame=frame)[1] }
+                'is_phase': True if first_pkt.fscan_type else False }
 
-            scan['info']['work_pt'] = scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.
+            if get_thresh:
+
+                scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]
+                scan['info']['set_pt'] = self.get_param('NMDA0245', frame=frame)[1]
+                scan['info']['fadj'] = self.get_param('NMDA0347', frame=frame)[1]
+                scan['info']['work_pt'] = scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.
 
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \

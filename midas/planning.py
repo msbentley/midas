@@ -60,7 +60,9 @@ other_templates = {
     'ABORT': 'ITLS_MD_ABORT.itl',
     'APP_MIN': 'ITLS_MD_APPROACH_MIN.itl',
     'PSTP': 'ITLS_MD_PSTP_PLACEHOLDER.itl',
-    'XYZ_MOVE': 'ITLS_MD_XYZ_MOVE.itl' }
+    'XYZ_MOVE': 'ITLS_MD_XYZ_MOVE.itl',
+    'LINEAR_MAX': 'ITLS_MD_LINEAR_MAX.itl',
+    'LINEAR_MIN': 'ITLS_MD_LINEAR_MIN.itl' }
 
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
@@ -1613,6 +1615,14 @@ class itl:
 
     def close_shutter(self):
         self.generate({'template': 'CLOSE_SHUTTER', 'params': {}}, timedelta(minutes=2))
+        return
+
+    def linear_min(self):
+        self.generate({'template': 'LINEAR_MIN', 'params': {}}, timedelta(minutes=5))
+        return
+
+    def linear_max(self):
+        self.generate({'template': 'LINEAR_MAX', 'params': {}}, timedelta(minutes=5))
         return
 
     def xyz_move(self, x_dac=0, y_dac=0, z_dac=0, scan_mode='DYN', fsynth=False, zout=False):

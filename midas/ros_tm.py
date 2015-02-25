@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 isofmt = '%Y-%m-%dT%H%M%SZ'
 
 obt_epoch = datetime(year=2003, month=1, day=1, hour=0, minute=0, second=0) # , tzinfo=pytz.UTC)
-dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0) # , tzinfo=pytz.UTC)
+dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0, tzinfo=pytz.UTC)
 
 # File path config
 s2k_path = os.path.join(common.ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL')

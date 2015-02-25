@@ -191,11 +191,12 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
             (scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
             fontsize=12 )
 
-        # Also drawn lines showing the working point and set point
-        ax.axhline(scan.res_amp,color='b')
-        ax.axhline(scan.work_pt,color='r')
-        ax.axhline(scan.set_pt,color='g')
-        ax.axhline(scan.fadj,color='g', ls='--')
+        if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())):
+            # Also drawn lines showing the working point and set point
+            ax.axhline(scan.res_amp,color='b')
+            ax.axhline(scan.work_pt,color='r')
+            ax.axhline(scan.set_pt,color='g')
+            ax.axhline(scan.fadj,color='g', ls='--')
 
     # ax.set_xlim()
     ax.set_ylim(0)

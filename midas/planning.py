@@ -62,7 +62,9 @@ other_templates = {
     'PSTP': 'ITLS_MD_PSTP_PLACEHOLDER.itl',
     'XYZ_MOVE': 'ITLS_MD_XYZ_MOVE.itl',
     'LINEAR_MAX': 'ITLS_MD_LINEAR_MAX.itl',
-    'LINEAR_MIN': 'ITLS_MD_LINEAR_MIN.itl' }
+    'LINEAR_MIN': 'ITLS_MD_LINEAR_MIN.itl',
+    'TECH_CMD': 'ITLS_MD_TECH_CMD.itl',
+    'LIN_ABS': 'ITLS_MD_LINEAR_ABS.itl' }
 
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
@@ -1360,7 +1362,7 @@ class itl:
         self.itl = []
         self.time = timedelta(0)
         self.current_obs = obs
-        self.cantilever = 1
+        ilever = 1
         self.current_block = {}
         self.abs_time = None
 
@@ -1470,6 +1472,18 @@ class itl:
         print('INFO: duration of activity WAIT: %s' % (duration))
         print('INFO: %s left in block %i' % (remaining,self.current_block['index']))
 
+    def wait_until(self, abs_time):
+        """Insert a pause until the abs_time (if it's in the future!), update time pointers"""
+
+        from dateutil import parser
+
+        tm = parser.parse(abs_time)
+        if tm < self.abs_time:
+            print('ERROR: specified time (%s) is before current time (%s)!' % (tm, self.abs_time))
+            return None
+
+        self.wait(tm-self.abs_time)
+
 
     def write(self, itl_start, itl_end, filename):
         """Accepts a list of ITL fragments and combines them into a single file, adding the
@@ -1528,11 +1542,40 @@ class itl:
 
     def pstp_prep(self):
 
-        params = { 'template': 'PSTP_PREP', 'params': {} }
+        proc = {}
+        proc['template'] = 'PSTP_PREP'
         duration = timedelta(seconds=30)
-        self.generate(params, duration)
+
+        self.generate(proc, duration)
 
         return
+
+    def tech_cmd(self, cmds):
+        """Sends one or more TCMDs to MIDAS. Input should be a list of commands (up to 20)"""
+
+        proc = {}
+        proc['template'] = 'TECH_CMD'
+        duration = timedelta(minutes=1)
+
+        if len(cmds)>20:
+            print('ERROR: max 20 TCMDs can be given')
+            return None
+
+        # Remaining TCMDs are filled with 0x8F35 (NOOP)
+        noop = 0x8F35
+        num_noops = 20 - len(cmds)
+        tcmds = [noop] * num_noops
+
+        tcmds.extend(cmds)
+        keys = ['tech_%i'%i for i in range(1,21)]
+        proc['params'] = dict(zip(keys, tcmds))
+
+        self.generate(proc, duration)
+
+        return
+
+
+
 
 
     def power_on(self):
@@ -1584,6 +1627,20 @@ class itl:
             }
         self.generate(proc, timedelta(minutes=1))
 
+    def linear_abs(self, lin_pos):
+
+        proc = {}
+
+        if (lin_pos<-10 or lin_pos>10):
+            print('ERROR: specified linear position out of range!')
+
+        proc['template'] = 'LIN_ABS'
+        proc['params'] = {
+            'linear_posn': lin_pos }
+
+        self.generate(proc, duration=timedelta(minutes=10))
+
+        return
 
     def expose(self, facet, duration=None):
 
@@ -1839,13 +1896,13 @@ class itl:
 
     def tip_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
-        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False):
+        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         self.scan(cantilever=cantilever, facet=3, channels=['ZS'], openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
-            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl)
+            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc)
 
         return
 
@@ -2257,7 +2314,7 @@ def cantilever_select(cant_num):
 
     # frequency step for the fine tuning - determine from FWHM TODO!!
     fstep_fine = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5, 0.1, \
-        0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+                  0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
     params = {
         'cant_num'  : (cant_num-1) % 8,

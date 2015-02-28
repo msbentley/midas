@@ -1472,7 +1472,7 @@ class tm:
         return
 
 
-    def get_exposures(self, html=False):
+    def get_exposures3(self, html=False):
         """Retrieves shutter open/close events and calculates exposure duration. The exposed
         target is also tabulated. If the html= keyword is set, an HTML table is produced."""
 
@@ -1623,6 +1623,68 @@ class tm:
 
         return exposures
 
+
+    def get_exposures(self, html=False):
+        """Retrieves shutter open/close events and calculates exposure duration. The exposed
+        target is also tabulated. If the html= keyword is set, an HTML table is produced."""
+
+        # Grab the shutter open and close events from the packet index
+        open_times = self.pkts.obt[ (self.pkts.apid==1079) & (self.pkts.type==5) & (self.pkts.sid==42553) ].tolist()
+        close_times = self.pkts.obt[ (self.pkts.apid==1079) & (self.pkts.type==5) & (self.pkts.sid==42554) ].tolist()
+
+        # Create two series indexed by these times for open/closed
+        open_state = [True] * len(open_times)
+        close_state = [False] * len(close_times)
+
+        shut_open = pd.Series(open_state, index=open_times)
+        shut_close = pd.Series(close_state, index=close_times)
+
+        # Merge the series
+        state = shut_open.append(shut_close)
+
+        # Initialise the shutter at launch time to be closed
+        # state = state.append(pd.Series(False, index=[pd.Timestamp('2 March 2004, 07:17 UTC')]))
+
+        # Order by time, and remove and successive identical events
+        state = state.sort_index()
+        state = state.loc[state.shift(-1) != state]
+
+        if state.iloc[-1]: # shutter open at end
+            state = state.iloc[:-1]
+
+        start_times = pd.Series(state[state].index.asobject, name='start')
+        end_times = pd.Series(state[~state].index.asobject, name='end')
+
+        exposures = pd.concat([start_times, end_times], axis=1)
+        exposures['duration'] = exposures.end - exposures.start
+
+        # To find the target number we need to go to HK
+        hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+        hk2.sort('obt', inplace=True, axis=0)
+
+        # Loop through the OBTs and find the next HK2 packet, then extract parameters
+        target = []
+
+        for idx, exp in exposures.iterrows():
+            frame = hk2[hk2.obt>exp.start].index
+            if len(frame)==0:
+                print('WARNING: no HK2 frame found after shutter open at %s' % exp.start)
+                continue
+            else:
+                frame = frame[0]
+
+            target.append(common.opposite_facet(common.seg_to_facet(self.get_param('NMDA0196', frame=frame)[1]))) # WheSegmentNum
+
+        exposures['target'] = target
+
+        if html:
+
+            timeformatter = lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M:%S')
+            deltaformatter = lambda x: strfdelta(timedelta(seconds=x/np.timedelta64(1, 's')), "{days} days, {hours:02d}:{minutes:02d}:{seconds:02d}")
+            exposure_html = exposures.to_html(classes='alt_table', na_rep='',index=False, formatters={ 'start': timeformatter, 'end': timeformatter, 'duration': deltaformatter } )
+            css_write(html=exposure_html, filename=html)
+
+        return exposures
 
 
     def get_events(self, ignore_giada=True, info=False, html=False, verbose=True):

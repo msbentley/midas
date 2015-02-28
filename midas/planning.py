@@ -244,6 +244,21 @@ def get_stp(ltp, stp, case='p', suffix=''):
     return stp_start,stp_end
 
 
+def which_stp(date, ltp=6, case='p'):
+    """Uses the LTP (specify latest!) definition file, along with case, to resolve
+    a given date to a given STP. Date can be given either as a datetime object
+    or as a string in any sensible date/tiem format."""
+
+    if type(date)!=datetime:
+        from dateutil import parser
+        date = parser.parse(date)
+
+    cycles = get_cycles(ltp=ltp, case=case)
+
+    return cycles[ cycles.VSTP1>date ].STP.iloc[0]
+
+
+
 def get_vstp(ltp, vstp, case='p', suffix=''):
     """Returns the start and end date/time of the VSTP"""
 

@@ -2750,11 +2750,12 @@ class tm:
             # take the scan info from the first packet where generic to entire scan
             scan = {}
             scan['info'] = {}
+            start_time = obt_epoch + timedelta(seconds=first_pkt.start_time)
 
             # Look at HK2 data to retrieve the resonance amplitude, working point, frequency
             # adjust point and set-point derived from this scan...
             if get_thresh:
-                frame = hk2[hk2.obt>start].index
+                frame = hk2[hk2.obt>start_time].index
                 if len(frame)==0:
                     print('WARNING: no HK2 frame found after frequency scan at %s' % start)
                     continue
@@ -2763,7 +2764,7 @@ class tm:
 
             scan['info'] = {
                 'sw_ver': '%i.%i.%i' % (first_pkt.sw_major & 0x0F, first_pkt.sw_major >> 4, first_pkt.sw_minor),
-                'start_time': obt_epoch + timedelta(seconds=first_pkt.start_time),
+                'start_time': start_time,
                 'freq_start': first_pkt.freq_start * 0.0006984, # 00021065027,
                 'freq_step': first_pkt.freq_step * 0.0006984, # 00021065027,
                 'max_amp': single_scan.max_amp.max()*(20./65535.),

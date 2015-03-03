@@ -33,6 +33,7 @@ s2k_path = os.path.join(common.ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL')
 gwy_settings_file = os.path.expanduser('~/Dropbox/work/midas/operations/gwy-settings.gwy')
 gwy_path = os.path.expanduser('~/Copy/midas/data/images/gwy')
 css_path = os.path.expanduser('~/Dropbox/work/midas/software/python')
+tlm_path = os.path.expanduser('~/Copy/midas/data/tlm/')
 
 debug = False
 

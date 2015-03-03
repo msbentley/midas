@@ -10,7 +10,7 @@ are then used to create the parameters necessary to zoom on this region, wit a v
 of options for the image resolution etc.
 """
 
-import ros_tm, midas, scanning
+from midas import ros_tm, common, scanning
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import  RectangleSelector
@@ -42,9 +42,10 @@ class followup:
         hours, remainder = divmod(duration, 3600)
         minutes, seconds = divmod(remainder, 60)
 
-        displayText = 'Origin: (%i,%i)\nWidth: %i pix = %i DAC (%3.2f microns)\nHeight: %i pix = %i DAC (%3.2f microns)\n\
+        displayText = 'Origin: (%i,%i), centre: (%i, %i)\nWidth: %i pix = %i DAC (%3.2f microns)\nHeight: %i pix = %i DAC (%3.2f microns)\n\
 X step size: %i (%3.2f nm)\nY step size: %i (%3.2f nm)\nDuration: %02d:%02d:%02d' % \
-            (self.x_orig, self.y_orig, self.x_pix, self.width, self.width*self.xcal, self.y_pix, self.height, self.height*self.ycal,
+            (self.x_orig, self.y_orig, self.x_orig+self.width/2, self.y_orig+self.height/2,
+            self.x_pix, self.width, self.width*self.xcal, self.y_pix, self.height, self.height*self.ycal,
             self.x_step, self.x_step*self.xcal*1.e3,self.y_step, self.y_step*self.ycal*1.e3, hours, minutes, seconds)
         self.textbox.set_text(displayText)
 
@@ -143,7 +144,7 @@ X step size: %i (%3.2f nm)\nY step size: %i (%3.2f nm)\nDuration: %02d:%02d:%02d
                     self.height = height
                     self.update_display()
             if event.key == 'enter' and selector.RS.active:
-                print(self.x_orig, self.y_orig, self.x_pix, self.y_pix, self.x_step, self.y_step, self.zret)
+                print(self.x_orig, self.y_orig, self.x_orig+self.width/2, self.y_orig+self.height/2, self.x_pix, self.y_pix, self.x_step, self.y_step, self.zret)
 
 
 
@@ -196,12 +197,12 @@ X step size: %i (%3.2f nm)\nY step size: %i (%3.2f nm)\nDuration: %02d:%02d:%02d
         fig.subplots_adjust(hspace=0.0, wspace=0.1, left=0.0, bottom=0.0, right=0.97, top=0.96)
 
         # Load an image, subtract plane, display with pixel units
-        self.fig, self.ax1 = ros_tm.show(image, realunits=False, dacunits=True, planesub=True, title=False, fig=fig, ax=ax1)
+        self.fig, self.ax1 = ros_tm.show(image, units='dac', planesub='plane', title=False, fig=fig, ax=ax1)
         plt.setp( self.ax1.xaxis.get_majorticklabels(), rotation=70 )
         self.ax1.xaxis.get_major_formatter().set_useOffset(False)
         self.ax1.yaxis.get_major_formatter().set_useOffset(False)
 
-        self.fig, self.ax2 = ros_tm.show(image, realunits=False, dacunits=True, planesub=True, title=False, fig=fig, ax=ax2)
+        self.fig, self.ax2 = ros_tm.show(image, units='dac', planesub='plane', title=False, fig=fig, ax=ax2)
         plt.setp( self.ax2.xaxis.get_majorticklabels(), rotation=70 )
         self.ax2.xaxis.get_major_formatter().set_useOffset(False)
         self.ax2.yaxis.get_major_formatter().set_useOffset(False)

@@ -2329,7 +2329,7 @@ class tm:
         # Convert data as necessary in the df
         ctrl_data.block_addr = ctrl_data.block_addr.apply( lambda block: block >> 1 )
         ctrl_data['z_retract'] = ctrl_data.block_addr.apply( lambda block: bool(block & 1) )
-        ctrl_data['sw_ver'] = ctrl_data.sw_major.apply( lambda major: '%i.%i' % (major & 0x0F, major >> 4) )
+        ctrl_data['sw_ver'] = ctrl_data.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
         ctrl_data['sw_ver'] = ctrl_data['sw_ver'].str.cat(ctrl_data['sw_minor'].values.astype(str),sep='.')
         ctrl_data['lin_pos'] = ctrl_data.lin_pos.apply( lambda pos: pos*20./65535.)
         ctrl_data.tip_num += 1
@@ -2621,7 +2621,7 @@ class tm:
         info['target'] = info.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
         info['target_type'] = info.target.apply( lambda tgt: common.target_type(tgt) )
         info['tip_num'] = info.tip_num+1
-        info['sw_ver'] = info.sw_major.apply( lambda major: '%i.%i' % (major & 0x0F, major >> 4) )
+        info['sw_ver'] = info.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
         info['sw_ver'] = info['sw_ver'].str.cat(info['sw_minor'].values.astype(str),sep='.')
         info['channel'] = info.channel.apply( lambda channel: common.data_channels[int(math.log10(channel)/math.log10(2))] )
 
@@ -2764,7 +2764,7 @@ class tm:
                     frame = frame[0]
 
             scan['info'] = {
-                'sw_ver': '%i.%i.%i' % (first_pkt.sw_major & 0x0F, first_pkt.sw_major >> 4, first_pkt.sw_minor),
+                'sw_ver': '%i.%i.%i' % (first_pkt.sw_major >> 4, first_pkt.sw_major & 0x0F, first_pkt.sw_minor),
                 'start_time': start_time,
                 'freq_start': first_pkt.freq_start * 0.0006984, # 00021065027,
                 'freq_step': first_pkt.freq_step * 0.0006984, # 00021065027,

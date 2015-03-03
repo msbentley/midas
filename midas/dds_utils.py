@@ -171,7 +171,7 @@ def submit_request(template, request, socks):
         if tunnel.returncode:
             print('Tunnel open return code: %i' % (tunnel.returncode))
 
-        time.sleep(5) # tunnel stays open, hence no return code and just need to wait
+        time.sleep(10) # tunnel stays open, hence no return code and just need to wait
 
         import socks as proxy
         proxy.setdefaultproxy(proxy.PROXY_TYPE_SOCKS5, 'localhost', 1080)

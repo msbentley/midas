@@ -1825,7 +1825,7 @@ class itl:
             'scan_dir': 'X' if mainscan_x else 'Y',
             'x_low_high': 'L_H' if xlh else 'H_L',
             'y_low_high': 'L_H' if ylh else 'H_L',
-            'freq_adj': hex(int(round((fadj/100.)*65535.))),
+            'freq_adj': fadj,
             'channel': dtype }
 
         zrec_params = { \

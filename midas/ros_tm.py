@@ -891,8 +891,8 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
         unit = common.units[chan_idx]
         target = common.seg_to_facet(image.wheel_pos)
 
-        if fig is None: fig = plt.figure()
-        if ax is None: ax = fig.add_subplot(1,1,1)
+        if fig is None or idx>0: fig = plt.figure()
+        if ax is None or idx>0: ax = fig.add_subplot(1,1,1)
 
         data = image['data']
 

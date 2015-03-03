@@ -1648,7 +1648,7 @@ class tm:
 
         # Order by time, and remove and successive identical events
         state = state.sort_index()
-        state = state.loc[state.shift(-1) != state]
+        state = state.loc[state.shift(1) != state]
 
         if state.iloc[-1]: # shutter open at end
             state = state.iloc[:-1]

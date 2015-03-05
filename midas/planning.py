@@ -1915,13 +1915,14 @@ class itl:
 
     def tip_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
-        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8):
+        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         self.scan(cantilever=cantilever, facet=3, channels=['ZS'], openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
-            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc)
+            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
+            set_start=set_start)
 
         return
 
@@ -2099,7 +2100,7 @@ class itl:
 
     def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
-        xorigin=False, yorigin=False):
+        xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, set_start=False):
         """Generates a series of identical tiled scans of a single target following an approach.
 
         The number of x and y tiles is given, all other parameters are as per scan().
@@ -2113,25 +2114,30 @@ class itl:
         y_overlap = int(ypixels*ystep*overlap)
         y_extent = y_tiles*ypixels*ystep - (y_tiles-1)*y_overlap
 
-        centre_open = 44500
-        centre_closed = 32768
-
         # Calculate the X/Y origin for hte start of the tile
-        x_centre = centre_open # X is always in open loop!
-        y_centre = centre_open if openloop else centre_closed
+        x_centre = common.centre_open # X is always in open loop!
+        y_centre = common.centre_open if openloop else common.centre_closed
 
         if not xorigin: xorigin = x_centre-(x_extent)/2
         if not yorigin: yorigin = y_centre-(y_extent)/2
 
         for y in range(y_tiles):
             for x in range(x_tiles):
-                surface = False if (y==0) & (x==0) & (at_surface==False) else True
+                if (y==0) & (x==0) & (at_surface==False): # first scan in sequence
+                    surface = False
+                else:
+                    surface = True
+                    set_start = False # fscan already in correct range
 
                 # Calculate the origin for this scan
                 xorig = xorigin+x*(xpixels*xstep-x_overlap)
                 yorig = yorigin+y*(ypixels*ystep-y_overlap)
 
-                self.scan(cantilever, facet, channels, openloop, xpixels, ypixels, xstep, ystep, xorig, yorig, xlh, ylh, mainscan_x, tip_offset, fadj, safety_factor, zstep, at_surface=surface)
+                self.scan(cantilever=cantilever, facet=facet, channels=channels, openloop=openloop,
+                xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, xorigin=xorig, yorigin=yorig,
+                xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, tip_offset=tip_offset, fadj=fadj,
+                safety_factor=safety_factor, zstep=zstep, at_surface=surface, exc_lvl=exc_lvl,
+                ac_gain=ac_gain, set_start=set_start)
 
         return
 

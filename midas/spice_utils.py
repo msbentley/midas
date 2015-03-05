@@ -208,16 +208,39 @@ def operational_kernels():
     return [rorb, corb, ratt, catt, sclk]
 
 
+def get_geometry(start, end, timestep=3660.):
+    """Accepts a start and end date/time (either a string or a datetime object)
+    and an optional timestep. Loads operational kernels, calculates all
+    geometric data and returns a time-indexed dataframe"""
+
+    import pandas as pd
+
+    load_kernels(operational_kernels(), load_defaults=True)
+    ets, times = get_timesteps(start, end, timestep=timestep)
+
+    cometdist = comet_sun_au(ets)
+    lat, lon = latlon(ets)
+    phase = phase_angle(ets)
+    sun_angle = nadir_sun(ets)
+    distance, speed = trajectory(ets, speed=True)
+    offpointing = off_nadir(ets)
+
+    geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
+        columns=['cometdist','sc_dist','speed','latitude','longitude','offnadir','phase','sun_angle'])
+    return geom
+
+
+
 def get_timesteps(start, end, timestep=60.):
     """Accepts a start and end time (datetime) and a timestep and returns
     two arrays - an array of SPICE ETs and an array of datetimes for plotting"""
 
-    from dateutils import parser
+    from dateutil import parser
 
-    if type(start)==string:
+    if type(start)==str:
         start = parser.parse(start)
 
-    if type(end)==string:
+    if type(end)==str:
         end = parser.parse(end)
 
     start_time_et = spice.str2et(start.isoformat())
@@ -411,102 +434,102 @@ def anisotropic(times):
     # return [rorl, corl, ratm, catt]
 
 
-def get_timesteps(start, end, timestep=60.):
-    """Accepts a start and end time (datetime) and a timestep and returns
-    two arrays - an array of SPICE ETs and an array of datetimes for plotting"""
-
-    start_time_et = spice.str2et(start.isoformat())
-    end_time_et = spice.str2et(end.isoformat())
-
-    timesteps = int(  (end_time_et-start_time_et)/timestep )-1
-    times = np.arange(timesteps)*timestep + start_time_et
-
-    # also back-calculate an ISO format time for each step, for plotting and filtering
-    times_real = np.array([dateutil.parser.parse(spice.et2utc(time,'ISOC',0)) for time in times])
-
-    return times, times_real
-
-
-
-def comet_sun_au(times):
-    """Calculate the comet-Sun distance in AU and return"""
-
-    # Define SPICE call constants
-    frame = 'ECLIPJ2000'
-    target = 'CHURYUMOV-GERASIMENKO'
-    abcorr = 'none'
-    observer = 'SUN'
-
-    spkpos = [spice.spkpos(target, time, frame, abcorr, observer) for time in times]
-    sunpos = np.array([spkpos[index][0] for index in range(len(times))])
-    sunpos_x = sunpos[:,0]; sunpos_y = sunpos[:,1]; sunpos_z = sunpos[:,2]
-    cometdist_au = np.sqrt( sunpos_x**2. + sunpos_y**2. + sunpos_z**2. ) * km_to_au
-
-    return cometdist_au
-
-
-def trajectory(times, speed=False):
-    """Retrieves the Rosetta trajectoyr wrt 67P and returns an array of
-    distance values (in km)"""
-
-    # Calculate Rosetta/comet position and velocity
-    observer = 'ROSETTA'
-    frame = 'ECLIPJ2000'
-    target = 'CHURYUMOV-GERASIMENKO'
-    abcorr = 'none'
-
-    spkezr = [spice.spkezr(target, time, frame, abcorr, observer) for time in times]
-    posvel = [spkezr[index][0] for index in range(len(times))]
-    posvel = np.array(posvel)
-    x = posvel[:,0]; y = posvel[:,1]; z = posvel[:,2]
-    distance = np.sqrt(x*x + y*y + z*z) # km
-
-    if speed:
-        vx = posvel[:,3]; vy = posvel[:,4]; vz = posvel[:,5]
-        speed = np.sqrt(vx*vx + vy*vy + vz*vz) # km/s
-        return distance, speed
-    else:
-        return distance
-
-
-def off_nadir(times):
-    """Returns the off-nadir angles in degrees"""
-
-    observer = 'ROSETTA'
-    target = 'CHURYUMOV-GERASIMENKO'
-    abcorr = 'none'
-
-    # vector from the s/c to the comet in the s/c frame of reference
-    sc_comet = [spice.spkpos(target, time, 'ROS_SPACECRAFT', abcorr, observer)[0] for time in times]
-
-    # angle between this vector and the s/c Z axis
-    off_nadir = np.rad2deg( [spice.vsep(sc_comet[count],spice.vpack(0.,0.,1.)) for count in range(len(times))])
-
-    return off_nadir
-
-
-def anisotropic(times):
-
-    import math
-
-    spkpos = [spice.spkpos('SUN', time, 'J2000', 'none', 'CHURYUMOV-GERASIMENKO') for time in times]
-    sunpos = np.array([spkpos[index][0] for index in range(len(times))])
-
-    observer = 'ROSETTA'
-    frame = 'ECLIPJ2000'
-    target = 'CHURYUMOV-GERASIMENKO'
-    abcorr = 'none'
-
-    spkezr = [spice.spkezr(target, time, frame, abcorr, observer) for time in times]
-    posvel = np.array([spkezr[index][0] for index in range(len(times))])
-    plus_x = np.array([spice.vsep(posvel[i,0:3],sunpos[i]) for i in range(len(times))]) # phase angle
-    plus_z = np.array([spice.vsep(posvel[i,0:3],spice.vpack(0.,0.,1.)) for i in range(len(times))])
-    plus_y = np.array([spice.vsep(posvel[i,0:3],spice.vcrss(spice.vpack(0.,0.,1.),sunpos[i])) for i in range(len(times))])
-    minus_x = math.pi - plus_x
-    minus_y = math.pi - plus_y
-    minus_z = math.pi - plus_z
-
-    angles = np.vstack( (plus_x, minus_x, plus_y, minus_y, plus_z, minus_z) )
-    sector = np.argmin(angles, axis=0)
-
-    return sector
+# def get_timesteps(start, end, timestep=60.):
+#     """Accepts a start and end time (datetime) and a timestep and returns
+#     two arrays - an array of SPICE ETs and an array of datetimes for plotting"""
+#
+#     start_time_et = spice.str2et(start.isoformat())
+#     end_time_et = spice.str2et(end.isoformat())
+#
+#     timesteps = int(  (end_time_et-start_time_et)/timestep )-1
+#     times = np.arange(timesteps)*timestep + start_time_et
+#
+#     # also back-calculate an ISO format time for each step, for plotting and filtering
+#     times_real = np.array([dateutil.parser.parse(spice.et2utc(time,'ISOC',0)) for time in times])
+#
+#     return times, times_real
+#
+#
+#
+# def comet_sun_au(times):
+#     """Calculate the comet-Sun distance in AU and return"""
+#
+#     # Define SPICE call constants
+#     frame = 'ECLIPJ2000'
+#     target = 'CHURYUMOV-GERASIMENKO'
+#     abcorr = 'none'
+#     observer = 'SUN'
+#
+#     spkpos = [spice.spkpos(target, time, frame, abcorr, observer) for time in times]
+#     sunpos = np.array([spkpos[index][0] for index in range(len(times))])
+#     sunpos_x = sunpos[:,0]; sunpos_y = sunpos[:,1]; sunpos_z = sunpos[:,2]
+#     cometdist_au = np.sqrt( sunpos_x**2. + sunpos_y**2. + sunpos_z**2. ) * km_to_au
+#
+#     return cometdist_au
+#
+#
+# def trajectory(times, speed=False):
+#     """Retrieves the Rosetta trajectoyr wrt 67P and returns an array of
+#     distance values (in km)"""
+#
+#     # Calculate Rosetta/comet position and velocity
+#     observer = 'ROSETTA'
+#     frame = 'ECLIPJ2000'
+#     target = 'CHURYUMOV-GERASIMENKO'
+#     abcorr = 'none'
+#
+#     spkezr = [spice.spkezr(target, time, frame, abcorr, observer) for time in times]
+#     posvel = [spkezr[index][0] for index in range(len(times))]
+#     posvel = np.array(posvel)
+#     x = posvel[:,0]; y = posvel[:,1]; z = posvel[:,2]
+#     distance = np.sqrt(x*x + y*y + z*z) # km
+#
+#     if speed:
+#         vx = posvel[:,3]; vy = posvel[:,4]; vz = posvel[:,5]
+#         speed = np.sqrt(vx*vx + vy*vy + vz*vz) # km/s
+#         return distance, speed
+#     else:
+#         return distance
+#
+#
+# def off_nadir(times):
+#     """Returns the off-nadir angles in degrees"""
+#
+#     observer = 'ROSETTA'
+#     target = 'CHURYUMOV-GERASIMENKO'
+#     abcorr = 'none'
+#
+#     # vector from the s/c to the comet in the s/c frame of reference
+#     sc_comet = [spice.spkpos(target, time, 'ROS_SPACECRAFT', abcorr, observer)[0] for time in times]
+#
+#     # angle between this vector and the s/c Z axis
+#     off_nadir = np.rad2deg( [spice.vsep(sc_comet[count],spice.vpack(0.,0.,1.)) for count in range(len(times))])
+#
+#     return off_nadir
+#
+#
+# def anisotropic(times):
+#
+#     import math
+#
+#     spkpos = [spice.spkpos('SUN', time, 'J2000', 'none', 'CHURYUMOV-GERASIMENKO') for time in times]
+#     sunpos = np.array([spkpos[index][0] for index in range(len(times))])
+#
+#     observer = 'ROSETTA'
+#     frame = 'ECLIPJ2000'
+#     target = 'CHURYUMOV-GERASIMENKO'
+#     abcorr = 'none'
+#
+#     spkezr = [spice.spkezr(target, time, frame, abcorr, observer) for time in times]
+#     posvel = np.array([spkezr[index][0] for index in range(len(times))])
+#     plus_x = np.array([spice.vsep(posvel[i,0:3],sunpos[i]) for i in range(len(times))]) # phase angle
+#     plus_z = np.array([spice.vsep(posvel[i,0:3],spice.vpack(0.,0.,1.)) for i in range(len(times))])
+#     plus_y = np.array([spice.vsep(posvel[i,0:3],spice.vcrss(spice.vpack(0.,0.,1.),sunpos[i])) for i in range(len(times))])
+#     minus_x = math.pi - plus_x
+#     minus_y = math.pi - plus_y
+#     minus_z = math.pi - plus_z
+#
+#     angles = np.vstack( (plus_x, minus_x, plus_y, minus_y, plus_z, minus_z) )
+#     sector = np.argmin(angles, axis=0)
+#
+#     return sector

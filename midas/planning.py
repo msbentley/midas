@@ -1725,7 +1725,7 @@ class itl:
 
     def scan(self, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8):
+        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, set_start=False):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1818,7 +1818,7 @@ class itl:
             'ystep': ystep,
             'z_ret': zretract }
 
-        fscan_params = { \
+        freq_params = { \
 
             # Parameters for AMDF026A MIDAS frequency scan
             'cant_num': fscan['cant_num'],
@@ -1864,7 +1864,7 @@ class itl:
             proc = {}
             proc['params'] = {}
             proc['template'] = 'PSTP_SCAN'
-            proc['params'].update(fscan_params)
+            proc['params'].update(freq_params)
             proc['params'].update(fullscan_params)
             self.generate(proc, timedelta(minutes=duration_m))
 
@@ -1878,9 +1878,15 @@ class itl:
                 proc['template'] = 'SCAN'
                 proc['params'].update(wheel_move_params)
 
-            proc['params'].update(fscan_params)
+            proc['params'].update(freq_params)
             proc['params'].update(fullscan_params)
             proc['params'].update(zrec_params)
+
+            # allow frequency to be set to the start manually via a TechCmd
+            if set_start:
+
+                self.tech_cmd( [779, fscan_params['freq_hi_dig'], 780, fscan_params['freq_lo_dig'], 33536])
+                self.wait(timedelta(minutes=1))
 
             self.generate(proc, timedelta(minutes=duration_m))
 
@@ -2000,7 +2006,7 @@ class itl:
 
 
     def freq_scan(self, cantilever, ac_gain=False, excitation=False, fstep_coarse=1, fstep_fine=False, num_scans=8, \
-        op_amp=-90, set_pt=80, params_only=False):
+        op_amp=-90, set_pt=80, params_only=False, set_start=False):
 
         proc = {}
         proc['template'] = 'FSCAN'
@@ -2013,16 +2019,13 @@ class itl:
         freq_range = fstep_coarse * 256 * num_scans
         start_freq = res_freq - freq_range/2.
 
-        # freq_cal =  3.e6/2.**32
-        # M.S.Bentley 13/12/2014 - frequency start values were not quite being correctly calculated
-        # Now using actual values from the RMIB
-        freq_hi_cal = 2999559.389 / 65535.
-        freq_lo_cal = 45.769644 / 65535.
+        freq_hi_dig = int(start_freq / common.freq_hi_cal)
+        freq_hi = freq_hi_dig * common.freq_hi_cal
 
-        freq_hi = int(start_freq / freq_hi_cal) * freq_hi_cal
+        freq_lo_dig = int((start_freq - freq_hi)/common.freq_lo_cal)
+        freq_lo = freq_lo_dig * common.freq_lo_cal
+
         freq_hi = round(freq_hi,3)
-
-        freq_lo = int((start_freq - freq_hi)/freq_lo_cal) * freq_lo_cal
         freq_lo = round(freq_lo,3)
 
         proc['params'] = { \
@@ -2039,7 +2042,9 @@ class itl:
 
             # Start frequency is set to value calculated from resonance
             'freq_hi': freq_hi,
+            'freq_hi_dig': freq_hi_dig,
             'freq_lo': freq_lo,
+            'freq_lo_dig': freq_lo_dig,
 
             'fstep_coarse': fstep_coarse,
             'fstep_fine': fscan['fstep_fine'] if type(fstep_fine) == bool else fstep_fine,
@@ -2050,6 +2055,13 @@ class itl:
         if params_only:
             return proc['params']
         else:
+
+            # allow frequency to be set to the start manually via a TechCmd
+            if set_start:
+
+                self.tech_cmd( [779, freq_hi_dig, 780, freq_lo_dig, 33536])
+                self.wait(timedelta(minutes=1))
+
             duration = common.fscan_duration(num_scans)
             self.generate(proc, duration)
 

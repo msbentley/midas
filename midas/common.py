@@ -18,13 +18,19 @@ import os, math
 
 # Default paths
 ros_sgs_path = os.path.expanduser('~/ROS_SGS/')
-
+config_path = os.path.expanduser('~/Dropbox/work/midas/operations/config/')
 
 # Calibration factors
 zcal = 0.164 # nm/bit
 xycal = {'open': 3.81384, 'closed': 1.388889} # nm/bit
 linearcal = 1.e-3/1.75 # V/um
 xyorigin = 106792
+
+# freq_cal =  3.e6/2.**32
+# M.S.Bentley 13/12/2014 - frequency start values were not quite being correctly calculated
+# Now using actual values from the RMIB
+freq_hi_cal = 2999559.389 / 65535.
+freq_lo_cal = 45.769644 / 65535.
 
 # Table centre coordinates
 centre_open = 44500

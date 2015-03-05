@@ -145,14 +145,17 @@ def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, c
 
 
 
-def run_mtp(mtp, case):
+def run_mtp(mtp, case, outfolder=None):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
     import glob
 
     mtp_folder = planning.locate_mtp(mtp, case)
 
-    local_folder = os.path.expanduser('~/Dropbox/work/midas/operations/MTP%03i%c/eps/' % (mtp,case.upper()))
+    if outfolder is None:
+        local_folder = os.path.expanduser('~/Dropbox/work/midas/operations/MTP%03i%c/eps/' % (mtp,case.upper()))
+    else:
+        local_folder = outfolder
 
     if not os.path.exists(local_folder):
         os.makedirs(local_folder)

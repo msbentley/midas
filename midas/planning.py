@@ -92,18 +92,15 @@ min_prescanned = 3 # minimum number of pre-scanned facets to maintain
 
 # File and directory paths
 template_dir = os.path.expanduser('~/Dropbox/work/midas/operations/ITL_templates/')
-config_dir = os.path.expanduser('~/Dropbox/work/midas/operations/config/')
 
 facet_file = 'facet_status.csv'
-facet_file = os.path.join(config_dir, facet_file)
+facet_file = os.path.join(common.config_path, facet_file)
 scan_file = 'scan_list.csv'
-scan_file = os.path.join(config_dir, scan_file)
+scan_file = os.path.join(common.config_path, scan_file)
 tip_file = 'tip_status.csv'
-tip_file = os.path.join(config_dir, tip_file)
+tip_file = os.path.join(common.config_path, tip_file)
 log_file = 'midas_planner.log'
-log_file = os.path.join(config_dir, log_file)
-grain_cat_file = 'grain_cat.csv'
-grain_cat_file = os.path.join(config_dir, grain_cat_file)
+log_file = os.path.join(common.config_path, log_file)
 
 ros_config_path = os.path.join(common.ros_sgs_path, 'CONFIG')
 fecs_evf_file = os.path.join(common.ros_sgs_path,'PLANNING/RMOC/FCT/FECS____________RSGS_XXXXX.evf')
@@ -1815,8 +1812,7 @@ class itl:
 
     def scan(self, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2):
-
+        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=False):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1910,7 +1906,7 @@ class itl:
             'z_ret': zretract,
             'fadj_numscans': fadj_numscans }
 
-        fscan_params = { \
+        freq_params = { \
 
             # Parameters for AMDF026A MIDAS frequency scan
             'cant_num': fscan['cant_num'],
@@ -1956,7 +1952,7 @@ class itl:
             proc = {}
             proc['params'] = {}
             proc['template'] = 'PSTP_SCAN'
-            proc['params'].update(fscan_params)
+            proc['params'].update(freq_params)
             proc['params'].update(fullscan_params)
             self.generate(proc, timedelta(minutes=duration_m))
 
@@ -1970,9 +1966,15 @@ class itl:
                 proc['template'] = 'SCAN'
                 proc['params'].update(wheel_move_params)
 
-            proc['params'].update(fscan_params)
+            proc['params'].update(freq_params)
             proc['params'].update(fullscan_params)
             proc['params'].update(zrec_params)
+
+            # allow frequency to be set to the start manually via a TechCmd
+            if set_start:
+
+                self.tech_cmd( [779, fscan_params['freq_hi_dig'], 780, fscan_params['freq_lo_dig'], 33536])
+                self.wait(timedelta(minutes=1))
 
             self.generate(proc, timedelta(minutes=duration_m))
 
@@ -2001,13 +2003,14 @@ class itl:
 
     def tip_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
-        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8):
+        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         self.scan(cantilever=cantilever, facet=3, channels=['ZS'], openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
-            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc)
+            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
+            set_start=set_start)
 
         return
 
@@ -2092,7 +2095,7 @@ class itl:
 
 
     def freq_scan(self, cantilever, ac_gain=False, excitation=False, fstep_coarse=1, fstep_fine=False, num_scans=8, \
-        op_amp=-90, set_pt=80, fadj=85, params_only=False):
+        op_amp=-90, set_pt=80, fadj=85, params_only=False, set_start=False):
 
         proc = {}
         proc['template'] = 'FSCAN'
@@ -2105,16 +2108,13 @@ class itl:
         freq_range = fstep_coarse * 256 * num_scans
         start_freq = res_freq - freq_range/2.
 
-        # freq_cal =  3.e6/2.**32
-        # M.S.Bentley 13/12/2014 - frequency start values were not quite being correctly calculated
-        # Now using actual values from the RMIB
-        freq_hi_cal = 2999559.389 / 65535.
-        freq_lo_cal = 45.769644 / 65535.
+        freq_hi_dig = int(start_freq / common.freq_hi_cal)
+        freq_hi = freq_hi_dig * common.freq_hi_cal
 
-        freq_hi = int(start_freq / freq_hi_cal) * freq_hi_cal
+        freq_lo_dig = int((start_freq - freq_hi)/common.freq_lo_cal)
+        freq_lo = freq_lo_dig * common.freq_lo_cal
+
         freq_hi = round(freq_hi,3)
-
-        freq_lo = int((start_freq - freq_hi)/freq_lo_cal) * freq_lo_cal
         freq_lo = round(freq_lo,3)
 
         proc['params'] = { \
@@ -2131,7 +2131,9 @@ class itl:
 
             # Start frequency is set to value calculated from resonance
             'freq_hi': freq_hi,
+            'freq_hi_dig': freq_hi_dig,
             'freq_lo': freq_lo,
+            'freq_lo_dig': freq_lo_dig,
 
             'fstep_coarse': fstep_coarse,
             'fstep_fine': fscan['fstep_fine'] if type(fstep_fine) == bool else fstep_fine,
@@ -2143,6 +2145,13 @@ class itl:
         if params_only:
             return proc['params']
         else:
+
+            # allow frequency to be set to the start manually via a TechCmd
+            if set_start:
+
+                self.tech_cmd( [779, freq_hi_dig, 780, freq_lo_dig, 33536])
+                self.wait(timedelta(minutes=1))
+
             duration = common.fscan_duration(num_scans)
             self.generate(proc, duration)
 
@@ -2180,7 +2189,7 @@ class itl:
 
     def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
-        xorigin=False, yorigin=False):
+        xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, set_start=False):
         """Generates a series of identical tiled scans of a single target following an approach.
 
         The number of x and y tiles is given, all other parameters are as per scan().
@@ -2194,25 +2203,30 @@ class itl:
         y_overlap = int(ypixels*ystep*overlap)
         y_extent = y_tiles*ypixels*ystep - (y_tiles-1)*y_overlap
 
-        centre_open = 44500
-        centre_closed = 32768
-
         # Calculate the X/Y origin for hte start of the tile
-        x_centre = centre_open # X is always in open loop!
-        y_centre = centre_open if openloop else centre_closed
+        x_centre = common.centre_open # X is always in open loop!
+        y_centre = common.centre_open if openloop else common.centre_closed
 
         if not xorigin: xorigin = x_centre-(x_extent)/2
         if not yorigin: yorigin = y_centre-(y_extent)/2
 
         for y in range(y_tiles):
             for x in range(x_tiles):
-                surface = False if (y==0) & (x==0) & (at_surface==False) else True
+                if (y==0) & (x==0) & (at_surface==False): # first scan in sequence
+                    surface = False
+                else:
+                    surface = True
+                    set_start = False # fscan already in correct range
 
                 # Calculate the origin for this scan
                 xorig = xorigin+x*(xpixels*xstep-x_overlap)
                 yorig = yorigin+y*(ypixels*ystep-y_overlap)
 
-                self.scan(cantilever, facet, channels, openloop, xpixels, ypixels, xstep, ystep, xorig, yorig, xlh, ylh, mainscan_x, tip_offset, fadj, safety_factor, zstep, at_surface=surface)
+                self.scan(cantilever=cantilever, facet=facet, channels=channels, openloop=openloop,
+                xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, xorigin=xorig, yorigin=yorig,
+                xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, tip_offset=tip_offset, fadj=fadj,
+                safety_factor=safety_factor, zstep=zstep, at_surface=surface, exc_lvl=exc_lvl,
+                ac_gain=ac_gain, set_start=set_start)
 
         return
 
@@ -2747,107 +2761,6 @@ def get_orfa_seq(seq_type):
     seq_num = int(data[data.find('.ROS')-12:data.find('.ROS')-7])
 
     return seq_num
-
-
-def read_grain_cat(grain_cat_file=grain_cat_file):
-    """Read the grain catalogue file"""
-
-    col_names = ['scan_file', 'xpos', 'ypos']
-
-    grain_cat = pd.read_table(grain_cat_file, sep=',', header=0,
-        skipinitialspace=True, na_filter=False, names=col_names)
-
-    return grain_cat
-
-
-
-def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_index=None, pcle=None):
-    """Reads a list of scans containing grains from the catalogue and
-    finds exposures between this and the previous scan"""
-
-    import glob
-
-    if scan_file is None:
-        cat = read_grain_cat()
-    else:
-        cat = pd.DataFrame( [[scan_file, xpos, ypos]], columns=['scan_file', 'xpos', 'ypos'] )
-
-    if pcle is not None:
-        if pcle not in cat.index+1:
-            print('ERROR: particle number %i not found in catalogue' % pcle)
-            return None
-        else:
-            cat = cat[cat.index==pcle-1]
-
-    tm = ros_tm.tm()
-
-    if tlm_index is not None:
-        tm.load_index(tlm_index)
-    else:
-        tm_files = sorted(glob.glob(os.path.join(ros_tm.tlm_path,'TLM__MD*.DAT')))
-        if len(tm_files)==0:
-            print('ERROR: no files matching pattern')
-            return False
-        for f in tm_files:
-            tm.get_pkts(f, append=True)
-
-    tm.pkts = tm.pkts[ ((tm.pkts.apid==1084) & ((tm.pkts.sid==129) | (tm.pkts.sid==130))) |
-        (((tm.pkts.apid==1079) & ( (tm.pkts.sid==42553) | (tm.pkts.sid==42554) )) |
-        ((tm.pkts.apid==1076) & (tm.pkts.sid==2))) ]
-
-    images = tm.get_images(info_only=True)
-
-    grain_images = pd.merge(left=cat, right=images[images.channel=='ZS'], how='inner')
-    exposures = tm.get_exposures()
-
-    # For each grain image, find the previous image containing the coordinates
-    # This is assumed to be prior to collection (no dust seen). Exposures
-    # between these two times are then collated and geometric information returned.
-    for idx, img in grain_images.iterrows():
-
-        pcle = idx+1
-
-        ycal = common.xycal['closed'] if img.y_closed else common.xycal['open']
-        xcal = common.xycal['closed'] if img.x_closed else common.xycal['open']
-
-        # Calculate the centre position (from the grain cat) in microns
-        xc_microns = img.x_orig_um + (img.xpos-img.x_orig)*(xcal/1000.)
-        yc_microns = img.y_orig_um + (img.ypos-img.y_orig)*(ycal/1000.)
-
-        # Now find all images containing this point (for same facet and segment,
-        # POSSIBLY the same tip)
-        # i.e. see if xc_microns is between x_orig_um and x_orig_um + xlen_um
-        img_seg = images[ (images.wheel_pos == img.wheel_pos) & (images.channel=='ZS') ]
-        if same_tip:
-            img_seg = img_seg[ img_seg.tip_num == img.tip_num ]
-
-        matches = img_seg[ (img_seg.x_orig_um < xc_microns) & (xc_microns < img_seg.x_orig_um + img_seg.xlen_um) &
-            (img_seg.y_orig_um < yc_microns) & (yc_microns < img_seg.y_orig_um + img_seg.ylen_um) ]
-
-        if len(matches)==0:
-            print('INFO: no images found containing the position of particle %i' % pcle)
-        else:
-            print('INFO: %i images found containing the position of particle %i' % (len(matches), pcle))
-
-        # The last scan of this position is assumed to contain no grain, and hence be our
-        # last pre-scan (by the definition of the entry in the grain catalogue)
-        pre_scan = matches[ matches.end_time < img.start_time ]
-        if len(pre_scan)==0:
-            print('WARNING: no pre-scan found for particle %i, skipping' % pcle)
-            continue
-        else:
-            pre_scan = pre_scan.iloc[-1]
-
-        # Particle must be collected between the end of the pre-scan and start of the discvoery
-        # scan, so filter exposures between these limits. Must of course have the same target as the image!
-        exposure = exposures[ (exposures.target==img.target) &
-            (exposures.start > pre_scan.end_time) & (exposures.end < img.start_time)  ]
-        duration = timedelta(seconds=exposure.duration.sum().squeeze()/np.timedelta64(1, 's'))
-        print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposure), duration))
-
-    return matches, exposure
-
-
 
 if __name__ == "__main__":
 

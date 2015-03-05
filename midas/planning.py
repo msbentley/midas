@@ -64,8 +64,8 @@ other_templates = {
     'LINEAR_MAX': 'ITLS_MD_LINEAR_MAX.itl',
     'LINEAR_MIN': 'ITLS_MD_LINEAR_MIN.itl',
     'TECH_CMD': 'ITLS_MD_TECH_CMD.itl',
-    'LIN_ABS': 'ITLS_MD_LINEAR_ABS.itl' }
-
+    'LIN_ABS': 'ITLS_MD_LINEAR_ABS.itl',
+    'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl' }
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
 
@@ -1721,6 +1721,93 @@ class itl:
             'fsynth_onoff': 'ON*' if fsynth else 'OFF*',
             'zout_onoff': 'ON*' if zout else 'OFF*' }
 
+    def instrument_setup(self, fscan_phase=False, last_z_lf=False, zero_lf=False, calc_retract=False,
+        line_tx=True, ctrl_full=False, ctrl_retract=False, anti_creep=True, auto_exp=False,
+        auto_thresh=32768, auto_trig=10, auto_seg=0, acreep=4, x_zoom=256, y_zoom=256, retr_m2=0, retr_m3=0):
+        """Calls SQ AMDF034B, which performs a variety of instrument setup tasks, including:
+
+        - Set software flags
+        - Setup automatic exposure parameters
+        - Setup anti-creep parameters
+        - Setup feature vector zoom parameters
+        - Setup magnetic retraction parameters"""
+
+        # The following parameters can be set by this routineL
+        #
+        #        VMDDE212 = <sw_flags> \         # SetSwFlagsPar
+        #        VMDD2432 = <auto_exp_thresh> \  # SetAutoExpThresPar
+        #        VMDD2442 = <auto_exp_trig> \    # SetAutoExpTriggerPar
+        #        VMDD2452 = <auto_exp_seg> \     # SetAutoExpSegmentPar
+        #        VMDD5082 = <acreep_factor> \    # SetAcreepFactorPar
+        #        VMDD5102 = <xsteps_zoom> \      # SetXStepsZoomPar
+        #        VMDD5112 = <ysteps_zoom> \      # SetYStepsZoomPar
+        #        VMDDF122 = <mag_retr_2> \       # SetZRetractMag2Par
+        #        VMDDF132 = <mag_retr_3> \       # SetZRetractMag3Par
+
+        # Where sw_flags can be:
+        #
+        # Bit 0 (value = 0x0001) : SW_FSCAN_PHASE     1 = return phase signal during f-scan
+        # Bit 1 (value = 0x0002) : SW_MOVEZ_LASTZ     1 = use last Z position on line feed
+        # Bit 2 (value = 0x0004) : SW_MOVEZ_ZERO      1 = use zero position on line feed else use minimum Z position of last line
+        # Bit 3 (value = 0x0008) : SW_CALC_RETRACT    1 = calculate Z retraction from X/Y step size
+        #
+        # Bit 4 (value = 0x0010) : SW_LSCAN_FULL      1 = transfer line scan data during full scan
+        # Bit 5 (value = 0x0020) : SW_CDATA_FULL      1 = transfer control data during full scan
+        # Bit 6 (value = 0x0040) : SW_CDATA_RETR      1 = transfer control data from retraction
+        # Bit 7 (value = 0x0080) : SW_ANTI_CREEP      1 = perform anti-creep scan before full scan
+        #
+        # Bit 8 (value = 0x0100) : SW_AUTO_EXP        1 = enable auto-exposure mode
+        proc = {}
+        proc['template'] = 'SETUP'
+
+        # Build the software flags word
+
+        sw_flags = 0
+        if fscan_phase: sw_flags  += 0x0001
+        if last_z_lf: sw_flags    += 0x0002
+        if zero_lf: sw_flags      += 0x0004
+        if calc_retract: sw_flags += 0x0008
+        if line_tx: sw_flags      += 0x0010
+        if ctrl_full: sw_flags    += 0x0020
+        if ctrl_retract: sw_flags += 0x0040
+        if anti_creep: sw_flags   += 0x0080
+        if auto_exp: sw_flags     += 0x0100
+
+        if not(0 <= auto_thresh <= 65535):
+            print('ERROR: auto exposure dust count threshold must be between 0 and 65535 - setting default 32768')
+            auto_thresh = 32768
+
+        if not(0 <= auto_trig <= 65535):
+            print('ERROR: auto exposure trigger count must be between 0 and 65535 - setting default 10')
+            auto_trig = 10
+
+        if not(0 <= auto_seg <= 1023):
+            print('ERROR: auto exposure wheel segment must be between 0 and 1023 - setting default 0')
+            auto_seg = 0
+
+        if not(0 <= acreep <= 7):
+            print('ERROR: anti-creep factor must be between 0 (2**0) and 7 (2**7) - setting default 4')
+            auto_seg = 0
+
+        x_zoom = int(x_zoom)
+        y_zoom = int(y_zoom)
+
+        if (x_zoom % 32 != 0) or (y_zoom % 32 != 0):
+            print('ERROR: the number of pixels in X and Y for zooming must be a multiple of 32 - setting default 256')
+            x_zoom = 256
+            y_zoom = 256
+
+        proc['params'] = {
+            'sw_flags': sw_flags,
+            'auto_exp_thresh': auto_thresh,
+            'auto_exp_trig': auto_trig,
+            'auto_exp_seg': auto_seg,
+            'acreep_factor': acreep,
+            'xsteps_zoom': x_zoom,
+            'ysteps_zoom': y_zoom,
+            'mag_retr_2': retr_m2,
+            'mag_retr_3': retr_m3 }
+
         self.generate(proc)
 
         return
@@ -1728,7 +1815,8 @@ class itl:
 
     def scan(self, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8):
+        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2):
+
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1819,7 +1907,8 @@ class itl:
             'ypixels': ypixels,
             'xstep': xstep,
             'ystep': ystep,
-            'z_ret': zretract }
+            'z_ret': zretract,
+            'fadj_numscans': fadj_numscans }
 
         fscan_params = { \
 
@@ -1845,7 +1934,7 @@ class itl:
             'scan_dir': 'X' if mainscan_x else 'Y',
             'x_low_high': 'L_H' if xlh else 'H_L',
             'y_low_high': 'L_H' if ylh else 'H_L',
-            'freq_adj': hex(int(round((fadj/100.)*65535.))),
+            'freq_adj': fadj,
             'channel': dtype }
 
         zrec_params = { \
@@ -2003,7 +2092,7 @@ class itl:
 
 
     def freq_scan(self, cantilever, ac_gain=False, excitation=False, fstep_coarse=1, fstep_fine=False, num_scans=8, \
-        op_amp=-90, set_pt=80, params_only=False):
+        op_amp=-90, set_pt=80, fadj=85, params_only=False):
 
         proc = {}
         proc['template'] = 'FSCAN'
@@ -2048,7 +2137,8 @@ class itl:
             'fstep_fine': fscan['fstep_fine'] if type(fstep_fine) == bool else fstep_fine,
             'num_scans': num_scans,
             'op_amp_per': op_amp,
-            'set_pt_amp': set_pt }
+            'set_pt_amp': set_pt,
+            'freq_adj': fadj }
 
         if params_only:
             return proc['params']
@@ -2201,7 +2291,7 @@ class itl:
 
     def ctrl_data(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
-        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8):
+        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2):
 
         import scanning
         proc = {}
@@ -2249,15 +2339,20 @@ class itl:
         else:
             xpixels = 1
 
-        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep)
+        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep, ctrl=True)
+        # print('DEBUG: real duration: %s' % duration_s)
+        # print('DEBUG: xpix: %i, ypix: %i, ntypes: %i, retract: %i, zstep: %i' % (xpixels, ypixels, ntypes, zretract, zstep))
 
         # Control data packets: 1048 words (2096 bytes), one packet per line point, max 32
         # Line scan as well: 1072 bytes (single line)
 
-        if duration_s < 60.: duration_s = 60.
+        # Round up to the next minute
+        duration_s = int(60 * round(duration_s/60))
+        # if duration_s < 60.: duration_s = 60.
 
         data_bytes = (32 * 2096) + 1072
         data_rate = data_bytes*8/duration_s
+        print('DEBUG: control data line generates %i bytes in %f seconds' % (data_bytes, duration_s))
 
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = { \
@@ -2291,7 +2386,8 @@ class itl:
             'x_low_high': 'L_H' if xlh else 'H_L',
             'y_low_high': 'L_H' if ylh else 'H_L',
             'z_ret': zretract,
-            'freq_adj': hex(int(round((fadj/100.)*65535.))),
+            'freq_adj': fadj,
+            'fadj_numscans': fadj_numscans,
             'channel': dtype,
 
             'scan_data_rate': "%3.2f" % (data_rate) }

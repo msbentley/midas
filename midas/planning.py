@@ -1709,7 +1709,7 @@ class itl:
 
     def scan(self, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False):
+        ac_gain=False, exc_lvl=False, auto=False, fadj_numscans=2):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1800,7 +1800,8 @@ class itl:
             'ypixels': ypixels,
             'xstep': xstep,
             'ystep': ystep,
-            'z_ret': zretract }
+            'z_ret': zretract,
+            'fadj_numscans': fadj_numscans }
 
         fscan_params = { \
 
@@ -2182,7 +2183,7 @@ class itl:
 
     def ctrl_data(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
-        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False):
+        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, fadj_numscans=2):
 
         import scanning
         proc = {}
@@ -2277,6 +2278,7 @@ class itl:
             'y_low_high': 'L_H' if ylh else 'H_L',
             'z_ret': zretract,
             'freq_adj': fadj,
+            'fadj_numscans': fadj_numscans,
             'channel': dtype,
 
             'scan_data_rate': "%3.2f" % (data_rate) }

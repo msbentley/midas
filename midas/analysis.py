@@ -103,15 +103,16 @@ def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_inde
         pre_scan = matches[ matches.end_time < img.start_time ]
         if len(pre_scan)==0:
             print('WARNING: no pre-scan found for particle %i, skipping' % pcle)
+            exposure = None
             continue
         else:
             pre_scan = pre_scan.iloc[-1]
 
-        # Particle must be collected between the end of the pre-scan and start of the discvoery
-        # scan, so filter exposures between these limits. Must of course have the same target as the image!
-        exposure = exposures[ (exposures.target==img.target) &
-            (exposures.start > pre_scan.end_time) & (exposures.end < img.start_time)  ]
-        duration = timedelta(seconds=exposure.duration.sum().squeeze()/np.timedelta64(1, 's'))
-        print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposure), duration))
+            # Particle must be collected between the end of the pre-scan and start of the discvoery
+            # scan, so filter exposures between these limits. Must of course have the same target as the image!
+            exposure = exposures[ (exposures.target==img.target) &
+                (exposures.start > pre_scan.end_time) & (exposures.end < img.start_time)  ]
+            duration = timedelta(seconds=exposure.duration.sum().squeeze()/np.timedelta64(1, 's'))
+            print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposure), duration))
 
     return matches, exposure

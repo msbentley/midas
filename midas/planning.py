@@ -2305,7 +2305,7 @@ class itl:
 
     def ctrl_data(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
-        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2):
+        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=False):
 
         import scanning
         proc = {}
@@ -2330,6 +2330,8 @@ class itl:
 
         # Return parameters for selected cantilever
         fscan = cantilever_select(cantilever)
+        fscan_params = self.freq_scan(cantilever, num_scans=num_fcyc, params_only=True)
+
 
         # Centre the scan on the XY table unless specified
         if type(xorigin)==bool and type(yorigin)==bool:
@@ -2366,7 +2368,7 @@ class itl:
 
         data_bytes = (32 * 2096) + 1072
         data_rate = data_bytes*8/duration_s
-        print('DEBUG: control data line generates %i bytes in %f seconds' % (data_bytes, duration_s))
+        # print('DEBUG: control data line generates %i bytes in %f seconds' % (data_bytes, duration_s))
 
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = { \
@@ -2405,6 +2407,10 @@ class itl:
             'channel': dtype,
 
             'scan_data_rate': "%3.2f" % (data_rate) }
+
+        if set_start:
+            self.tech_cmd( [779, fscan_params['freq_hi_dig'], 780, fscan_params['freq_lo_dig'], 33536])
+            self.wait(timedelta(minutes=1))
 
         self.generate(proc, timedelta(seconds=duration_s))
 

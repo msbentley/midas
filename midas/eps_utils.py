@@ -3,7 +3,7 @@
 eps_utils.py - a collection of utilities for dealing withe EPS inputs, for
 example ITL timeline files, and outputs (e.g. power and data profiles)."""
 
-debug = True
+debug = False
 import numpy as np
 import os
 from midas import common, planning
@@ -173,7 +173,7 @@ def run_mtp(mtp, case, outfolder=None):
     data=f.readlines()
     for item in data:
         if item.split('=')[0]=='MTP_VER_A\InputData\TimelineEvents\eventInputFile':
-            evf = os.path.join(mtp_folder,item.split('=')[1])
+            evf = os.path.join(mtp_folder,item.split('=')[1].strip())
             break
     f.close()
 
@@ -271,21 +271,29 @@ def read_output(directory='.', ng=False):
     return power, data
 
 
-def plot_eps_output(power,data,observations=False):
+def plot_eps_output(power,data, start=False, end=False, observations=False):
     """Plot the EPS output (average power and data). If an MTP observation set is given, also
     plot the envelope resources"""
 
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
+
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
+
     ax.set_title('Power and data for MIDAS in the EPS')
+
     power=power.replace(0.0,np.nan)
     power_line = ax.plot(power.index,power.MIDAS,'r',label='Average power (W)')
     ax.set_xlabel('Time')
     ax.set_ylabel('Average power (W)')
+
     ax_right = ax.twinx()
-    data_line = ax_right.plot(data.index,data.memory,'b',label='Memory (Mb)')
+    if start:
+        data_line = ax_right.plot(data.index,data.mem_accum-data.mem_accum.loc[start],'b',label='Memory (Mb)')
+    else:
+        data_line = ax_right.plot(data.index,data.mem_accum,'b',label='Memory (Mb)')
+
     ax_right.set_ylabel('Memory (Mb)')
     lines = power_line + data_line
     labs = [l.get_label() for l in lines]
@@ -293,6 +301,16 @@ def plot_eps_output(power,data,observations=False):
     ax.grid(True)
     fig.autofmt_xdate()
     ax.fmt_xdata = mdates.DateFormatter('%Y-%m-%d')
+
+    if not start: start = ax.get_xlim()[0]
+    if not end: end = ax.get_xlim()[1]
+    plt.autoscale()
+
+    # ax.autoscale_view(True,True,True)
+    # ax_right.autoscale_view(True,True,True)
+
+    ax.set_xlim(start,end)
+
 
     if type(observations) != bool:
 
@@ -317,3 +335,7 @@ def plot_eps_output(power,data,observations=False):
         # plot power and data rates on separate Y axes
         ax.plot(times,mtp_power,color='b',label='MTP envelope power')
         ax_right.plot(times,mtp_data,color='r',label='MTP envelope data')
+
+    plt.show()
+    plt.draw()
+    return

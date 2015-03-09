@@ -1838,8 +1838,21 @@ class tm:
         if debug: print('DEBUG: parameter %s found in the following %i packet(s): ' % \
             (param.param_name, len(pkt_info)) + ", ".join(pkt_info.description.values))
 
-        if start: pkts = pkts[pkts.obt>start]
-        if end: pkts = pkts[pkts.obt<end]
+        if type(start)==str:
+            start = pd.Timestamp(start)
+
+        if type(end)==str:
+            end = pd.Timestamp(end)
+
+        if start > end:
+            print('ERROR: start time must be before end!')
+            return None
+
+        if start:
+            pkts = pkts[pkts.obt>start]
+
+        if end:
+            pkts = pkts[pkts.obt<end]
 
         # filter packet list to those containing the parameter in question
         pkts = pkts[ (pkts.type.isin(pkt_info.type)) & (pkts.subtype.isin(pkt_info.subtype)) \
@@ -1853,7 +1866,7 @@ class tm:
 
         if num_params == 0:
             print('ERROR: no matching TM packets found')
-            return False
+            return None
 
         # group packets by their SPID
         spids = pkts[pkts.spid.notnull()].spid.unique().astype(int)
@@ -1968,11 +1981,21 @@ class tm:
         name. label_events= can optionally be set to label key events."""
 
         import matplotlib.dates as md
+        from dateutil import parser
         import math
 
         if type(param_names) != list: param_names = [param_names]
-
         units = pcf[pcf.param_name.isin(param_names)].unit.unique()
+
+        if type(start)==str:
+            start = parser.parse(start)
+
+        if type(end)==str:
+            end = parser.parse(end)
+
+        if start > end:
+            print('ERROR: start time must be before end time!')
+            return None
 
         if len(units) > 2:
             print('ERROR: cannot plot parameters with more than 2 different units on the same figure')
@@ -1992,15 +2015,24 @@ class tm:
         for param_name in param_names:
 
             data = self.get_param(param_name, start=start, end=end, tsync=True)
+
+            if data is None:
+                print('WARNING: could not get data for parameter %s, skipping' % (param_name))
+                continue
+
             param = pcf[pcf.param_name==param_name].squeeze()
 
-            if param.unit==units[0] or (pd.isnull(param.unit) & (pd.isnull(units[0]))): # plot on left axis
+            if param.unit==units[0] or (pd.isnuotll(param.unit) & (pd.isnull(units[0]))): # plot on left axis
                 lines.append(ax_left.plot( data.index, data, label=param.description, linestyle='-' )[0])
                 ax_left.set_ylabel( "%s" % (param.unit))
             else:
                 ax_left._get_lines.color_cycle.next()
                 lines.append(ax_right.plot( data.index, data, label=param.description, linestyle='-.' )[0])
                 ax_right.set_ylabel( "%s" % (param.unit))
+
+        if len(lines)==0:
+            print('ERROR: no data to plot')
+            return False
 
         if not start: start = data.index[0]
         if not end: end = data.index[-1]

@@ -33,7 +33,6 @@ s2k_path = os.path.join(common.ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL')
 gwy_settings_file = os.path.expanduser('~/Dropbox/work/midas/operations/gwy-settings.gwy')
 gwy_path = os.path.expanduser('~/Copy/midas/data/images/gwy')
 css_path = os.path.expanduser('~/Dropbox/work/midas/software/python')
-tlm_path = os.path.expanduser('~/Copy/midas/data/tlm/')
 
 debug = False
 
@@ -261,6 +260,8 @@ def plot_ctrl_data(ctrl):
     plt.subplots_adjust(hspace=0.0)
     plt.suptitle('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( \
         ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
+
+    plt.show()
 
 
 def calibrate_amplitude(ctrl, return_data=False):
@@ -1095,6 +1096,7 @@ class tm:
 
         self.pkts.to_pickle(filename)
 
+
     def load_index(self, filename, append=False):
         """Reads a packet index saved with save_index()"""
 
@@ -1106,6 +1108,81 @@ class tm:
 
         self.pkts.sort('obt', inplace=True)
         print('INFO: packet index restored with %i packets' % (len(self.pkts)))
+
+
+    def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'), start=None, end=None, stp=None, what='all'):
+        """Restores a TLM packet index from filename. The entire file is read if no other options are given, otherwise
+        filters can be applied:
+
+        start=, end= accept any sane string date/time format
+        stp= accepts an integer STP number
+        what= can be 'all', 'hk', 'events' or 'science' and filters packets by APID"""
+
+        what_types = {
+            'hk': 1076,
+            'events': 1079,
+            'science': 1084 }
+
+        what = what.lower()
+
+        if (what != 'all') and (what not in what_types.keys()):
+            print('WARNING: what= must be set to all, hk, events or science. Defaulting to all.')
+            what = 'all'
+
+        if type(start)==str:
+            start = pd.Timestamp(start)
+
+        if type(end)==str:
+            end = pd.Timestamp(end)
+
+        table = 'pkts'
+        store = pd.HDFStore(filename, 'r')
+
+        if (start==end==stp==None) and (what=='all'):
+            self.pkts = store.get(table)
+        else:
+
+            # In principle one can simply query the HDF5 file with AND'd statements, however the memory
+            # usage kills the server. So we will find the matching rows per query, AND them and then
+            # select the matching rows at the end...
+
+            # selected = set(store.select_column(table,'index'))
+            selected = set(np.arange(store.get_storer('pkts').nrows))
+
+            if what!='all':
+                col = store.select_column(table,'apid')
+                selected = selected.intersection(col[ col==what_types[what] ].index)
+
+            if stp is not None:
+                col = store.select_column(table,'filename')
+                col = col.apply( lambda f: int(os.path.basename(f)[14:17]) )
+                selected = selected.intersection(col[ col==stp ].index)
+
+            if (start is not None) or (end is not None):
+
+                col = store.select_column(table,'obt')
+
+                # get the OBT column and use this to find the indices to slice the entire table
+                if start is None:
+                    start = col.min()
+
+                if end is None:
+                    end = col.max()
+
+                selected = selected.intersection(col[ (col>start) & (col<end) ].index)
+
+            if len(selected)==0:
+                print('WARNING: no packets match the criteria!')
+                return
+
+            self.pkts = store.select(table, where=list(selected))
+
+        self.pkts.sort('obt', inplace=True)
+        print('INFO: packet index restored with %i packets' % (len(self.pkts)))
+
+        store.close()
+
+        return
 
 
     def get_pkts(self, files, directory='.', recursive=False, append=False, apid=False, simple=True, dedupe=False, dds_header=True, sftp=False):

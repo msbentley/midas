@@ -76,25 +76,6 @@ def run_daily():
         # Attempt to free some memory (though still have to wait for garbage collection)
         del(tm)
 
-    # Removing the below since ongoing observations are now extracted anyway...
-    # print('\nRequesting latest event data')
-    # Request event data for the previous day (0-24)
-    # yesterday = date.today() - timedelta(days=1)
-    # start_time = datetime.combine(yesterday, datetime.min.time())
-    # end_time = start_time + timedelta(days=1)
-
-    # event_file = 'TLM__1079_'+start_time.date().isoformat()
-    # tm_file, apid = dds_utils.get_data(start_time.isoformat(), end_time.isoformat(), outputpath=tempdir, apid=1079, delfiles=False)
-
-    # if tm_file: # file exists, i.e. MIDAS was on and generating events yesterday
-    #
-    #    tm_file = tm_file[0]
-    #    ev = ros_tm.tm(tm_file)
-    #    events = ev.get_events(info=True, html=os.path.join(event_dir,'latest.html'))
-    #    os.remove(tm_file)
-
-    # else:
-    #     print('INFO: no event data available for %s' % (yesterday))
 
     if new_data:
         print('\nGenerating meta-data spreadsheet for all images')
@@ -136,6 +117,9 @@ def run_daily():
             tm.pkts = tm.pkts[ ((tm.pkts.apid==1079) & ( (tm.pkts.sid==42553) | (tm.pkts.sid==42554) )) |
                 ((tm.pkts.apid==1076) & (tm.pkts.sid==2)) ]
         exposures = tm.get_exposures(html=os.path.join(log_dir,'exposures.html'))
+
+        # (Re-)build the packet index
+        build_pkt_index()
 
     tunnel.kill()
 
@@ -250,7 +234,36 @@ def get_navcam():
     p.expect('assword')
     p.sendline('OlERlE8k')
     p.expect(pexpect.EOF, timeout=5*60)
-    # print(p.before)
+
+
+
+def build_pkt_index(files='TLM__MD*.DAT', tm_index_file='tlm_packet_index.hd5'):
+    """Builds an HDF5 (pandas/PyTables) table of the packet index (tm.pkts). This can be used for
+    on-disk queries to retrieve a selection of packets as input to ros_tm.tm()."""
+
+    import glob
+    from pandas import HDFStore
+
+    tm = ros_tm.tm()
+
+    store = HDFStore(os.path.join(tlm_dir,tm_index_file), 'w', complevel=9, complib='blosc')
+
+    tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
+
+    longest_filename = len(max(tm_files, key=len))
+
+    if len(tm_files)==0:
+        print('ERROR: no files matching pattern')
+        return False
+
+    for f in tm_files:
+        tm=ros_tm.tm(f)
+        # data_columns determines which columns can be queried - here use OBT for time slicing, APID for choosing data
+        # source and filename to allow selection by MTP or STP.
+        store.append('pkts', tm.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
+
+    store.close()
+
 
 if __name__ == "__main__":
 

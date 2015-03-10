@@ -46,7 +46,7 @@ def spk_interval(spk_list):
     return start, end
 
 
-def ck_interval(ck_list, tls_file=os.path.join(kernel_path, 'lsk/NAIF0010.TLS'), tsc_file=os.path.join(kernel_path,'sclk/ros_triv.tsc') ):
+def ck_interval(ck_list, tls_file=os.path.join(kernel_path, 'lsk/NAIF0011.TLS'), tsc_file=os.path.join(kernel_path,'sclk/ros_triv.tsc') ):
     """Calls ckbrief and extracts the start and end of interval data from the file"""
 
     import subprocess
@@ -272,6 +272,7 @@ def comet_sun_au(times):
 
     return cometdist_au
 
+
 def latlon(times):
     """Retrieves the sub-spacecraft latitude and longitude"""
 
@@ -323,8 +324,6 @@ def nadir_sun(times):
     nadir_sun = np.rad2deg( [spice.vsep(sc_sun[count],spice.vpack(0.,0.,1.)) for count in range(len(times))])
 
     return nadir_sun
-
-
 
 
 def trajectory(times, speed=False):
@@ -392,144 +391,3 @@ def anisotropic(times):
     sector = np.argmin(angles, axis=0)
 
     return sector
-
-
-
-# def mtp_kernels(mtp, case='P'):
-#     """Looks for the latest kernels for a given MTP - these will be the CORL
-#     and RORL corresponding to the chosen LTP and the MTP level RATM"""
-#
-#     # Example filenames
-#     # 012345678901234567890123456789
-#     # RORL_DL_001_02____A__00002.BSP
-#     # CORL_DL_002_02____A__00040.BSP
-#     # RATM_DM_008_01____A__00057.BC
-#
-#     import planning
-#
-#     ltp = planning.ltp_from_mtp(mtp)
-#     cases = ['A','B','C','H','P']
-#
-#     import glob
-#
-#     spk_path = os.path.join(kernel_path,'spk')
-#     ck_path = os.path.join(kernel_path,'ck')
-#
-#     # Find all files of the correct type and case
-#     rorl = glob.glob(os.path.join(spk_path, 'RORL_DL_%03i_??____%c__00???.BSP') % (ltp, case.upper()))
-#     corl = glob.glob(os.path.join(spk_path, 'CORL_DL_%03i_??____%c__00???.BSP') % (ltp,case.upper()))
-#     ratm = glob.glob(os.path.join(ck_path,  'RATM_DM_%03i_??____%c__00???.BC') % (mtp,case.upper()))
-#     catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_______00???.BC'))
-    #
-    # if len(rorl)==0 or len(corl)==0 or len(ratm)==0:
-    #     print('ERROR: no matching RORL/CORL/RATM files found in folder')
-    #     return False
-    #
-    # # Find the latest file
-    # rorl = sorted(rorl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    # corl = sorted(corl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    # ratm = sorted(ratm, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    # catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    #
-    # return [rorl, corl, ratm, catt]
-
-
-# def get_timesteps(start, end, timestep=60.):
-#     """Accepts a start and end time (datetime) and a timestep and returns
-#     two arrays - an array of SPICE ETs and an array of datetimes for plotting"""
-#
-#     start_time_et = spice.str2et(start.isoformat())
-#     end_time_et = spice.str2et(end.isoformat())
-#
-#     timesteps = int(  (end_time_et-start_time_et)/timestep )-1
-#     times = np.arange(timesteps)*timestep + start_time_et
-#
-#     # also back-calculate an ISO format time for each step, for plotting and filtering
-#     times_real = np.array([dateutil.parser.parse(spice.et2utc(time,'ISOC',0)) for time in times])
-#
-#     return times, times_real
-#
-#
-#
-# def comet_sun_au(times):
-#     """Calculate the comet-Sun distance in AU and return"""
-#
-#     # Define SPICE call constants
-#     frame = 'ECLIPJ2000'
-#     target = 'CHURYUMOV-GERASIMENKO'
-#     abcorr = 'none'
-#     observer = 'SUN'
-#
-#     spkpos = [spice.spkpos(target, time, frame, abcorr, observer) for time in times]
-#     sunpos = np.array([spkpos[index][0] for index in range(len(times))])
-#     sunpos_x = sunpos[:,0]; sunpos_y = sunpos[:,1]; sunpos_z = sunpos[:,2]
-#     cometdist_au = np.sqrt( sunpos_x**2. + sunpos_y**2. + sunpos_z**2. ) * km_to_au
-#
-#     return cometdist_au
-#
-#
-# def trajectory(times, speed=False):
-#     """Retrieves the Rosetta trajectoyr wrt 67P and returns an array of
-#     distance values (in km)"""
-#
-#     # Calculate Rosetta/comet position and velocity
-#     observer = 'ROSETTA'
-#     frame = 'ECLIPJ2000'
-#     target = 'CHURYUMOV-GERASIMENKO'
-#     abcorr = 'none'
-#
-#     spkezr = [spice.spkezr(target, time, frame, abcorr, observer) for time in times]
-#     posvel = [spkezr[index][0] for index in range(len(times))]
-#     posvel = np.array(posvel)
-#     x = posvel[:,0]; y = posvel[:,1]; z = posvel[:,2]
-#     distance = np.sqrt(x*x + y*y + z*z) # km
-#
-#     if speed:
-#         vx = posvel[:,3]; vy = posvel[:,4]; vz = posvel[:,5]
-#         speed = np.sqrt(vx*vx + vy*vy + vz*vz) # km/s
-#         return distance, speed
-#     else:
-#         return distance
-#
-#
-# def off_nadir(times):
-#     """Returns the off-nadir angles in degrees"""
-#
-#     observer = 'ROSETTA'
-#     target = 'CHURYUMOV-GERASIMENKO'
-#     abcorr = 'none'
-#
-#     # vector from the s/c to the comet in the s/c frame of reference
-#     sc_comet = [spice.spkpos(target, time, 'ROS_SPACECRAFT', abcorr, observer)[0] for time in times]
-#
-#     # angle between this vector and the s/c Z axis
-#     off_nadir = np.rad2deg( [spice.vsep(sc_comet[count],spice.vpack(0.,0.,1.)) for count in range(len(times))])
-#
-#     return off_nadir
-#
-#
-# def anisotropic(times):
-#
-#     import math
-#
-#     spkpos = [spice.spkpos('SUN', time, 'J2000', 'none', 'CHURYUMOV-GERASIMENKO') for time in times]
-#     sunpos = np.array([spkpos[index][0] for index in range(len(times))])
-#
-#     observer = 'ROSETTA'
-#     frame = 'ECLIPJ2000'
-#     target = 'CHURYUMOV-GERASIMENKO'
-#     abcorr = 'none'
-#
-#     spkezr = [spice.spkezr(target, time, frame, abcorr, observer) for time in times]
-#     posvel = np.array([spkezr[index][0] for index in range(len(times))])
-#     plus_x = np.array([spice.vsep(posvel[i,0:3],sunpos[i]) for i in range(len(times))]) # phase angle
-#     plus_z = np.array([spice.vsep(posvel[i,0:3],spice.vpack(0.,0.,1.)) for i in range(len(times))])
-#     plus_y = np.array([spice.vsep(posvel[i,0:3],spice.vcrss(spice.vpack(0.,0.,1.),sunpos[i])) for i in range(len(times))])
-#     minus_x = math.pi - plus_x
-#     minus_y = math.pi - plus_y
-#     minus_z = math.pi - plus_z
-#
-#     angles = np.vstack( (plus_x, minus_x, plus_y, minus_y, plus_z, minus_z) )
-#     sector = np.argmin(angles, axis=0)
-#
-#     return sector

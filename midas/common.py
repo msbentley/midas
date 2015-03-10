@@ -19,6 +19,7 @@ import os, math
 # Default paths
 ros_sgs_path = os.path.expanduser('~/ROS_SGS/')
 config_path = os.path.expanduser('~/Dropbox/work/midas/operations/config/')
+tlm_path = os.path.expanduser('~/Copy/midas/data/tlm')
 
 # Calibration factors
 zcal = 0.164 # nm/bit

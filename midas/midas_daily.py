@@ -277,10 +277,6 @@ def generate_timelines():
     itl_files = ros_tm.select_files(wildcard='ITLS_MD_*P_RSUXPIYZ.itl', directory=common.ros_sgs_path, recursive=True)
     evf_files = ros_tm.select_files(wildcard='EVF__MD_*P_RSUXPIYZ.evf', directory=common.ros_sgs_path, recursive=True)
 
-    # Remove the first two entries since MTP001 and MTP002 did not use the naming convention
-    itl_files = itl_files[2:]
-    evf_files = evf_files[2:]
-
     if len(itl_files) != len(evf_files):
         print('ERROR: number of ITL and EVF files does not match!')
         return

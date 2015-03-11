@@ -1135,9 +1135,6 @@ class tm:
         if type(end)==str:
             end = pd.Timestamp(end)
 
-        if type(stp)!=list:
-            stp = [stp]
-
         table = 'pkts'
         store = pd.HDFStore(filename, 'r')
 
@@ -1159,7 +1156,7 @@ class tm:
             if stp is not None:
                 col = store.select_column(table,'filename')
                 col = col.apply( lambda f: int(os.path.basename(f)[14:17]) )
-                selected = selected.intersection(col[ col.isin(stp) ].index)
+                selected = selected.intersection(col[ col==stp ].index)
 
             if (start is not None) or (end is not None):
 

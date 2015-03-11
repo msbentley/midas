@@ -270,12 +270,12 @@ def build_pkt_index(files='TLM__MD*.DAT', tm_index_file='tlm_packet_index.hd5'):
     store.close()
 
 
-def generate_timelines():
+def generate_timelines(case='P'):
 
     from midas import planning
 
-    itl_files = ros_tm.select_files(wildcard='ITLS_MD_*P_RSUXPIYZ.itl', directory=common.ros_sgs_path, recursive=True)
-    evf_files = ros_tm.select_files(wildcard='EVF__MD_*P_RSUXPIYZ.evf', directory=common.ros_sgs_path, recursive=True)
+    itl_files = ros_tm.select_files(wildcard='ITLS_MD_*%c_RSUXPIYZ.itl' % case.upper(), directory=common.ros_sgs_path, recursive=True)
+    evf_files = ros_tm.select_files(wildcard='EVF__MD_*%c_RSUXPIYZ.evf' % case.upper(), directory=common.ros_sgs_path, recursive=True)
 
     # Remove the first two entries since MTP001 and MTP002 did not use the naming convention
     itl_files = itl_files[2:]

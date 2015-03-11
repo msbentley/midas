@@ -177,9 +177,9 @@ def run_mtp(mtp, case, outfolder=None):
             break
     f.close()
 
-    print('DEBUG: EVF file: %s' % evf)
     if not evf:
         print('ERROR: eventInputFile entry not found in scenario file %s' % scen)
+        return
 
     # Find the latest TLIS*.evf and TLIS*.itl files
     # e.g. TLIS_PL_M009______01_A_OPS0001A.evf

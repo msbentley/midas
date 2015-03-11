@@ -626,7 +626,7 @@ def read_evf(filename):
 
             if event['obs_type'] not in valid_obs_names:
                 logging.error( 'observation type %s not valid for MIDAS' % (event['obs_type']))
-                return None
+                return(None, None, None)
 
             suffix = label[-2:]
             if suffix not in valid_event_types:
@@ -721,6 +721,10 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
 
     itl = eps_utils.parse_itl(itl_file)
     evf_start, evf_end, event_list = read_evf(evf_file)
+
+    if event_list is None:
+        return None
+
     event_list = pd.DataFrame(event_list)
     event_list = event_list.drop( ['obs_type', 'start'], axis=1 )
     event_list = event_list.rename(columns={"event_id": "event"})

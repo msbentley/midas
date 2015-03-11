@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 
 log_dir = '/var/www/html/'
 event_dir = '/var/www/html/events/'
+commanding_dir = '/var/www/html/commanding'
 image_dir = '/home/midas/images/'
 tlm_dir = '/home/midas/tlm/'
 kernel_dir = os.path.expanduser('~/Copy/midas/spice')
@@ -78,7 +79,7 @@ def run_daily():
 
 
     if new_data:
-        print('\nGenerating meta-data spreadsheet for all images')
+        print('\n\nGenerating meta-data spreadsheet for all images')
         # Read ALL TLM files so far and extract image meta-data to an XLS and CSV spreadsheet
 
         # M.S.Bentley 02/09/2014 - the server has only 1GB of memory and indexing ALL packets
@@ -111,7 +112,7 @@ def run_daily():
         images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
 
         # Update the list of exposures
-        print('INFO: updating table of exposures')
+        print('\n\nINFO: updating table of exposures')
         for f in tm_files:
             tm.get_pkts(f, append=True)
             tm.pkts = tm.pkts[ ((tm.pkts.apid==1079) & ( (tm.pkts.sid==42553) | (tm.pkts.sid==42554) )) |
@@ -119,7 +120,11 @@ def run_daily():
         exposures = tm.get_exposures(html=os.path.join(log_dir,'exposures.html'))
 
         # (Re-)build the packet index
+        print('\n\nUpdating packet index')
         build_pkt_index()
+
+        # Generate a list of html files corresponding to each ITL/EVF pair
+        generate_timelines()
 
     tunnel.kill()
 
@@ -263,6 +268,29 @@ def build_pkt_index(files='TLM__MD*.DAT', tm_index_file='tlm_packet_index.hd5'):
         store.append('pkts', tm.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
 
     store.close()
+
+
+def generate_timelines():
+
+    from midas import planning
+
+    itl_files = ros_tm.select_files(wildcard='ITLS_MD_*P_RSUXPIYZ.itl', directory=common.ros_sgs_path, recursive=True)
+    evf_files = ros_tm.select_files(wildcard='EVF__MD_*P_RSUXPIYZ.evf', directory=common.ros_sgs_path, recursive=True)
+
+    # Remove the first two entries since MTP001 and MTP002 did not use the naming convention
+    itl_files = itl_files[2:]
+    evf_files = evf_files[2:]
+
+    if len(itl_files) != len(evf_files):
+        print('ERROR: number of ITL and EVF files does not match!')
+        return
+
+    for itl, evf in zip(itl_files, evf_files):
+
+        htmlfile = os.path.join(commanding_dir,os.path.basename(itl).split('.')[-2]+'.html')
+        planning.resolve_time(itl_file=itl, evf_file=evf, html=False)
+
+    return
 
 
 if __name__ == "__main__":

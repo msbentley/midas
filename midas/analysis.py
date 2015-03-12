@@ -30,7 +30,8 @@ def read_grain_cat(grain_cat_file=grain_cat_file):
 
 
 
-def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_index=None, pcle=None):
+def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_index=None, pcle=None,
+    sourcepath=None):
     """Reads a list of scans containing grains from the catalogue and
     finds exposures between this and the previous scan"""
 
@@ -51,9 +52,10 @@ def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_inde
     tm = ros_tm.tm()
 
     if tlm_index is not None:
-        tm.load_index(tlm_index)
+        # tm.load_index(tlm_index)
+        tm.query_index(sourcepath=sourcepath)
     else:
-        tm_files = sorted(glob.glob(os.path.join(ros_tm.tlm_path,'TLM__MD*.DAT')))
+        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD*.DAT')))
         if len(tm_files)==0:
             print('ERROR: no files matching pattern')
             return False
@@ -116,3 +118,72 @@ def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_inde
             print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposure), duration))
 
     return matches, exposure
+
+
+def read_lap_file(filename):
+    """Read a LAP TAB file"""
+
+	# Start and stop UT for each sweep (having two times is not really good, use the start, sweeps are short anyway).
+	# Start and stop SCT for each sweep.
+	# Some quality flag, which as yet is mostly some kind of decoration.
+	# Plasma density estimate (cm-3), do not use or trust!!!
+	# Electron temperature (eV), same caveat though perhaps with only two exclamation marks.
+	# Photoelectron knee potential Vph (V), proxy for Vsc. In this we trust, though it should be off from Vsc by some factor 1.5 - 2.5 or so.
+	# Which probe (1 or 2) the data originates from. Don't care.
+	# Direction of sweep. Don't care.
+	# Probe illumination, should be 1.00 for all Vph data or something is very strange.
+	# Sweep group number, just a running index, forget about it.
+
+    columns = ['start_utc','end_utc', 'start_obt', 'end_obt', 'quality', 'plasma_dens', 'e_temp',
+        'sc_pot', 'probe', 'direction', 'illum', 'sweep_grp']
+
+    lap = pd.read_table(filename, sep=',', skipinitialspace=True, header=False, names=columns,
+        parse_dates=['start_utc','end_utc'])
+
+    return lap
+
+
+def read_lap(directory, geom=False):
+    """Read a directory of LAP data files and append to a dataframe, optionally adding SPICE geometry."""
+
+    import glob, spice_utils
+
+    lap_files = sorted(glob.glob(os.path.join(directory,'RPCLAP*.TAB')))
+
+    df = pd.DataFrame()
+
+    for lap in lap_files:
+        df = df.append(read_lap_file(lap))
+
+    df.sort('start_utc', inplace=True)
+    df.set_index('start_utc', inplace=True)
+
+    if geom:
+        geometry = spice_utils.get_geometry_at_times(df.index.to_datetime())
+        return pd.merge(left=df, right=geometry, left_index=True, right_index=True)
+    else:
+        return df
+
+
+def plot_lap(lap):
+    """Plot LAP spacecraft potential data"""
+
+    import matplotlib.dates as md
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+
+    ax.plot(lap.index, lap.sc_pot, '.', label='potential')
+    ax.grid(True)
+
+    fig.autofmt_xdate()
+    # ax.fmt_xdata = md.DateFormatter('%Y-%m-%d')
+    xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+    ax.xaxis.set_major_formatter(xfmt)
+
+    ax.set_xlabel('Sweep time')
+    ax.set_ylabel('s/c potential (V)')
+
+    plt.show()
+
+    return

@@ -123,6 +123,12 @@ def run_daily():
         print('\n\nUpdating packet index')
         build_pkt_index()
 
+        # Use this to write a binary msgpack with all image data
+        tm = ros_tm.tm()
+        tm.query_index(what='science')
+        tm.pkts = tm.pkts[ (tm.pkts.sid==129) | (tm.pkts.sid==130) ]
+        tm.get_images().to_msgpack(os.path.join(tlm_dir, 'all_images_data.msg'))
+
         # Generate a list of html files corresponding to each ITL/EVF pair
         generate_timelines()
 

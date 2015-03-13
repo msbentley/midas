@@ -1157,7 +1157,7 @@ class tm:
             if stp is not None:
                 col = store.select_column(table,'filename')
                 col = col.apply( lambda f: int(os.path.basename(f)[14:17]) )
-                selected = selected.intersection(col[ col==stp ].index)
+                selected = selected.intersection(col[ col.isin(stp) ].index)
 
             if (start is not None) or (end is not None):
 
@@ -1183,6 +1183,8 @@ class tm:
         if sourcepath is not None:
             self.pkts.filename = self.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
 
+        # reset the index to a monotonic increasing function, needed for selecting frames later
+        self.pkts.index=range(len(self.pkts))
         print('INFO: packet index restored with %i packets' % (len(self.pkts)))
 
         store.close()

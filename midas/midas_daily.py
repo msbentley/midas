@@ -258,6 +258,7 @@ def build_pkt_index(files='TLM__MD*.DAT', tm_index_file='tlm_packet_index.hd5'):
     tm = ros_tm.tm()
 
     store = HDFStore(os.path.join(tlm_dir,tm_index_file), 'w', complevel=9, complib='blosc')
+    table = 'pkts'
 
     tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
 
@@ -268,10 +269,17 @@ def build_pkt_index(files='TLM__MD*.DAT', tm_index_file='tlm_packet_index.hd5'):
         return False
 
     for f in tm_files:
-        tm=ros_tm.tm(f)
+        tm = ros_tm.tm(f)
         # data_columns determines which columns can be queried - here use OBT for time slicing, APID for choosing data
         # source and filename to allow selection by MTP or STP.
-        store.append('pkts', tm.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
+
+        try:
+            nrows = store.get_storer().nrows
+        except:
+            nrows = 0
+
+        tm.pkts.index = pd.Series(tm.pkts.index) + nrows
+        store.append(table, tm.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
 
     store.close()
 

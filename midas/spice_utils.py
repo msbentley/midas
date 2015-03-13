@@ -230,6 +230,30 @@ def get_geometry(start, end, timestep=3660.):
     return geom
 
 
+def get_geometry_at_times(times):
+    """Accepts a list of times. Loads operational kernels, calculates all
+    geometric data and returns a time-indexed dataframe"""
+
+    import pandas as pd
+
+    load_kernels(operational_kernels(), load_defaults=True)
+
+    # all(isinstance(x,int) for x in times)
+
+    ets = [spice.str2et(tm.isoformat()) for tm in times]
+
+    cometdist = comet_sun_au(ets)
+    lat, lon = latlon(ets)
+    phase = phase_angle(ets)
+    sun_angle = nadir_sun(ets)
+    distance, speed = trajectory(ets, speed=True)
+    offpointing = off_nadir(ets)
+
+    geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
+        columns=['cometdist','sc_dist','speed','latitude','longitude','offnadir','phase','sun_angle'])
+
+    return geom
+
 
 def get_timesteps(start, end, timestep=60.):
     """Accepts a start and end time (datetime) and a timestep and returns

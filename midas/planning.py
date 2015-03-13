@@ -43,6 +43,7 @@ scan_templates = {
     'SCAN': 'ITLS_MD_SCAN.itl',
     'SCAN_AT_SURFACE': 'ITLS_MD_SCAN_AT_SURFACE.itl',
     'CTRLDATA': 'ITLS_MD_CTRL_DATA_LINE.itl',
+    'CTRL_SURF': 'ITLS_MD_CTRL_DATA_AT_SURFACE.itl',
     'AUTOZOOM': 'ITLS_MD_AUTO_ZOOM.itl',
     'SCAN_NOSETUP': 'ITLS_MD_SCAN_NOSETUP.itl'}
 pstp_templates = {
@@ -59,6 +60,7 @@ other_templates = {
     'CANT_SURVEY': 'ITLS_MD_FSCAN_SURVEY_CANT.itl',
     'ABORT': 'ITLS_MD_ABORT.itl',
     'APP_MIN': 'ITLS_MD_APPROACH_MIN.itl',
+    'APP_ABS': 'ITLS_MD_APPROACH_ABS.itl',
     'PSTP': 'ITLS_MD_PSTP_PLACEHOLDER.itl',
     'XYZ_MOVE': 'ITLS_MD_XYZ_MOVE.itl',
     'LINEAR_MAX': 'ITLS_MD_LINEAR_MAX.itl',
@@ -1619,15 +1621,15 @@ class itl:
         proc = {}
         proc['template'] = 'SUBSYS_ONOFF'
 
-        if block1_on and block2_on:
-            print('WARNING: both cantilever blocks should not be powered simultaneously')
-            return False
+        # if block1_on and block2_on:
+        #     print('WARNING: both cantilever blocks should not be powered simultaneously')
+        #     return False
 
-        block1 = True if self.cantilever <= 8 else False
-        block2 = True if self.cantilever > 8 else False
+        block1 = True # if self.cantilever <= 8 else False
+        block2 = True # if self.cantilever > 8 else False
 
-        if (block1 and block2_on) or (block2 and block1_on):
-            print('WARNING: this will change the powered cantilever block')
+        # if (block1 and block2_on) or (block2 and block1_on):
+        #     print('WARNING: this will change the powered cantilever block')
 
 
         proc['params'] = {
@@ -2042,6 +2044,18 @@ class itl:
         self.generate(proc, timedelta(minutes=3))
         return
 
+
+    def approach_abs(self, abs_pos=6.0):
+        """Move the approach stage to an absolute position"""
+
+        proc = {}
+        proc['template'] = 'APP_ABS'
+        proc['params'] = { 'abs_pos': abs_pos }
+
+        self.generate(proc, timedelta(minutes=3))
+        return
+
+
     def abort(self):
         """Clears the TC queue and aborts any active task"""
 
@@ -2301,20 +2315,18 @@ class itl:
 
         return
 
-
-
-
-
-
-
     def ctrl_data(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
-        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=False):
+        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=False,
+        at_surface=False):
 
         import scanning
         proc = {}
 
-        proc['template'] = 'CTRLDATA'
+        if at_surface:
+            proc['template'] = 'CTRL_SURF'
+        else:
+            proc['template'] = 'CTRLDATA'
 
         # validate inputs
         if (cantilever<1) or (cantilever>16):
@@ -2360,8 +2372,6 @@ class itl:
             xpixels = 1
 
         duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep, ctrl=True)
-        # print('DEBUG: real duration: %s' % duration_s)
-        # print('DEBUG: xpix: %i, ypix: %i, ntypes: %i, retract: %i, zstep: %i' % (xpixels, ypixels, ntypes, zretract, zstep))
 
         # Control data packets: 1048 words (2096 bytes), one packet per line point, max 32
         # Line scan as well: 1072 bytes (single line)
@@ -2372,7 +2382,6 @@ class itl:
 
         data_bytes = (32 * 2096) + 1072
         data_rate = data_bytes*8/duration_s
-        # print('DEBUG: control data line generates %i bytes in %f seconds' % (data_bytes, duration_s))
 
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = { \
@@ -2455,8 +2464,8 @@ def cantilever_select(cant_num):
     params = {
         'cant_num'  : (cant_num-1) % 8,
         'cant_block': 0 if cant_num <= 8 else 1,
-        'block1_pwr': 'REL_ON' if cant_num <= 8 else 'REL_OFF',
-        'block2_pwr': 'REL_OFF' if cant_num <= 8 else 'REL_ON',
+        'block1_pwr': 'REL_ON', # if cant_num <= 8 else 'REL_OFF',
+        'block2_pwr': 'REL_ON', # if cant_num <= 8 else 'REL_ON',
         'freq_hi'   : freq_hi[cant_num-1],
         'ac_gain'   : ac_gain[cant_num-1],
         'exc_lvl'   : exc_lvl[cant_num-1],

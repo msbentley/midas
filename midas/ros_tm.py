@@ -1110,7 +1110,8 @@ class tm:
         print('INFO: packet index restored with %i packets' % (len(self.pkts)))
 
 
-    def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'), start=None, end=None, stp=None, what='all'):
+    def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'),
+        start=None, end=None, stp=None, what='all', sourcepath=None):
         """Restores a TLM packet index from filename. The entire file is read if no other options are given, otherwise
         filters can be applied:
 
@@ -1178,6 +1179,10 @@ class tm:
             self.pkts = store.select(table, where=list(selected))
 
         self.pkts.sort('obt', inplace=True)
+
+        if sourcepath is not None:
+            self.pkts.filename = self.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
+
         print('INFO: packet index restored with %i packets' % (len(self.pkts)))
 
         store.close()
@@ -3429,6 +3434,22 @@ def strfdelta(tdelta, fmt):
     d["minutes"], d["seconds"] = divmod(rem, 60)
     return fmt.format(**d)
 
+
+def load_images(filename=None, data=False, sourcepath=None):
+    """Load a messagepack file containing all image meta-data"""
+
+    if filename is None:
+        if data:
+            filename = os.path.join(common.tlm_path, 'all_images_data.msg')
+        else:
+            filename = os.path.join(common.tlm_path, 'all_images.msg')
+
+    images = pd.read_msgpack(filename)
+
+    if sourcepath is not None:
+        tm.pkts.filename = tm.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
+
+    return images
 
 if __name__ == "__main__":
 

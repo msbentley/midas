@@ -52,7 +52,6 @@ def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_inde
     tm = ros_tm.tm()
 
     if tlm_index is not None:
-        # tm.load_index(tlm_index)
         tm.query_index(sourcepath=sourcepath)
     else:
         tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD*.DAT')))

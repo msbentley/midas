@@ -1136,6 +1136,9 @@ class tm:
         if type(end)==str:
             end = pd.Timestamp(end)
 
+        if type(stp)!=list:
+            stp = [stp]
+
         table = 'pkts'
         store = pd.HDFStore(filename, 'r')
 

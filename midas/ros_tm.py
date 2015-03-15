@@ -1136,13 +1136,13 @@ class tm:
         if type(end)==str:
             end = pd.Timestamp(end)
 
-        if type(stp)!=list:
+        if stp is not None and type(stp)!=list:
             stp = [stp]
 
         table = 'pkts'
         store = pd.HDFStore(filename, 'r')
 
-        if (start==end==stp==None) and (what=='all'):
+        if start is None and end is None and stp is None and (what=='all'):
             self.pkts = store.get(table)
         else:
 

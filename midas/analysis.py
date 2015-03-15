@@ -30,24 +30,17 @@ def read_grain_cat(grain_cat_file=grain_cat_file):
 
 
 
-def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_index=None, pcle=None,
-    sourcepath=None):
+def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=None):
     """Reads a list of scans containing grains from the catalogue and
     finds exposures between this and the previous scan"""
 
     import glob
 
-    if scan_file is None:
-        cat = read_grain_cat()
-    else:
-        cat = pd.DataFrame( [[scan_file, xpos, ypos]], columns=['scan_file', 'xpos', 'ypos'] )
+    cat = read_grain_cat()
+    pcle_imgs = cat.groupby('scan_file')
+    scan_files = pcle_imgs.groups.keys()
+    num_pcles = [len(x) for x in pcle_imgs.groups.values()]
 
-    if pcle is not None:
-        if pcle not in cat.index+1:
-            print('ERROR: particle number %i not found in catalogue' % pcle)
-            return None
-        else:
-            cat = cat[cat.index==pcle-1]
 
     tm = ros_tm.tm()
 
@@ -65,10 +58,18 @@ def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_inde
         (((tm.pkts.apid==1079) & ( (tm.pkts.sid==42553) | (tm.pkts.sid==42554) )) |
         ((tm.pkts.apid==1076) & (tm.pkts.sid==2))) ]
 
-    images = tm.get_images(info_only=True)
+    if image_index:
+        images = ros_tm.load_images(data=False)
+    else:
+        images = tm.get_images(info_only=True)
 
     grain_images = pd.merge(left=cat, right=images[images.channel=='ZS'], how='inner')
-    exposures = tm.get_exposures()
+    # grain_images = images[ (images.channel=='ZS') & (images.scan_file.isin(scan_files)) ]
+
+    all_exposures = tm.get_exposures()
+    cols = all_exposures.columns.tolist()
+    cols.append('particle')
+    exposures = pd.DataFrame(columns=all_exposures.columns)
 
     # For each grain image, find the previous image containing the coordinates
     # This is assumed to be prior to collection (no dust seen). Exposures
@@ -104,19 +105,28 @@ def find_exposures(scan_file=None, xpos=None, ypos=None, same_tip=True, tlm_inde
         pre_scan = matches[ matches.end_time < img.start_time ]
         if len(pre_scan)==0:
             print('WARNING: no pre-scan found for particle %i, skipping' % pcle)
-            exposure = None
+            # exposures = None
             continue
         else:
             pre_scan = pre_scan.iloc[-1]
 
-            # Particle must be collected between the end of the pre-scan and start of the discvoery
+            # Particle must be collected between the end of the pre-scan and start of the discovery
             # scan, so filter exposures between these limits. Must of course have the same target as the image!
-            exposure = exposures[ (exposures.target==img.target) &
-                (exposures.start > pre_scan.end_time) & (exposures.end < img.start_time)  ]
-            duration = timedelta(seconds=exposure.duration.sum().squeeze()/np.timedelta64(1, 's'))
-            print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposure), duration))
+            exp = (all_exposures[ (all_exposures.target==img.target) &
+                (all_exposures.start > pre_scan.end_time) & (all_exposures.end < img.start_time) ])
+            # duration = timedelta(seconds=all_exposures.duration.sum().squeeze()/np.timedelta64(1, 's'))
 
-    return matches, exposure
+            # print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposures), duration))
+            print('INFO: particle %i found after %i exposures' % (pcle, len(exp)))
+
+            # add particle number
+            exp['particle'] = pcle
+
+            exposures = exposures.append(exp)
+
+    exposures.particle = exposures.particle.astype(int)
+
+    return exposures
 
 
 def read_lap_file(filename):

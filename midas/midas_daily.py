@@ -112,7 +112,7 @@ def run_daily():
         images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
 
         # Update the list of exposures
-        print('\n\nINFO: updating table of exposures')
+        print('\n\nINFO: updating table of exposures\n')
         for f in tm_files:
             tm.get_pkts(f, append=True)
             tm.pkts = tm.pkts[ ((tm.pkts.apid==1079) & ( (tm.pkts.sid==42553) | (tm.pkts.sid==42554) )) |
@@ -120,16 +120,18 @@ def run_daily():
         exposures = tm.get_exposures(html=os.path.join(log_dir,'exposures.html'))
 
         # (Re-)build the packet index
-        print('\n\nUpdating packet index')
+        print('\n\nUpdating packet index\n')
         build_pkt_index()
 
         # Use this to write a binary msgpack with all image data
+        print('\n\nINFO: updating binary image index\n')
         tm = ros_tm.tm()
         tm.query_index(what='science')
         tm.pkts = tm.pkts[ (tm.pkts.sid==129) | (tm.pkts.sid==130) ]
         tm.get_images().to_msgpack(os.path.join(tlm_dir, 'all_images_data.msg'))
 
         # Generate a list of html files corresponding to each ITL/EVF pair
+        print('\n\nGenerating commanding summaries\n')
         generate_timelines()
 
     tunnel.kill()

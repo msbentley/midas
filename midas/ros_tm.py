@@ -154,6 +154,41 @@ def midas_events():
     return pid[ (pid.type==5) & (pid.apid==1079) ]
 
 
+def plot_line_scans(lines, units='real'):
+    """Plot one or more line scans"""
+
+    if type(lines) == pd.Series:
+        lines = pd.DataFrame(columns=lines.to_dict().keys()).append(lines)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+
+    for idx, line in lines.iterrows():
+
+        if units=='real':
+
+            ax.set_xlabel(' %c distance (microns)' % line.fast_dir.upper())
+            ax.set_ylabel('Height (nm)')
+
+            height = (line['data'] - line['data'].min()) * common.cal_factors[0]
+            distance = (line.step_size*common.xycal['open']/1000.)*np.arange(line.num_steps)
+
+        elif units=='dac':
+
+            ax.set_xlabel(' %c distance (DAC)' % line.fast_dir.upper())
+            ax.set_ylabel('Height (DAC)')
+
+            height = line['data']
+
+            # TODO get open/closed loop status (not in packet header, get from HK)
+            distance = (line.step_size*common.xycal['open']/1000.)*np.arange(line.num_steps)
+
+        ax.grid(True)
+        ax.plot(distance, height)
+
+    return
+
+
 def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, xmax=False, ymin=False, ymax=False):
     """Plots one or more frequency scan (read previously with get_freq_scans()). Optionally
     plot a Lorentzian fit"""
@@ -1136,13 +1171,13 @@ class tm:
         if type(end)==str:
             end = pd.Timestamp(end)
 
-        if type(stp)!=list:
+        if stp is not None and type(stp)!=list:
             stp = [stp]
 
         table = 'pkts'
         store = pd.HDFStore(filename, 'r')
 
-        if (start==end==stp==None) and (what=='all'):
+        if start is None and end is None and stp is None and (what=='all'):
             self.pkts = store.get(table)
         else:
 
@@ -1155,7 +1190,7 @@ class tm:
 
             if what!='all':
                 col = store.select_column(table,'apid')
-                selected = selected.intersection(col[ col==what_types[what] ].index)
+                selected = selected.intersection( col[ col==what_types[what] ].index )
 
             if stp is not None:
                 col = store.select_column(table,'filename')
@@ -2377,13 +2412,15 @@ class tm:
     def get_line_scans(self, info_only=False):
         """Extracts line scans from TM packets"""
 
-        line_scan_fmt = ">H2Bh6H2B5H"
+        line_scan_fmt = ">H2Bh6H6H"
         line_scan_size = struct.calcsize(line_scan_fmt)
-        line_scan_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_posn \
-            wheel_posn tip_num x_orig y_orig step_size num_steps scan_mode scan_dir line_cnt sw_flags \
+        line_scan_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_pos \
+            wheel_pos tip_num x_orig y_orig step_size num_steps scan_mode_dir line_cnt sw_flags \
             spare1 spare2 spare3")
 
         line_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=132)
+
+        scan_type = ['DYN','CON','MAG']
 
         if len(line_scan_pkts)==0:
             print('WARNING: no line image packets found')
@@ -2397,7 +2434,7 @@ class tm:
             num_steps = line_type['info'].num_steps
             if not info_only:
                 line_type['data'] = np.array(struct.unpack(">%iH" % (num_steps),pkt['data'][line_scan_size:line_scan_size+num_steps*2]))
-                line_type['data'] = 32767 - line_type['data'] # invert to get height
+                # line_type['data'] = 32767 - line_type['data'] # invert to get height
             linescans.append(line_type)
 
         lines = pd.DataFrame([line['info'] for line in linescans],columns=line_scan_names._fields,index=line_scan_pkts.index)
@@ -2407,10 +2444,23 @@ class tm:
         # Bit     2-1: Anti-creep status (0=idle, 1=init, 2=active)
         # Bit       0: Image scan active flag
         lines['in_image'] = lines.sw_flags.apply( lambda flag: bool(flag & 1))
+        lines['anti_creep'] = lines.sw_flags.apply( lambda flag: bool(flag >> 1 & 0b11))
+
         lines['obt'] = line_scan_pkts.obt
+        lines['tip_num'] += 1
+        lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
+        lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str),sep='.')
+        lines['lin_pos'] = lines.lin_pos.apply( lambda pos: pos*20./65535.)
+
+        lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
+        lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
+        lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: scan_type[ mode & 0b11 ] )
+        lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-common.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
+
+        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
+
         if not info_only:
             lines['data'] = [line['data'] for line in linescans]
-        lines['tip_num'] += 1
 
         print('INFO: %i line scans extracted' % (len(linescans)))
 

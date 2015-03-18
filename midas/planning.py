@@ -247,9 +247,9 @@ def get_stp(ltp, stp, case='p', suffix=''):
 def which_stp(date, ltp=6, case='p'):
     """Uses the LTP (specify latest!) definition file, along with case, to resolve
     a given date to a given STP. Date can be given either as a datetime object
-    or as a string in any sensible date/tiem format."""
+    or as a string in any sensible date/time format."""
 
-    if type(date)!=datetime:
+    if type(date)!=datetime and type(date)!=pd.Timestamp:
         from dateutil import parser
         date = parser.parse(date)
 

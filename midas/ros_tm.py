@@ -1146,7 +1146,7 @@ class tm:
 
 
     def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'),
-        start=None, end=None, stp=None, what='all', sourcepath=None):
+        start=None, end=None, stp=None, what='all', sourcepath=os.path.expanduser('~/Copy/midas/data/tlm')):
         """Restores a TLM packet index from filename. The entire file is read if no other options are given, otherwise
         filters can be applied:
 
@@ -2715,7 +2715,7 @@ class tm:
                 # while pkt_idx <= image.num_pkts:
                 for pkt_num in range(1,image.num_pkts+1):
                     if pkt_num not in data.pkt_num.tolist():
-                        print('DEBUG: inserting one missing packet at packet number %i' % pkt_num)
+                        if debug: print('DEBUG: inserting one missing packet at packet number %i' % pkt_num)
                         image_array.extend([65535]*1024)
                     else:
                         image_array.extend(image_data[ data.index[pkt_idx-1] ]['data'])

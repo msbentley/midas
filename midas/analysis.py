@@ -30,6 +30,40 @@ def read_grain_cat(grain_cat_file=grain_cat_file):
 
 
 
+def find_overlap(images, scanfile, calc_overlap=False, same_tip=True):
+    """Accepts an image dataframe (from ros_tm.get_images()) and an image name and
+    returns a list of overlapping images.
+
+    If same_tip=True then matches are only returned for images taken with the same tip.
+    If calc_overlap=True a modified dataframe is returned with the overlap in square microns."""
+
+    src_image = images[ (images.scan_file==scanfile) & (images.channel=='ZS') ]
+
+    if len(src_image)==0:
+        print('ERROR: could not find (topography) image %s' % scanfile)
+        return None
+    elif len(src_image)>1:
+        print('ERROR: more than one match for image %s' % scanfile)
+        return None
+
+    src_image = src_image.squeeze()
+
+    matches = images[ images.scan_file!=src_image.scan_file ]
+    matches = matches[ matches.wheel_pos==src_image.wheel_pos ]
+
+    if same_tip:
+        matches = images[ images.tip_num==src_image.tip_num ]
+
+    h_overlaps = (matches.x_orig_um <= src_image.x_orig_um+src_image.xlen_um) & (matches.x_orig_um+matches.xlen_um >= src_image.x_orig_um)
+    v_overlaps = (matches.y_orig_um <= src_image.y_orig_um+src_image.ylen_um) & (matches.y_orig_um+matches.ylen_um >= src_image.y_orig_um)
+
+    matches = matches[ h_overlaps & v_overlaps ]
+
+    return matches
+
+
+
+
 def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=None):
     """Reads a list of scans containing grains from the catalogue and
     finds exposures between this and the previous scan"""

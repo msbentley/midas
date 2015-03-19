@@ -154,7 +154,7 @@ def midas_events():
     return pid[ (pid.type==5) & (pid.apid==1079) ]
 
 
-def plot_line_scans(lines, units='real'):
+def plot_line_scans(lines, units='real', label=None):
     """Plot one or more line scans"""
 
     if type(lines) == pd.Series:
@@ -164,6 +164,9 @@ def plot_line_scans(lines, units='real'):
     ax = fig.add_subplot(1,1,1)
 
     for idx, line in lines.iterrows():
+
+        if label in lines.columns:
+            lab = line['%s'%label]
 
         if units=='real':
 
@@ -184,7 +187,10 @@ def plot_line_scans(lines, units='real'):
             distance = (line.step_size*common.xycal['open']/1000.)*np.arange(line.num_steps)
 
         ax.grid(True)
-        ax.plot(distance, height)
+        ax.plot(distance, height, label=lab)
+
+    leg = ax.legend(loc=0, prop={'size':10}, fancybox=True, title=label)
+    leg.get_frame().set_alpha(0.7)
 
     return
 
@@ -207,10 +213,14 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
     ax = fig.add_subplot(1,1,1)
 
     ax.set_xlabel('Frequency (Hz)')
-    ax.set_ylabel('Amplitude (V)')
     ax.grid(True)
 
     for idx, scan in fscans.iterrows():
+
+        if scan.is_phase:
+            ax.set_ylabel('Phase (deg)')
+        else:
+            ax.set_ylabel('Amplitude (V)')
 
         ax.plot(scan['frequency'],scan['amplitude'], label='%s' % scan.start_time)
 
@@ -2909,7 +2919,6 @@ class tm:
                 continue
             else:
                 first_pkt = single_scan[single_scan.fscan_cycle==1].iloc[0]
-                # print(first_pkt)
 
             num_scans = first_pkt.num_scans
 
@@ -2966,7 +2975,10 @@ class tm:
                     scan['amplitude'].extend(struct.unpack(">256H",freq_scan_pkts.data.loc[idx]\
                     [freq_scan_size:freq_scan_size+512]))
 
-                scan['amplitude'] = np.array(scan['amplitude']) * (20./65535.)
+                if first_pkt.fscan_type==1:
+                    scan['amplitude'] = np.array(scan['amplitude']) * (180./65535.)-180.
+                else:
+                    scan['amplitude'] = np.array(scan['amplitude']) * (20./65535.)
 
                 scan['frequency'] = np.linspace(start=scan['info']['freq_start'], \
                     stop=scan['info']['freq_start']+scan['info']['num_scans']*256.*scan['info']['freq_step'], \

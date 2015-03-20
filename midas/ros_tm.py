@@ -224,7 +224,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
         ax.plot(scan['frequency'],scan['amplitude'], label='%s' % scan.start_time)
 
-        if showfit:
+        if showfit and ~scan.is_phase:
             if not 'offset' in scan.index:
                 print('WARNING: no fit data in current frequency scan')
             else:
@@ -236,15 +236,14 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
             (scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
             fontsize=12 )
 
-        if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())):
+        if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())) and not scan.is_phase:
             # Also drawn lines showing the working point and set point
             ax.axhline(scan.res_amp,color='b')
             ax.axhline(scan.work_pt,color='r')
             ax.axhline(scan.set_pt,color='g')
             ax.axhline(scan.fadj,color='g', ls='--')
 
-    # ax.set_xlim()
-    ax.set_ylim(0)
+    # ax.set_ylim(0)
     if legend:
         leg = ax.legend(loc=0, prop={'size':10}, fancybox=True)
         leg.get_frame().set_alpha(0.7)
@@ -2909,8 +2908,9 @@ class tm:
             hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
         freqscans = []
+        amp_scans = []
 
-        for start in start_times:
+        for idx, start in enumerate(start_times):
 
             single_scan = fscans[fscans.start_time==start]
             single_scan  = single_scan.sort('fscan_cycle',ascending=True)
@@ -2955,6 +2955,12 @@ class tm:
                 'gain': first_pkt.ac_gain,
                 'is_phase': True if first_pkt.fscan_type else False }
 
+            if scan['info']['is_phase']:
+                do_fit = False
+            else:
+                do_fit = fit
+                amp_scans.append(idx)
+
             if get_thresh:
 
                 scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]
@@ -2986,7 +2992,7 @@ class tm:
 
             freqscans.append(scan)
 
-            if fit and not info_only: # perform a Lorentzian fit to the frequency curve
+            if do_fit and not info_only: # perform a Lorentzian fit to the frequency curve
                 from scipy.optimize import curve_fit
 
                 # initial estimate
@@ -3006,8 +3012,9 @@ class tm:
                 fit_params['fit_max'] = popt[1]+popt[0]
                 fit_params['res_freq'] = popt[2]
                 fit_params['half_width'] = popt[3]
-
                 fit_params['q'] = fit_params['res_freq'] / (2. * fit_params['half_width'])
+
+                fit_keys = fit_params.keys()
 
                 scan['fit_params'] = fit_params
 
@@ -3020,7 +3027,7 @@ class tm:
         if fit:
             fits = pd.DataFrame(
                 [scan['fit_params'] for scan in freqscans if scan.has_key('fit_params')],
-                columns=freqscans[0]['fit_params'].keys() )
+                columns=fit_keys, index=amp_scans )
             scans = pd.concat([scans,fits],axis=1)
 
         # Add the actual data
@@ -3058,7 +3065,7 @@ class tm:
             approach['obt'] = self.pkts.obt.ix[frame]
             approach['position'] = self.get_param('NMDA0123', frame=frame)[1] # AppPosition
             approach['segment'] = self.get_param('NMDA0196', frame=frame)[1] # WheSegmentNum
-            approach['block'] = self.get_param('NMDA0128', frame=frame)[1] # CanBlockSelect
+            # approach['block'] = self.get_param('NMDA0128', frame=frame)[1] # CanBlockSelect
             approach['cantilever'] = self.get_param('NMDA0203', frame=frame)[1]+1  # ScnTipNumber
             approach['z_hv'] = self.get_param('NMDA0115', frame=frame)[1] # Z piezo HV mon
             approach['z_pos'] = self.get_param('NMDA0114', frame=frame)[1] # Z piezo position

@@ -154,7 +154,7 @@ def midas_events():
     return pid[ (pid.type==5) & (pid.apid==1079) ]
 
 
-def plot_line_scans(lines, units='real'):
+def plot_line_scans(lines, units='real', label=None):
     """Plot one or more line scans"""
 
     if type(lines) == pd.Series:
@@ -164,6 +164,9 @@ def plot_line_scans(lines, units='real'):
     ax = fig.add_subplot(1,1,1)
 
     for idx, line in lines.iterrows():
+
+        if label in lines.columns:
+            lab = line['%s'%label]
 
         if units=='real':
 
@@ -184,7 +187,10 @@ def plot_line_scans(lines, units='real'):
             distance = (line.step_size*common.xycal['open']/1000.)*np.arange(line.num_steps)
 
         ax.grid(True)
-        ax.plot(distance, height)
+        ax.plot(distance, height, label=lab)
+
+    leg = ax.legend(loc=0, prop={'size':10}, fancybox=True, title=label)
+    leg.get_frame().set_alpha(0.7)
 
     return
 
@@ -207,14 +213,18 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
     ax = fig.add_subplot(1,1,1)
 
     ax.set_xlabel('Frequency (Hz)')
-    ax.set_ylabel('Amplitude (V)')
     ax.grid(True)
 
     for idx, scan in fscans.iterrows():
 
+        if scan.is_phase:
+            ax.set_ylabel('Phase (deg)')
+        else:
+            ax.set_ylabel('Amplitude (V)')
+
         ax.plot(scan['frequency'],scan['amplitude'], label='%s' % scan.start_time)
 
-        if showfit:
+        if showfit and ~scan.is_phase:
             if not 'offset' in scan.index:
                 print('WARNING: no fit data in current frequency scan')
             else:
@@ -226,15 +236,14 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
             (scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
             fontsize=12 )
 
-        if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())):
+        if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())) and not scan.is_phase:
             # Also drawn lines showing the working point and set point
             ax.axhline(scan.res_amp,color='b')
             ax.axhline(scan.work_pt,color='r')
             ax.axhline(scan.set_pt,color='g')
             ax.axhline(scan.fadj,color='g', ls='--')
 
-    # ax.set_xlim()
-    ax.set_ylim(0)
+    # ax.set_ylim(0)
     if legend:
         leg = ax.legend(loc=0, prop={'size':10}, fancybox=True)
         leg.get_frame().set_alpha(0.7)
@@ -1146,7 +1155,7 @@ class tm:
 
 
     def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'),
-        start=None, end=None, stp=None, what='all', sourcepath=None):
+        start=None, end=None, stp=None, what='all', sourcepath=os.path.expanduser('~/Copy/midas/data/tlm')):
         """Restores a TLM packet index from filename. The entire file is read if no other options are given, otherwise
         filters can be applied:
 
@@ -1823,7 +1832,7 @@ class tm:
         # We can add a bit more info to some events, e.g. TC acceptance and failure
         # SID 42501 = TC accept, 42701 = TC reject
 
-        pkts = self.pkts[ (self.pkts.apid==1079) & (self.pkts.type==5) ]
+        pkts = self.pkts[ (self.pkts.apid==1079) & (self.pkts.type==5) ].copy()
 
         event_severity = ['PROGRESS','ANOMALY - NO ACTION','ANOMALY - GROUND ACTION','ANOMALY - ONBOARD ACTION']
 
@@ -2715,7 +2724,7 @@ class tm:
                 # while pkt_idx <= image.num_pkts:
                 for pkt_num in range(1,image.num_pkts+1):
                     if pkt_num not in data.pkt_num.tolist():
-                        print('DEBUG: inserting one missing packet at packet number %i' % pkt_num)
+                        if debug: print('DEBUG: inserting one missing packet at packet number %i' % pkt_num)
                         image_array.extend([65535]*1024)
                     else:
                         image_array.extend(image_data[ data.index[pkt_idx-1] ]['data'])
@@ -2899,8 +2908,9 @@ class tm:
             hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
         freqscans = []
+        amp_scans = []
 
-        for start in start_times:
+        for idx, start in enumerate(start_times):
 
             single_scan = fscans[fscans.start_time==start]
             single_scan  = single_scan.sort('fscan_cycle',ascending=True)
@@ -2909,7 +2919,6 @@ class tm:
                 continue
             else:
                 first_pkt = single_scan[single_scan.fscan_cycle==1].iloc[0]
-                # print(first_pkt)
 
             num_scans = first_pkt.num_scans
 
@@ -2946,6 +2955,12 @@ class tm:
                 'gain': first_pkt.ac_gain,
                 'is_phase': True if first_pkt.fscan_type else False }
 
+            if scan['info']['is_phase']:
+                do_fit = False
+            else:
+                do_fit = fit
+                amp_scans.append(idx)
+
             if get_thresh:
 
                 scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]
@@ -2966,7 +2981,10 @@ class tm:
                     scan['amplitude'].extend(struct.unpack(">256H",freq_scan_pkts.data.loc[idx]\
                     [freq_scan_size:freq_scan_size+512]))
 
-                scan['amplitude'] = np.array(scan['amplitude']) * (20./65535.)
+                if first_pkt.fscan_type==1:
+                    scan['amplitude'] = np.array(scan['amplitude']) * (180./65535.)-180.
+                else:
+                    scan['amplitude'] = np.array(scan['amplitude']) * (20./65535.)
 
                 scan['frequency'] = np.linspace(start=scan['info']['freq_start'], \
                     stop=scan['info']['freq_start']+scan['info']['num_scans']*256.*scan['info']['freq_step'], \
@@ -2974,7 +2992,7 @@ class tm:
 
             freqscans.append(scan)
 
-            if fit and not info_only: # perform a Lorentzian fit to the frequency curve
+            if do_fit and not info_only: # perform a Lorentzian fit to the frequency curve
                 from scipy.optimize import curve_fit
 
                 # initial estimate
@@ -2994,8 +3012,9 @@ class tm:
                 fit_params['fit_max'] = popt[1]+popt[0]
                 fit_params['res_freq'] = popt[2]
                 fit_params['half_width'] = popt[3]
-
                 fit_params['q'] = fit_params['res_freq'] / (2. * fit_params['half_width'])
+
+                fit_keys = fit_params.keys()
 
                 scan['fit_params'] = fit_params
 
@@ -3008,7 +3027,7 @@ class tm:
         if fit:
             fits = pd.DataFrame(
                 [scan['fit_params'] for scan in freqscans if scan.has_key('fit_params')],
-                columns=freqscans[0]['fit_params'].keys() )
+                columns=fit_keys, index=amp_scans )
             scans = pd.concat([scans,fits],axis=1)
 
         # Add the actual data
@@ -3046,7 +3065,7 @@ class tm:
             approach['obt'] = self.pkts.obt.ix[frame]
             approach['position'] = self.get_param('NMDA0123', frame=frame)[1] # AppPosition
             approach['segment'] = self.get_param('NMDA0196', frame=frame)[1] # WheSegmentNum
-            approach['block'] = self.get_param('NMDA0128', frame=frame)[1] # CanBlockSelect
+            # approach['block'] = self.get_param('NMDA0128', frame=frame)[1] # CanBlockSelect
             approach['cantilever'] = self.get_param('NMDA0203', frame=frame)[1]+1  # ScnTipNumber
             approach['z_hv'] = self.get_param('NMDA0115', frame=frame)[1] # Z piezo HV mon
             approach['z_pos'] = self.get_param('NMDA0114', frame=frame)[1] # Z piezo position

@@ -39,11 +39,10 @@ expose_templates = {
     'OPEN_SHUTTER': 'ITLS_MD_OPEN_SHUTTER.itl',
     'CLOSE_SHUTTER': 'ITLS_MD_CLOSE_SHUTTER.itl' }
 scan_templates = {
-    # 'LINESCAN': 'ITLS_MD_TARGET_SCAN_LINE.itl', # used? TODO
     'SCAN': 'ITLS_MD_SCAN.itl',
     'SCAN_AT_SURFACE': 'ITLS_MD_SCAN_AT_SURFACE.itl',
-    'CTRLDATA': 'ITLS_MD_CTRL_DATA_LINE.itl',
-    'CTRL_SURF': 'ITLS_MD_CTRL_DATA_AT_SURFACE.itl',
+    'LINE_SCAN': 'ITLS_MD_LINE_SCAN.itl',
+    'LINE_SURF': 'ITLS_MD_LINE_SCAN_AT_SURFACE.itl',
     'AUTOZOOM': 'ITLS_MD_AUTO_ZOOM.itl',
     'SCAN_NOSETUP': 'ITLS_MD_SCAN_NOSETUP.itl'}
 pstp_templates = {
@@ -1816,9 +1815,9 @@ class itl:
         return
 
 
-    def scan(self, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
+    def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=False):
+        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -2249,17 +2248,36 @@ class itl:
         return
 
 
-    def feature(self, trend=True, count_pix=True, check_height=True, check_shape=False,
-            height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=50.0):
+    def feature(self, trend=True, median=True, count_pix=True, pix_gt=True, pix_lt=False, check_height=True,
+            set_zoom=False, zoom_max=False, check_shape=False,
+            height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=-0.0031):
 
         proc = {}
         proc['template'] = 'FEATURE'
 
+        # Bit 0 : FVECT_TREND_COR perform trend correction
+        # Bit 1: FVECT_MLINE_COR perform median line subtraction
+        #
+        # Bit 4 : FVECT_NPIX_CRIT apply number of pixels criterion
+        # Bit 5 : FVECT_MIN_PIXEL number of pixels must be >= given value
+        # Bit 6 : FVECT_MAX_PIXEL number of pixels must be <= given value
+        #
+        # Bit 8 : FVECT_AVGZ_CRIT apply average height over Z criterion
+        # Bit 9 : FVECT_ZOOM_NEW use new (commanded) dimensions for zooming
+        # Bit 10 : FVECT_ZOOM_MAX maximize zoom area (different zoom factors in X and Y)
+        #
+        # Bits 12-13 : FVECT_XYS_CRIT apply X/Y shape criterion (0 = disabled)
+
         # SetFvectModePar (hex) -  <fvec_mode>
         mode = 0
-        if trend: mode += 0x0001
-        if count_pix: mode += 0x0010
-        if check_height: mode += 0x0100
+        if trend: mode += 2**0
+        if median: mode += 2**1
+        if count_pix: mode += 2**4
+        if pix_gt: mode += 2**5
+        if pix_lt: mode += 2**6
+        if check_height: mode += 2**8
+        if set_zoom: mode += 2**9
+        if zoom_max: mode += 2**10
 
         if type(check_shape)!=bool:
             # X/Y extent is checked and 3 ratios (R) allowed:
@@ -2283,9 +2301,9 @@ class itl:
             pix_area = 50.0
 
         # SetFvectZfactorPar (%) - <zoom_factor>
-        if 0.0 >= zoom >= 200.0:
-            print('WARNING: zoom factor must be between 0 and 200%')
-            zoom = 50.0
+        # if 0.0 >= zoom >= 200.0:
+        #     print('WARNING: zoom factor must be between 0 and 200%')
+        #     zoom = 50.0
 
         proc['params'] = {
             # Feature vector parameters
@@ -2302,10 +2320,10 @@ class itl:
 
         return
 
-
-    def auto_zoom(self, channels=['ZS','PH'], xlh=True, ylh=True, mainscan_x=True,\
-            trend=True, count_pix=True, check_height=True, check_shape=False,\
-            height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=50.0):
+    def auto_zoom(self, channels=['ZS','PH'], xlh=True, ylh=True, mainscan_x=True,
+            trend=True, median=True, count_pix=True, pix_gt=True, pix_lt=False, check_height=True,
+            set_zoom=False, zoom_max=False, check_shape=False,
+            height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=-0.0031):
 
         self.feature(trend=True, count_pix=count_pix, check_height=check_height, check_shape=check_shape,
             height_thresh=height_thresh, x_marg=x_marg, y_marg=y_marg, num_points=num_points, avg_height=avg_height, pix_area=pix_area, zoom=zoom)
@@ -2315,18 +2333,18 @@ class itl:
 
         return
 
-    def ctrl_data(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
+    def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=False,
-        at_surface=False):
+        at_surface=False, ctrl_data=False, tip_offset=False):
 
         import scanning
         proc = {}
 
         if at_surface:
-            proc['template'] = 'CTRL_SURF'
+            proc['template'] = 'LINE_SURF'
         else:
-            proc['template'] = 'CTRLDATA'
+            proc['template'] = 'LINE_SCAN'
 
         # validate inputs
         if (cantilever<1) or (cantilever>16):
@@ -2371,22 +2389,24 @@ class itl:
         else:
             xpixels = 1
 
-        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep, ctrl=True)
+        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep, ctrl=ctrl_data)
 
         # Control data packets: 1048 words (2096 bytes), one packet per line point, max 32
         # Line scan as well: 1072 bytes (single line)
 
         # Round up to the next minute
         duration_s = int(60 * round(duration_s/60))
-        # if duration_s < 60.: duration_s = 60.
 
-        data_bytes = (32 * 2096) + 1072
+        data_bytes = 1072 # line scan
+        if ctrl_data: data_bytes += (32 * 2096)
         data_rate = data_bytes*8/duration_s
+
+        linear_posn = tip_centre(cantilever) if not tip_offset else tip_position(cantilever,tip_offset)
 
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = { \
 
-            'linear_posn': tip_centre(cantilever),
+            'linear_posn': linear_posn,
             'segment': facet*16,
 
             # Cantilever dependent fscan parameters
@@ -2418,6 +2438,7 @@ class itl:
             'freq_adj': fadj,
             'fadj_numscans': fadj_numscans,
             'channel': dtype,
+            'ctrl_data': 'ON*' if ctrl_data else 'OFF*',
 
             'scan_data_rate': "%3.2f" % (data_rate) }
 

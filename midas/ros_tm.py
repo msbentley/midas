@@ -1832,7 +1832,7 @@ class tm:
         # We can add a bit more info to some events, e.g. TC acceptance and failure
         # SID 42501 = TC accept, 42701 = TC reject
 
-        pkts = self.pkts[ (self.pkts.apid==1079) & (self.pkts.type==5) ]
+        pkts = self.pkts[ (self.pkts.apid==1079) & (self.pkts.type==5) ].copy()
 
         event_severity = ['PROGRESS','ANOMALY - NO ACTION','ANOMALY - GROUND ACTION','ANOMALY - ONBOARD ACTION']
 

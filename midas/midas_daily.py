@@ -123,16 +123,17 @@ def run_daily():
         print('\n\nUpdating packet index\n')
         build_pkt_index()
 
+        # Generate a list of html files corresponding to each ITL/EVF pair
+        print('\n\nGenerating commanding summaries\n')
+        generate_timelines()
+
         # Use this to write a binary msgpack with all image data
         print('\n\nINFO: updating binary image index\n')
         tm = ros_tm.tm()
         tm.query_index(what='science')
         tm.pkts = tm.pkts[ (tm.pkts.sid==129) | (tm.pkts.sid==130) ]
-        tm.get_images().to_msgpack(os.path.join(tlm_dir, 'all_images_data.msg'))
+        tm.get_images().to_hdf(os.path.join(tlm_dir, 'all_images_data.h5'), 'images', format='f')
 
-        # Generate a list of html files corresponding to each ITL/EVF pair
-        print('\n\nGenerating commanding summaries\n')
-        generate_timelines()
 
     tunnel.kill()
 

@@ -167,6 +167,8 @@ def plot_line_scans(lines, units='real', label=None):
 
         if label in lines.columns:
             lab = line['%s'%label]
+        else:
+            lab = ''
 
         if units=='real':
 
@@ -189,8 +191,9 @@ def plot_line_scans(lines, units='real', label=None):
         ax.grid(True)
         ax.plot(distance, height, label=lab)
 
-    leg = ax.legend(loc=0, prop={'size':10}, fancybox=True, title=label)
-    leg.get_frame().set_alpha(0.7)
+    if label is not None:
+        leg = ax.legend(loc=0, prop={'size':10}, fancybox=True, title=label)
+        leg.get_frame().set_alpha(0.7)
 
     return
 

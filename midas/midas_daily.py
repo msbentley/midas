@@ -134,7 +134,6 @@ def run_daily():
         tm.pkts = tm.pkts[ (tm.pkts.sid==129) | (tm.pkts.sid==130) ]
         tm.get_images().to_hdf(os.path.join(tlm_dir, 'all_images_data.h5'), 'images', format='f')
 
-
     tunnel.kill()
 
     print('MIDAS daily end: %s' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S')))

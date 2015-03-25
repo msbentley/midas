@@ -3514,11 +3514,12 @@ def load_images(filename=None, data=False, sourcepath=None):
 
     if filename is None:
         if data:
-            filename = os.path.join(common.tlm_path, 'all_images_data.msg')
+            filename = os.path.join(common.tlm_path, 'all_images_data.h5')
+            images = pd.read_hdf(filename, 'images')
         else:
             filename = os.path.join(common.tlm_path, 'all_images.msg')
+            images = pd.read_msgpack(filename)
 
-    images = pd.read_msgpack(filename)
 
     if sourcepath is not None:
         tm.pkts.filename = tm.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )

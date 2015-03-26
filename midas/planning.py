@@ -2567,14 +2567,14 @@ def get_dumps(start, end):
     dump_start = fecs[ (fecs.event=='DUMP_START') | (fecs.event=='DUMP_70_START') ]
     dump_end = fecs[ (fecs.event=='DUMP_END') | (fecs.event=='DUMP_70_END') ]
 
-    dump_start.rename(columns={'time': 'dump_start'}, inplace=True)
-    dump_end.rename(columns={'time': 'dump_end'}, inplace=True)
+    dump_start = dump_start.rename(columns={'time': 'dump_start'})
+    dump_end = dump_end.rename(columns={'time': 'dump_end'})
 
-    dump_end.drop('event', axis=1, inplace=True)
+    dump_end = dump_end.drop('event', axis=1)
     dumps = pd.merge( dump_start, dump_end, on=['cnt']).reset_index()
-    dumps.drop(['cnt'], axis=1, inplace=True)
+    dumps = dumps.drop(['cnt'], axis=1)
     dumps['is_70m'] = dumps.event.apply( lambda ev: True if ev=='DUMP_70_START' else False )
-    dumps.drop(['event'], axis=1, inplace=True)
+    dumps = dumps.drop(['event'], axis=1)
 
     return dumps
 

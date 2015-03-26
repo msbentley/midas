@@ -2156,7 +2156,7 @@ class tm:
 
             param = pcf[pcf.param_name==param_name].squeeze()
 
-            if param.unit==units[0] or (pd.isnuotll(param.unit) & (pd.isnull(units[0]))): # plot on left axis
+            if param.unit==units[0] or (pd.isnull(param.unit) & (pd.isnull(units[0]))): # plot on left axis
                 lines.append(ax_left.plot( data.index, data, label=param.description, linestyle='-' )[0])
                 ax_left.set_ylabel( "%s" % (param.unit))
             else:
@@ -2225,7 +2225,7 @@ class tm:
 
             for idx, event in events.iterrows():
                 ax_left.axvline(event.obt,color='r')
-                ax_left.text(event.obt,max(data)*0.9,event.event,rotation=90)
+                ax_left.text(event.obt,max(data)*0.9,event.event,rotation=90, clip_on=True)
 
         plt.draw()
 

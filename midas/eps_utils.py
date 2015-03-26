@@ -107,7 +107,7 @@ def parse_itl(filename, header=True):
     return itl
 
 
-def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.'):
+def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.', showout=False):
     """Spawn an external process to run and EPS and validate a given EPS and ITL file"""
 
     import subprocess
@@ -139,7 +139,12 @@ def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, c
         print "ERROR: EPS run failed! Output: \n\n", e.output
         return False
 
-    print('INFO: EPS run successful. Output: \n\n %s' % epscmd)
+    outstring = 'INFO: EPS run successful.'
+
+    if showout:
+        outstring += ' Output: \n\n %s' % epscmd
+
+    print(outstring)
 
     return True
 

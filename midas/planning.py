@@ -1725,7 +1725,8 @@ class itl:
 
     def instrument_setup(self, fscan_phase=False, last_z_lf=False, zero_lf=False, calc_retract=False,
         line_tx=True, ctrl_full=False, ctrl_retract=False, anti_creep=True, auto_exp=False,
-        auto_thresh=32768, auto_trig=10, auto_seg=0, acreep=4, x_zoom=256, y_zoom=256, retr_m2=0, retr_m3=0):
+        auto_thresh=32768, auto_trig=10, auto_seg=0, acreep=4, x_zoom=256, y_zoom=256, retr_m2=0, retr_m3=0,
+        hk1=0, hk2=0, hk3=0, hk4=0):
         """Calls SQ AMDF034B, which performs a variety of instrument setup tasks, including:
 
         - Set software flags
@@ -1745,6 +1746,11 @@ class itl:
         #        VMDD5112 = <ysteps_zoom> \      # SetYStepsZoomPar
         #        VMDDF122 = <mag_retr_2> \       # SetZRetractMag2Par
         #        VMDDF132 = <mag_retr_3> \       # SetZRetractMag3Par
+        #        VMDDE112 = <hk1> \              # SetHkParam1Par
+        #        VMDDE122 = <hk2> \              # SetHkParam2Par
+        #        VMDDE132 = <hk3> \              # SetHkParam3Par
+        #        VMDDE142 = <hk4> \              # SetHkParam4Par
+
 
         # Where sw_flags can be:
         #
@@ -1808,7 +1814,11 @@ class itl:
             'xsteps_zoom': x_zoom,
             'ysteps_zoom': y_zoom,
             'mag_retr_2': retr_m2,
-            'mag_retr_3': retr_m3 }
+            'mag_retr_3': retr_m3,
+            'hk1': hk1,
+            'hk2': hk2,
+            'hk3': hk3,
+            'hk4': hk4 }
 
         self.generate(proc)
 

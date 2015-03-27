@@ -300,8 +300,11 @@ def generate_timelines(case='P'):
     for itl, evf in zip(itl_files, evf_files):
 
         htmlfile = os.path.join(commanding_dir,os.path.basename(itl).split('.')[-2]+'.html')
-        planning.resolve_time(itl_file=itl, evf_file=evf, html=htmlfile)
 
+        try:
+            planning.resolve_time(itl_file=itl, evf_file=evf, html=htmlfile)
+        except:
+            continue
     return
 
 

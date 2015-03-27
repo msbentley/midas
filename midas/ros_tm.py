@@ -1874,15 +1874,16 @@ class tm:
 
         pkts['severity'] = [event_severity[pkt.subtype-1] for idx,pkt in pkts.iterrows()]
 
+        timeformatter = lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M:%S')
 
         if info:
-            events = pkts[['obt', 'doy', 'sid', 'event','information', 'severity']]
+            events = pkts[['obt', 'dds_time', 'doy', 'sid', 'event','information', 'severity']]
         else:
-            events = pkts[['obt', 'doy', 'sid', 'event', 'severity']]
+            events = pkts[['obt', 'dds_time', 'doy', 'sid', 'event', 'severity']]
 
         if html:
             event_html = events.to_html(classes='alt_table', na_rep='',index=False, \
-                formatters={ 'obt': lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M:%S') } )
+                formatters={ 'obt': timeformatter, 'dds_time': timeformatter } )
             css_write(event_html, html)
 
 
@@ -1911,8 +1912,8 @@ class tm:
 
 
     def dds_time(self, pkts):
-        """Unpacks the DDS header and returns the UTC time (including time correlation)
-        and adds this to the pkts dataframe"""
+        """Unpacks the DDS header and returns the UTC time (including time correlation, but
+        does not account for leap seconds!) and adds this to the pkts dataframe"""
 
         import struct
         from datetime import timedelta
@@ -1932,10 +1933,11 @@ class tm:
             for idx,offset in offsets.iteritems():
                 dds_header = dds_header_names(*struct.unpack_from(dds_header_fmt,tm,offset-dds_header_len))
                 # 19/06/14 - datetime does NOT take leap seconds etc. into account
-                delta_t = timedelta(seconds=dds_header.scet1, milliseconds=dds_header.scet2)
+                delta_t = timedelta(seconds=dds_header.scet1, microseconds=dds_header.scet2)
                 dds_time.append(dds_obt_epoch + delta_t)
 
-                # if debug: print('DEBUG: DDS time: %s' % (dds_obt_epoch + delta_t))
+                if dds_header.time_qual!=0:
+                    print('WARNING: bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
 
             pkts.dds_time.loc[offsets.index] = dds_time
 
@@ -2498,6 +2500,8 @@ class tm:
             print('WARNING: no control data packets found')
             return False
 
+        hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+
         # M.S.Bentley 23/09/2014 - using df to collect ctrl data meta info
 
         ctrl_data = []
@@ -2523,9 +2527,6 @@ class tm:
 
         ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode', 'sw_flags', 'spare'], inplace=True, axis=1)
 
-        if info_only:
-            return ctrl_data
-
         control = []
 
         # Now extract actual data
@@ -2536,6 +2537,14 @@ class tm:
 
             # 07/01/15 - M.S.Bentley - in fact all control data are signed integers!
             data = struct.unpack(">%ih" % (num_steps),pkt['data'][ctrl_data_size:ctrl_data_size+num_steps*2])
+
+            # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
+
+            frame = hk2[hk2.obt>pkt.obt].index[0]
+            point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
+            point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
+            point_data['exc_lvl'] = self.get_param('NMDA0147', frame=frame)[1]
+            point_data['ac_gain'] = self.get_param('NMDA0118', frame=frame)[1]
 
             point_data['ac']    = np.array(data[0::4])
             point_data['dc']    = np.array(data[1::4])
@@ -2556,10 +2565,20 @@ class tm:
 
             control.append(point_data)
 
+        if info_only:
+            return ctrl_data
+
         ctrl_data['ac'] = [data['ac'] for data in control]
         ctrl_data['dc'] = [data['dc'] for data in control]
         ctrl_data['phase'] = [data['phase'] for data in control]
         ctrl_data['zpos'] = [data['zpos'] for data in control]
+
+        ctrl_data['op_pt'] = [data['op_pt'] for data in control]
+        ctrl_data['set_pt'] = [data['set_pt'] for data in control]
+        ctrl_data['exc_lvl'] = [data['exc_lvl'] for data in control]
+        ctrl_data['ac_gain'] = [data['ac_gain'] for data in control]
+
+
 
         print('INFO: %i control data scans extracted' % (len(ctrl_data)))
 

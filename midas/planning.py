@@ -254,7 +254,7 @@ def which_stp(date, ltp=6, case='p'):
 
     cycles = get_cycles(ltp=ltp, case=case)
 
-    return cycles[ cycles.VSTP1>date ].STP.iloc[0]
+    return cycles[ cycles.VSTP1>date ].STP.iloc[0]-1
 
 
 
@@ -1827,7 +1827,7 @@ class itl:
 
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True):
+        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1881,7 +1881,8 @@ class itl:
         duration_xpix = xpixels + xpixels // 8 if not mainscan_x else xpixels
         duration_ypix = ypixels + ypixels // 8 if mainscan_x else ypixels
 
-        duration_s = scanning.calc_duration(xpoints=duration_xpix, ypoints=duration_ypix, ntypes=ntypes, zretract=zretract, zstep=zstep)
+        duration_s = scanning.calc_duration(xpoints=duration_xpix, ypoints=duration_ypix, ntypes=ntypes, zretract=zretract,
+            zsettle=z_settle, xysettle=xy_settle, zstep=zstep)
         duration_m = (duration_s // 60) + 1
 
         # Calculate data rate to insert into the Z record
@@ -1919,7 +1920,9 @@ class itl:
             'xstep': xstep,
             'ystep': ystep,
             'z_ret': zretract,
-            'fadj_numscans': fadj_numscans }
+            'fadj_numscans': fadj_numscans,
+            'z_settle': z_settle,
+            'xy_settle': xy_settle }
 
         freq_params = { \
 
@@ -1996,12 +1999,13 @@ class itl:
         return
 
     def xy_cal(self, cantilever, channels=['ZS'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
-        xlh=True, ylh=True, mainscan_x=True, at_surface=False):
+        xlh=True, ylh=True, mainscan_x=True, at_surface=False, ac_gain=False, exc_lvl=False, set_pt=False, set_start=True):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         self.scan(cantilever=cantilever, facet=2, channels=channels, openloop=openloop, \
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, \
-            xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, at_surface=at_surface)
+            xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, at_surface=at_surface,
+            ac_gain=ac_gain, exc_lvl=exc_lvl, set_start=set_start)
 
         return
 
@@ -2018,14 +2022,14 @@ class itl:
 
     def tip_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
-        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True):
+        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         self.scan(cantilever=cantilever, facet=3, channels=['ZS'], openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
             op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
-            set_start=set_start)
+            set_start=set_start, fadj_numscans=fadj_numscans)
 
         return
 
@@ -2346,7 +2350,7 @@ class itl:
     def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=False,
-        at_surface=False, ctrl_data=False, tip_offset=False):
+        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0):
 
         import scanning
         proc = {}
@@ -2449,6 +2453,7 @@ class itl:
             'fadj_numscans': fadj_numscans,
             'channel': dtype,
             'ctrl_data': 'ON*' if ctrl_data else 'OFF*',
+            'app_max': app_max,
 
             'scan_data_rate': "%3.2f" % (data_rate) }
 
@@ -2475,8 +2480,8 @@ def cantilever_select(cant_num):
     # resonance frequency, used to calculate alternative windows
     # values taken from the re-commissioning MD01 block
     # Update in ongoing STPs!
-    res_freq = [ 83745., 84331., 84251.5, 89871., 81799., 83258., 88550., 94792.92, \
-            108660., 85519., 86579., 95704., 84700., 84125., 83642., 89368. ]
+    res_freq = [ 83745., 84331., 84251.5, 89871., 81799., 83258., 88550., 94792.92,
+                108660., 85519., 86579.0, 95184., 84700., 84125., 83642., 89368. ]
 
     # start values for a standard frequency sweep with 1 Hz step and 8 scans
     # freq_hi = [82745, 84160, 84080, 89550, 81650, 82210, 86950, 93100, \
@@ -2490,7 +2495,7 @@ def cantilever_select(cant_num):
 
     # frequency step for the fine tuning - determine from FWHM TODO!!
     fstep_fine = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5, 0.1, \
-                  0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+                  0.2, 0.05, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
     params = {
         'cant_num'  : (cant_num-1) % 8,

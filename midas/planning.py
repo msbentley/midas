@@ -2634,7 +2634,7 @@ def next_pass(time=False):
 
 
 
-def filename_counter(filename, to_stp=True):
+def filename_counter(filename, to_stp=True, increment_by=0):
     """Accepts an EVF or ITL filename and increments the PI counter. If
     to_stp=True the ITLS PI MTP index is changed to the PI STP index."""
 
@@ -2648,7 +2648,7 @@ def filename_counter(filename, to_stp=True):
 
     filename = list(filename)
     counter = int(filename[30])
-    filename[30] = '%s' % (counter+1)
+    filename[30] = '%s' % (counter+1+increment_by)
 
     if to_stp: filename[29] = 'S'
 

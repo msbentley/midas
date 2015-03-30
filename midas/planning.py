@@ -392,15 +392,6 @@ def pstp_itl(itl_file, evf_file):
     return pstp_itl
 
 
-def validate_pstp(pstp_itl):
-    """Simply validates a PSTP ITL sequence. If it validates, it can be converted
-    to a PDOR with generate_pdor()"""
-
-    allowed_sqs = ['AMDC101A', 'AMDC101B', 'AMDC101C', 'AMDC101D']
-
-
-
-
 def generate_pdor(itl_file, evf_file, pdor_file, comments=True):
     """Generate a PDOR given a corresponding ITLS (and if needed EVF) file. If
     relative=True then relative timing is used, otherwise absolute timing is used."""
@@ -985,31 +976,6 @@ def read_scanlist(filename):
     return scan_list
 
 
-def update_scanlist(filename, facet_list, tip_list):
-    """Loads the list of scans and checks if calibration scans or pre-scans
-    are necessary, and adds them if so (with an appropriate priority)"""
-
-    # Runs before scan scheduling once per STP period
-
-    scan_list = read_scanlist(filename)
-
-    # BASIC SCAN RULES:
-    #
-    # 1. Schedule a pre-scan if <3 pre-scanned facets available
-    # -----
-    # 2. Schedule survey scan of any recently exposed facet
-    # 3. Schedule a PSTP zoom scan if available
-    # 4. Schedule the highest priority scan fitting in the slot
-    # 5. Schedule a calibration slot every n weeks/scan
-
-
-    #TODO update!
-
-
-
-    return scan_list
-
-
 def read_facetlist(filename):
     """Reads a CSV file containing the status of the facets"""
 
@@ -1068,38 +1034,7 @@ def update_facetlist(filename, facet_num, new_status):
 
     return(filename, facet_num, old_status, new_status)
 
-
-def read_tiplist(filename):
-    """Read a CSV file containing the status of each cantilever/tip. This states if a tip
-    has been used, the number of scans scheduled with this tip, date of last calibration etc."""
-
-
-    tip_list = pd.read_table(filename,sep=',')
-    tip_list = tip_list.set_index('tip_num')
-
-    if len(tip_list) != 16:
-        logging.error('tip status file must contain exactly 16 entries!')
-        return None
-
-    # if not facet_list['status'].isin(facet_status).all():
-#        logging.error('facet file contains invalid STATUS entries!')
-        #return None
-
-    logging.info('? tips read etc.')
-
-    return tip_list
-
-
-def update_tiplist(filename, tip_num, update):
-    """Updates the status of a tip in the tip control file. update is a dictionary containing
-    one or more parameters to update."""
-
-    tip_list = read_tiplist(filename)
-
-
-    return None
-
-
+#------------------ ptrm class for re4ading and maipulating PTRM data -----------------
 
 class ptrm:
     """The PTRM class reads and manipulates pointing timeline (PTRM) files.

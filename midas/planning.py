@@ -2034,13 +2034,14 @@ class itl:
         freq_range = fstep_coarse * 256 * num_scans
         start_freq = res_freq - freq_range/2.
 
-        freq_cal =  3.e6/2.**32
-        freq_cnt = int(round(start_freq / freq_cal))
+        freq_hi_dig = int(start_freq / common.freq_hi_cal)
+        freq_hi = freq_hi_dig * common.freq_hi_cal
 
-        freq_hi = (freq_cnt >> 16) * 2**16
-        freq_hi = round(freq_hi * freq_cal,3)
-        freq_lo = freq_cnt & 0xffff
-        freq_lo = round(freq_lo * freq_cal,3)
+        freq_lo_dig = int((start_freq - freq_hi)/common.freq_lo_cal)
+        freq_lo = freq_lo_dig * common.freq_lo_cal
+
+        freq_hi = round(freq_hi,3)
+        freq_lo = round(freq_lo,3)
 
         proc['params'] = { \
 
@@ -2054,7 +2055,8 @@ class itl:
             'freq_lo': freq_lo,
             'fstep_coarse': fstep_coarse,
             'fstep_fine': fstep_fine,
-            'num_scans': num_scans }
+            'num_scans': num_scans,
+            'freq_hi_dig': freq_hi_dig }
 
         self.generate(proc, timedelta(minutes=10))
         return

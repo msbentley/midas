@@ -107,7 +107,7 @@ def parse_itl(filename, header=True):
     return itl
 
 
-def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.', showout=False):
+def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.', fs=False, showout=False):
     """Spawn an external process to run and EPS and validate a given EPS and ITL file"""
 
     import subprocess
@@ -115,18 +115,24 @@ def run_eps(itl_file, evf_file, ng=False, ros_sgs=False, por=False, mtp=False, c
     if ros_sgs:
         os.environ["EPS_DATA"] = os.path.join(common.ros_sgs_path, 'CONFIG')
         os.environ["EPS_CFG_DATA"] = os.path.join(common.ros_sgs_path, 'CONFIG')
-
-    if ng:
-
         obspath = os.path.join(common.ros_sgs_path, 'PLANNING/OBS_LIB')
 
         # Config files now have format: ROS_SGS\CONFIG\ros_eps_MTP011P.cfg
         ng_exec = os.path.join(os.path.expanduser('~/Dropbox/bin'), 'epsng')
         # command_string = [ng_exec, 'exec', '-disable-plugins', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir]
-        command_string = [ng_exec, 'exec', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir, '-tt', 'abs',
+        command_string = ['epsng', 'exec', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir, '-tt', 'abs',
             '-obs', obspath, 'DEF_ROS_TOP___________V001.def' ]
     else:
-        command_string = ['eps', 'exec', '-i', itl_file, '-e', 'midas_stand_alone.edf', '-ei', evf_file]
+        os.environ["EPS_DATA"] = os.path.expanduser('~/Dropbox/EPS/DATA')
+        os.environ["EPS_CFG_DATA"] = os.path.expanduser('~/Dropbox/EPS/DATA')
+
+        if fs:
+            config_file = 'eps_fs.cfg'
+            os.chdir(os.path.expanduser('~'))
+        else:
+            config_file = 'eps.cfg'
+
+        command_string = ['epsng', 'exec', '-i', itl_file, '-e', 'midas_stand_alone.edf', '-ei', evf_file, '-c', config_file, '-ed', outputdir]
 
     if por:
         command_string.extend( ['-f', 'por', '-o', por])

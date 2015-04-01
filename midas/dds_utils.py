@@ -28,6 +28,8 @@ template_path = os.path.expanduser('~/MIDAS/software') if socket.gethostname() i
 template_file = 'midas_dds_request.xml'
 template_file = os.path.join(template_path,template_file)
 
+tcp_template = os.path.join(template_path,'tcp_dds_request.xml')
+
 schema_path = os.path.expanduser('~/MIDAS/software') if socket.gethostname() in servers else os.path.expanduser('~/Dropbox/work/midas/software')
 schema_file = 'GDDSRequest.xsd'
 schema_file = os.path.join(schema_path,schema_file)
@@ -75,7 +77,8 @@ def validate_xml(xml, schema_file, isfile=False):
         print('ERROR: file or parse error')
         return False
 
-def generate_request(start_time, end_time, apid, template_file, target=False):
+
+def generate_request(start_time, end_time, apid, template_file=template_file, target=False):
     """Generates and returns a DDS XML request based on a template,
     start and end time and an APID."""
 
@@ -197,7 +200,7 @@ def submit_request(template, request, socks):
     return (put_result, rename_result)
 
 
-def request_data(start_time, end_time, apid=False, target=False, socks=False):
+def request_data(start_time, end_time, apid=False, target=False, socks=False, template_file=template_file):
     """General XML, validate and submit to the DDS in a given time frame. All standard
     date/time strings are accapted for the start/end times. If the optional apid= keyword is set,
     only this APID will be requested, otherwise all MIDAS APIDs are used.
@@ -384,6 +387,23 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
 
     return retrieved
 
+
+def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
+
+    from dateutil import parser
+    from datetime import datetime
+
+    start_time = parser.parse('2 March 2004  07:17').isoformat() # Rosetta launch date
+    end_time = datetime.utcnow().isoformat()
+
+    filenames, aplist = request_data(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
+
+    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
+
+    filelist = get_files('TLM__MD_TIMECORR.DAT', outputpath=outputpath, apid=aplist, outputfile=False, max_retry=max_retry, retry_delay=retry_delay)
+
+    return filelist, apid
 
 
 def add_observations(evf_file):

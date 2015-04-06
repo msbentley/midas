@@ -26,6 +26,7 @@ import matplotlib.pyplot as plt
 isofmt = '%Y-%m-%dT%H%M%SZ'
 
 obt_epoch = datetime(year=2003, month=1, day=1, hour=0, minute=0, second=0) # , tzinfo=pytz.UTC)
+sun_mjt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0)
 dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0, tzinfo=pytz.UTC)
 
 # File path config
@@ -1053,7 +1054,7 @@ def locate_scans(images, facet=None, segment=None, tip=None, show=False):
         y_offset = (scan.y_orig - y_centre) * y_cal
 
         # Take the cantilever and linear stage position into account for X position
-        left = ( (scan.lin_pos-common.lin_centre_pos[scan.tip_num-1]) / common.linearcal ) + x_offset
+        left = ( (scan.lin_pos-common.lin_centre_pos_fm[scan.tip_num-1]) / common.linearcal ) + x_offset
         x_orig_um.append(left)
 
         # Y position in this stripe is simple related to the offset from the Y origin
@@ -1130,12 +1131,19 @@ def select_files(wildcard, directory='.', recursive=False):
 
 class tm:
 
-    def __init__(self, files=None, directory='.', recursive=False, pkts=False, apid=False, dedupe=False, simple=True, dds_header=True, sftp=False):
+    def __init__(self, files=None, directory='.', recursive=False, pkts=False, apid=False, dedupe=False, simple=True, dds_header=True, sftp=False, model='FM'):
 
         self.sftp = False
         self.pkts = None
-        if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=dedupe, simple=simple, dds_header=dds_header, sftp=sftp)
 
+        self.model = model.upper()
+
+        if model=='FM':
+            self.lin_centre_pos = common.lin_centre_pos_fm
+            if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=dedupe, simple=simple, dds_header=dds_header, sftp=sftp)
+        elif model=='FS':
+            self.lin_centre_pos = common.lin_centre_pos_fs
+            if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=True, simple=False, dds_header=False, sftp=sftp)
 
     def save_index(self, filename):
         """Saves the packet index to a file, to save time re-indexing TLM files. This can be reloaded with
@@ -1276,6 +1284,9 @@ class tm:
             sftp = dds_utils.sftp()
             sftp.open()
 
+        # Load the time correlation file
+        tcorr = read_timecorr(os.path.join(common.tlm_path, 'TLM__MD_TIMECORR.DAT'))
+
         for fl in filelist:
 
             print('INFO: indexing TLM file %s' % fl)
@@ -1311,7 +1322,14 @@ class tm:
 
                 pkt = {}
                 pkt_header = pkt_header_names(*struct.unpack_from(pkt_header_fmt,tm,offset))
-                delta_t = timedelta(seconds=pkt_header.obt_sec, milliseconds=(pkt_header.obt_frac * 2.**-16 * 1000.))
+
+                # Use the appropriate line in the time correlation packet to correct
+                # UTC = gradient * OBT + offset
+                obt_s = pkt_header.obt_sec + pkt_header.obt_frac / 2.**16
+                obt = obt_epoch + timedelta(seconds=obt_s)
+                tcp = tcorr[tcorr.index<obt].iloc[-1]
+                utc_s = tcp.gradient * obt_s + tcp.offset
+                obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
 
                 # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
                 # of the 32 bit coarse time (= seconds since reference date) is set to "1".
@@ -1323,7 +1341,7 @@ class tm:
                 pkt['subtype'] = pkt_header.pkt_subtype
                 pkt['apid'] = pkt_header.pkt_id & 0x7FF
                 pkt['seq'] = pkt_header.pkt_seq & 0x3FFF
-                pkt['obt'] = obt_epoch + delta_t
+                pkt['obt'] = obt_corr
                 pkt['filename'] = os.path.abspath(fl)
 
                 # print('DEBUG: pkt %i/%i has declared length %i, real len %i' % (pkt_header.pkt_type,pkt_header.pkt_subtype,pkt_header.pkt_len,offsets[idx+1]-offsets[idx]))
@@ -2469,7 +2487,7 @@ class tm:
         lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
         lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
         lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: scan_type[ mode & 0b11 ] )
-        lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-common.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
+        lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
 
         lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
 
@@ -2851,7 +2869,7 @@ class tm:
         info['z_ret_nm'] = info.z_ret * common.zcal
 
         # Calculate the tip offset from the wheel centre
-        info['tip_offset'] = info.apply( lambda row: (row.lin_pos-common.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
+        info['tip_offset'] = info.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
 
         # Add the filename
         info['scan_file'] = info.apply( lambda row: src_file_to_img_file(os.path.basename(row.filename), row.start_time, row.target), axis=1 )
@@ -3266,13 +3284,6 @@ def src_file_to_img_file(src_filename, start_time, target):
     return filename
 
 
-# TODO implement time correlation
-
-def read_time_correlation(filename):
-
-    return []
-
-
 def read_ccf(filename=False):
     """Reads the SCOS-2000 ccf.dat file"""
 
@@ -3547,6 +3558,39 @@ def load_images(filename=None, data=False, sourcepath=None):
         tm.pkts.filename = tm.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
 
     return images
+
+
+def read_timecorr(tcorr_file='TLM__MD_TIMECORR.DAT'):
+    """Reads a Rosetta time correlation file and returns a dataframe of all coefficients"""
+
+    # These files have only a DDS header and packet data field, no standard packet header!
+
+    with open(tcorr_file,'rb') as f:
+        tcorr = f.read()
+
+    pkt_dfield_len = 30
+    pkt_len = dds_header_len + pkt_dfield_len # = 48 bytes
+    num_pkts = len(tcorr) / pkt_len
+
+    timecorr = pd.DataFrame(columns=['validity', 'validity_s', 'gradient', 'offset', 'std_dev', 'gen_time'])
+
+    for pkt in range(num_pkts):
+
+        dds_header = dds_header_names(*struct.unpack_from(dds_header_fmt,tcorr,pkt_len*pkt))
+        delta_t_s = dds_header.scet1 + dds_header.scet2/1.e6
+        # delta_t = timedelta(seconds=dds_header.scet1, microseconds=dds_header.scet2)
+        validity = dds_obt_epoch + timedelta(seconds=delta_t_s)
+
+        grad, offs, std, gent1, gent2 = struct.unpack('>3dIH',tcorr[pkt_len*pkt+dds_header_len:pkt_len*pkt+dds_header_len+pkt_dfield_len])
+        gentime = obt_epoch + timedelta(seconds = gent1 + (gent2/2.**16))
+
+        timecorr.loc[pkt] = pd.Series({'validity':validity, 'validity_s': delta_t_s, 'gradient':grad, 'offset':offs, 'std_dev':std, 'gen_time': gentime})
+
+    timecorr = timecorr.set_index('validity')
+
+    return timecorr
+
+
 
 if __name__ == "__main__":
 

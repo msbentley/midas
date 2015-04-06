@@ -127,16 +127,33 @@ def run_daily():
         print('\n\nGenerating commanding summaries\n')
         generate_timelines()
 
+        print('\n\Requesting latest time correlation packet (TCP)\n')
+        dds_utils.get_timecorr(outputpath=tlm_dir)
+
         # Use this to write a binary msgpack with all image data
         print('\n\nINFO: updating binary image index\n')
         tm = ros_tm.tm()
         tm.query_index(what='science')
         tm.pkts = tm.pkts[ (tm.pkts.sid==129) | (tm.pkts.sid==130) ]
-        tm.get_images().to_hdf(os.path.join(tlm_dir, 'all_images_data.h5'), 'images', format='f')
+        tm.get_images().to_hdf(os.path.join(tlm_dir, 'all_images_data.h5'), mode='w', key='images', format='f', complib='blosc', complevel=5)
+
 
     tunnel.kill()
 
     print('MIDAS daily end: %s' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+
+
+def show_scans():
+    """Uses ros_tm.locate_scans() to iterate through all segments having image scans and plots the scans
+    per segment"""
+
+    images = ros_tm.load_images(data=False)
+    segments = sorted(images.wheel_pos.unique())
+
+    for seg in segments:
+        pass
+
+    return
 
 
 

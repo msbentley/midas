@@ -1361,7 +1361,7 @@ class tm:
                 pkt_pic = pic[ np.logical_and(pic[:,0]==pkt_header.pkt_type,pic[:,1]==pkt_header.pkt_subtype) ]
 
                 if len(pkt_pic)==0:
-                    print('ERROR: packet type (%i,%i) not found in the PIC' % (pkt_header.pkt_type,pkt_header.pkt_subtype))
+                    print('WARNING: packet type (%i,%i) not found in the PIC' % (pkt_header.pkt_type,pkt_header.pkt_subtype))
                     if debug: print('DEBUG: OBT: %s, APID: %i, SEQ: %i' % (pkt.obt, pkt.apid, pkt.seq))
                     continue
                 if pkt_pic[0][2] ==-1:

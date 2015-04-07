@@ -564,7 +564,12 @@ def get_new_observations(outputdir=data_path, mtpstp_dir=True, max_retry=10, ret
 
         # Retrieve the files from the server - delete them at the remote and local side
         # Files are also combined into a single TM
-        get_files(filelist, stp_dir, apid=aplist, outputfile=obs_filename, delfiles=True, strip_dds=False, max_retry=max_retry, retry_delay=retry_delay)
+        filelist = get_files(filelist, stp_dir, apid=aplist, outputfile=obs_filename, delfiles=True, strip_dds=False, max_retry=max_retry, retry_delay=retry_delay)
+
+        if len(filelist)==0:
+            # If no files are returned, remove the observation from the list and flag a warning
+            print('WARNING: no files retrieved for observation %s' % obs_filename)
+            obs_filenames.remove(os.path.join(stp_dir,obs_filename))
 
         # Update the status of this observation - only if the end time is >12 hours in the past
         if (obs.end + dl_time) < now:

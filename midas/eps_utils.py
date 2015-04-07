@@ -204,7 +204,7 @@ def run_mtp(mtp, case, outfolder=None):
     os.chdir(mtp_folder)
     # files = os.listdir(mtp_folder)
 
-    status = run_eps(itl[0], evf, ng=True, ros_sgs=True, mtp=mtp, case=case, outputdir=local_folder)
+    status = run_eps(itl[0], evf, ros_sgs=True, mtp=mtp, case=case, outputdir=local_folder)
 
     if not status: return False
 

@@ -1138,10 +1138,10 @@ class tm:
 
         self.model = model.upper()
 
-        if model=='FM':
+        if self.model=='FM':
             self.lin_centre_pos = common.lin_centre_pos_fm
             if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=dedupe, simple=simple, dds_header=dds_header, sftp=sftp)
-        elif model=='FS':
+        elif self.model=='FS':
             self.lin_centre_pos = common.lin_centre_pos_fs
             if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=True, simple=False, dds_header=False, sftp=sftp)
 
@@ -1285,7 +1285,8 @@ class tm:
             sftp.open()
 
         # Load the time correlation file
-        tcorr = read_timecorr(os.path.join(common.tlm_path, 'TLM__MD_TIMECORR.DAT'))
+        if self.model=='FM':
+            tcorr = read_timecorr(os.path.join(common.tlm_path, 'TLM__MD_TIMECORR.DAT'))
 
         for fl in filelist:
 
@@ -1327,9 +1328,11 @@ class tm:
                 # UTC = gradient * OBT + offset
                 obt_s = pkt_header.obt_sec + pkt_header.obt_frac / 2.**16
                 obt = obt_epoch + timedelta(seconds=obt_s)
-                tcp = tcorr[tcorr.index<obt].iloc[-1]
-                utc_s = tcp.gradient * obt_s + tcp.offset
-                obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
+
+                if self.model=='FM':
+                    tcp = tcorr[tcorr.index<obt].iloc[-1]
+                    utc_s = tcp.gradient * obt_s + tcp.offset
+                    obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
 
                 # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
                 # of the 32 bit coarse time (= seconds since reference date) is set to "1".
@@ -1341,7 +1344,7 @@ class tm:
                 pkt['subtype'] = pkt_header.pkt_subtype
                 pkt['apid'] = pkt_header.pkt_id & 0x7FF
                 pkt['seq'] = pkt_header.pkt_seq & 0x3FFF
-                pkt['obt'] = obt_corr
+                pkt['obt'] = obt_corr if self.model=='FM' else obt
                 pkt['filename'] = os.path.abspath(fl)
 
                 # print('DEBUG: pkt %i/%i has declared length %i, real len %i' % (pkt_header.pkt_type,pkt_header.pkt_subtype,pkt_header.pkt_len,offsets[idx+1]-offsets[idx]))

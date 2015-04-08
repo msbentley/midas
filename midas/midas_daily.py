@@ -157,7 +157,7 @@ def show_scans():
 
 
 
-def regenerate(from_index=False, what='all', files='TLM__MD*.DAT'):
+def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
     """Regenerate images and/or event and packet loss data for all TM files"""
 
     what_types = ['all', 'images', 'events', 'exposures']
@@ -172,7 +172,7 @@ def regenerate(from_index=False, what='all', files='TLM__MD*.DAT'):
     if what=='all' or what=='images':
         # Load packet index, either from a pickle or individual TLM files
         if from_index:
-            tm.load_index(os.path.join(tlm_dir,'packet_index.pkl'))
+            tm.query_index(what='science')
         else:
             import glob
             tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
@@ -190,7 +190,7 @@ def regenerate(from_index=False, what='all', files='TLM__MD*.DAT'):
 
     if what=='all' or what=='meta':
         if from_index:
-            tm.load_index(os.path.join(tlm_dir,'packet_index.pkl'))
+            tm.query_index(what='science')
         else:
             import glob
             tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
@@ -219,10 +219,10 @@ def regenerate(from_index=False, what='all', files='TLM__MD*.DAT'):
         tm = ros_tm.tm()
 
         if from_index:
-            tm.load_index(os.path.join(tlm_dir,'packet_index.pkl'))
+            tm.query_index()
         else:
             import glob
-            tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD*.DAT')))
+            tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD_M*.DAT')))
             for f in tm_files:
                 tm.get_pkts(f, append=True)
                 tm.pkts = tm.pkts[tm.pkts.sid.isin([2, 42553, 42554])]
@@ -235,10 +235,10 @@ def regenerate(from_index=False, what='all', files='TLM__MD*.DAT'):
         tm = ros_tm.tm()
         # Load packet index, either from a pickle or individual TLM files
         if from_index:
-            tm.load_index(os.path.join(tlm_dir,'packet_index.pkl'))
+            tm.query_index(what='events')
         else:
             import glob
-            tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD*.DAT')))
+            tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD_M*.DAT')))
             for f in tm_files:
                 tm.get_pkts(f)
                 # tm.pkts = tm.pkts[tm.pkts.apid==1079]

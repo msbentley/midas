@@ -78,7 +78,7 @@ def find_followup(same_tip=True, image_index=None, sourcepath=os.path.expanduser
         images = ros_tm.load_images(data=True)
     else:
 
-        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD*.DAT')))
+        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD_M*.DAT')))
         if len(tm_files)==0:
             print('ERROR: no files matching pattern')
             return False
@@ -148,7 +148,7 @@ def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=N
     if tlm_index is not None:
         tm.query_index(sourcepath=sourcepath)
     else:
-        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD*.DAT')))
+        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD_M*.DAT')))
         if len(tm_files)==0:
             print('ERROR: no files matching pattern')
             return False

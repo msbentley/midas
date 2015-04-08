@@ -173,6 +173,11 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
         # Load packet index, either from a pickle or individual TLM files
         if from_index:
             tm.query_index(what='science')
+            # Save BCR and GWY files
+            if type(images)!=bool:
+                ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
+                ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
+
         else:
             import glob
             tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
@@ -184,9 +189,9 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
                 images = tm.get_images(info_only=False)
 
                 # Save BCR and GWY files
-        if type(images)!=bool:
-            ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
-            ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
+                if type(images)!=bool:
+                    ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
+                    ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
 
     if what=='all' or what=='meta':
         if from_index:
@@ -267,7 +272,7 @@ def get_navcam():
 
 
 
-def build_pkt_index(files='TLM__MD*.DAT', tm_index_file='tlm_packet_index.hd5'):
+def build_pkt_index(files='TLM__MD_M*.DAT', tm_index_file='tlm_packet_index.hd5'):
     """Builds an HDF5 (pandas/PyTables) table of the packet index (tm.pkts). This can be used for
     on-disk queries to retrieve a selection of packets as input to ros_tm.tm()."""
 

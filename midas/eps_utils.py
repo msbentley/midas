@@ -156,7 +156,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
 
 
 
-def run_mtp(mtp, case, outfolder=None):
+def run_mtp(mtp, case='P', outfolder=None):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
     import glob

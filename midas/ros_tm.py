@@ -1898,13 +1898,13 @@ class tm:
         timeformatter = lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M:%S')
 
         if info:
-            events = pkts[['obt', 'dds_time', 'doy', 'sid', 'event','information', 'severity']]
+            events = pkts[['obt', 'doy', 'sid', 'event','information', 'severity']]
         else:
-            events = pkts[['obt', 'dds_time', 'doy', 'sid', 'event', 'severity']]
+            events = pkts[['obt', 'doy', 'sid', 'event', 'severity']]
 
         if html:
             event_html = events.to_html(classes='alt_table', na_rep='',index=False, \
-                formatters={ 'obt': timeformatter, 'dds_time': timeformatter } )
+                formatters={ 'obt': timeformatter } )
             css_write(event_html, html)
 
 
@@ -1957,8 +1957,8 @@ class tm:
                 delta_t = timedelta(seconds=dds_header.scet1, microseconds=dds_header.scet2)
                 dds_time.append(dds_obt_epoch + delta_t)
 
-                if dds_header.time_qual!=0:
-                    print('WARNING: bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
+                # if dds_header.time_qual!=0:
+                #     print('WARNING: bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
 
             pkts.dds_time.loc[offsets.index] = dds_time
 

@@ -403,7 +403,7 @@ def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
 
     filelist = get_files('TLM__MD_TIMECORR.DAT', outputpath=outputpath, apid=aplist, outputfile=False, max_retry=max_retry, retry_delay=retry_delay)
 
-    return filelist, apid
+    return filelist
 
 
 def add_observations(evf_file):

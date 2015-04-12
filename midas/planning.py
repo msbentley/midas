@@ -1467,14 +1467,14 @@ class itl:
     def wait_until(self, abs_time):
         """Insert a pause until the abs_time (if it's in the future!), update time pointers"""
 
-        from dateutil import parser
-
-        tm = parser.parse(abs_time)
-        if tm < self.abs_time:
-            print('ERROR: specified time (%s) is before current time (%s)!' % (tm, self.abs_time))
+        if type(abs_time) not in [pd.Timestamp, datetime]:
+            from dateutil import parser
+            abs_time = parser.parse(abs_time)
+        if abs_time < self.abs_time:
+            print('ERROR: specified time (%s) is before current time (%s)!' % (abs_time, self.abs_time))
             return None
 
-        self.wait(tm-self.abs_time)
+        self.wait(abs_time-self.abs_time)
 
 
     def write(self, filename, itl_start=None, itl_end=None):

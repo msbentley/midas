@@ -128,7 +128,7 @@ def run_daily():
         generate_timelines()
 
         print('\n\Requesting latest time correlation packet (TCP)\n')
-        dds_utils.get_timecorr(outputpath=tlm_dir)
+        tcorr = dds_utils.get_timecorr(outputpath=tlm_dir)
 
         # Use this to write a binary msgpack with all image data
         print('\n\nINFO: updating binary image index\n')

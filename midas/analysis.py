@@ -24,6 +24,8 @@ def read_grain_cat(grain_cat_file=grain_cat_file):
     grain_cat = pd.read_table(grain_cat_file, sep=',', header=0,
         skipinitialspace=True, na_filter=False, names=col_names)
 
+    grain_cat['particle'] = grain_cat.index+1
+
     return grain_cat
 
 
@@ -78,7 +80,7 @@ def find_followup(same_tip=True, image_index=None, sourcepath=os.path.expanduser
         images = ros_tm.load_images(data=True)
     else:
 
-        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD_M*.DAT')))
+        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD*.DAT')))
         if len(tm_files)==0:
             print('ERROR: no files matching pattern')
             return False
@@ -131,7 +133,7 @@ def find_followup(same_tip=True, image_index=None, sourcepath=os.path.expanduser
     return followup
 
 
-def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=None):
+def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=os.path.expanduser('~/Copy/midas/data/tlm')):
     """Reads a list of scans containing grains from the catalogue and
     finds exposures between this and the previous scan"""
 
@@ -148,7 +150,7 @@ def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=N
     if tlm_index is not None:
         tm.query_index(sourcepath=sourcepath)
     else:
-        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD_M*.DAT')))
+        tm_files = sorted(glob.glob(os.path.join(common.tlm_path,'TLM__MD*.DAT')))
         if len(tm_files)==0:
             print('ERROR: no files matching pattern')
             return False
@@ -219,8 +221,9 @@ def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=N
             # print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposures), duration))
             print('INFO: particle %i found after %i exposures' % (pcle, len(exp)))
 
-            # add particle number
+            # add particle number and pre-scan (last scan before collection) image nanme
             exp['particle'] = pcle
+            exp['prescan'] = pre_scan.scan_file
 
             exposures = exposures.append(exp)
 

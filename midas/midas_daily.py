@@ -86,7 +86,7 @@ def run_daily():
         # causes problems. Breaking down indexing here per file, to see if that helps...
 
         import glob
-        tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD*.DAT')))
+        tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD_M*.DAT')))
 
         tm = ros_tm.tm()
         for f in tm_files:

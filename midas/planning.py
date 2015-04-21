@@ -1369,6 +1369,7 @@ class itl:
         import re, os
 
         obs = self.current_obs
+        start = self.abs_time
 
         if procedure['template'] not in all_templates:
             logging.error('observation template %s not recognised' % (procedure['template']))
@@ -1443,7 +1444,7 @@ class itl:
         self.time = end_time
         self.abs_time = obs.start_time + self.time
 
-        print('INFO: %s: %s (duration %s)' % (self.abs_time, procedure['template'], real_duration))
+        print('INFO: %s: %s (duration %s)' % (start, procedure['template'], real_duration))
 
         if end_time > self.current_block['offset'] + self.current_block['duration']:
             exceeded = -remaining # end_time - self.current_block['offset'] + self.current_block['duration']

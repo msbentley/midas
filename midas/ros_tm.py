@@ -487,7 +487,7 @@ def combine_linescans(linescans, bcr=False):
         bcrdata['xlength'] = linescans.irow(0).step_size*common.xycal['open']*bcrdata['xpixels']
         bcrdata['ylength'] = linescans.irow(0).step_size*common.xycal['open']*bcrdata['ypixels']
         bcrdata['data'] = image.flatten()
-        bcrdata['data'] = 32767 - bcrdata['data']
+        # bcrdata['data'] = 32767 - bcrdata['data']
         bcrutils.write(bcrdata)
 
     return bcrdata if bcr else image
@@ -2491,6 +2491,7 @@ class tm:
         lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
         lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: scan_type[ mode & 0b11 ] )
         lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
+        lines['target'] = lines.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
 
         lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
 
@@ -3141,6 +3142,30 @@ class tm:
             # TODO - get new bits/bytes in image header to extract segment
 
         return segment, fit, height_diff
+
+
+    def target_usage(self, target=None):
+        """Summarises targe usage (number of image and line scans etc.) for all
+        targets, or for some specified by target="""
+
+        images = self.get_images(info_only=True)
+        lines = self.get_line_scans(info_only=True)
+
+
+         # in theory could use the in_image flag for line scans, but this was only introduced later
+         # so for now treat lines that have OBTs between image start/stop as part of that image
+
+        for idx, image in images.iterrows():
+            lines = lines[ (lines.obt<image.start_time) & (lines.obt>image.end_time) ]
+
+        target_use = pd.DataFrame(columns=['target', 'num_images', 'num_lines'])
+
+        for facet in range(0,64):
+            target_use.target.ix[facet] = facet
+            target_use.num_images.ix[facet] = len(images.query('target==%i') % facet)
+            target_use.nun_lines.ix[facet] = len(lines.query('target==%i') % facet)
+
+        return target_use
 
 #----- end of TM class
 

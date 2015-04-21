@@ -130,7 +130,7 @@ def run_daily():
         print('\n\Requesting latest time correlation packet (TCP)\n')
         tcorr = dds_utils.get_timecorr(outputpath=tlm_dir)
 
-        # Use this to write a binary msgpack with all image data
+        # Use this to write a binary HDF5 file with all image data
         print('\n\nINFO: updating binary image index\n')
         tm = ros_tm.tm()
         tm.query_index(what='science')

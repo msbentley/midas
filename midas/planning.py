@@ -1980,13 +1980,14 @@ class itl:
         return
 
     def xy_cal(self, cantilever, channels=['ZS'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
-        xlh=True, ylh=True, mainscan_x=True, at_surface=False, ac_gain=False, exc_lvl=False, set_pt=False, set_start=True):
+        xlh=True, ylh=True, mainscan_x=True, at_surface=False, ac_gain=False, exc_lvl=False, set_pt=False, set_start=True,
+        z_settle=50, xy_settle=50):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         self.scan(cantilever=cantilever, facet=2, channels=channels, openloop=openloop, \
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, \
             xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, at_surface=at_surface,
-            ac_gain=ac_gain, exc_lvl=exc_lvl, set_start=set_start)
+            ac_gain=ac_gain, exc_lvl=exc_lvl, set_start=set_start, z_settle=z_settle, xy_settle=xy_settle)
 
         return
 
@@ -2333,7 +2334,7 @@ class itl:
     def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=False,
-        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0):
+        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50):
 
         import scanning
         proc = {}
@@ -2386,7 +2387,8 @@ class itl:
         else:
             xpixels = 1
 
-        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep, ctrl=ctrl_data)
+        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep,
+            ctrl=ctrl_data, zsettle=z_settle, xysettle=xy_settle)
 
         # Control data packets: 1048 words (2096 bytes), one packet per line point, max 32
         # Line scan as well: 1072 bytes (single line)
@@ -2437,6 +2439,8 @@ class itl:
             'channel': dtype,
             'ctrl_data': 'ON*' if ctrl_data else 'OFF*',
             'app_max': app_max,
+            'xy_settle': xy_settle,
+            'z_settle': z_settle,
 
             'scan_data_rate': "%3.2f" % (data_rate) }
 

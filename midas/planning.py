@@ -2318,7 +2318,7 @@ class itl:
 
         return
 
-    def auto_zoom(self, channels=['ZS','PH'], xlh=True, ylh=True, mainscan_x=True,
+    def auto_zoom(self, channels=['ZS','PH','ST'], xlh=True, ylh=True, mainscan_x=True,
             trend=True, median=True, count_pix=True, pix_gt=True, pix_lt=False, check_height=True,
             set_zoom=False, zoom_max=False, check_shape=False,
             height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=-0.0031):

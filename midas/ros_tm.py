@@ -2649,7 +2649,7 @@ class tm:
                 feature_end = feature_start + fvec_size
                 feature.append(fvec_names(*struct.unpack(fvec_fmt,pkt['data'][feature_start:feature_end])))
 
-            feature = pd.DataFrame(feature, columns=fvec_names._fields)
+        feature = pd.DataFrame(feature, columns=fvec_names._fields)
 
         print('INFO: %i feature vectors extracted' % len(feature))
 

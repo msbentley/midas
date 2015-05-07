@@ -212,7 +212,7 @@ def run_mtp(mtp, case='P', outfolder=None):
 
 
 
-def read_output(directory='.', ng=False):
+def read_output(directory='.', ng=True):
     """Reads the power and data EPS output files."""
 
     import pandas as pd
@@ -245,7 +245,7 @@ def read_output(directory='.', ng=False):
             'GIADA', 'LANDER', 'MIDAS', 'MIRO', 'NAVCAM', 'OSIRIS', 'ROSINA', 'RPC', 'SREM', \
             'RSI', 'VIRTIS', 'SSMM', 'SGS']
 
-        power = pd.read_table(powerfile,header=None,skiprows=27,names=cols,usecols=[0,9],skipinitialspace=True, delimiter=' ')
+        power = pd.read_table(powerfile,header=None,skiprows=27,names=cols,skipinitialspace=True, delimiter=' ', engine='python')
 
     else:
         cols = ['time', 'Total', 'SSMM', 'HK_SSMM', 'HGA', 'MIDAS', 'ALICE', 'MIRO', \
@@ -272,7 +272,7 @@ def read_output(directory='.', ng=False):
 
     if ng:
         cols = ['time', 'upload', 'mem_accum', 'ssmm', 'ground']
-        data = pd.read_table(datafile,header=None,skiprows=28,skipinitialspace=True, delimiter=' ',names=cols,usecols=[0,27,30,75,76])
+        data = pd.read_table(datafile,header=None,skiprows=28,skipinitialspace=True, delimiter=' ',names=cols,usecols=[0,27,30,75,76], engine='python')
     else:
         cols = ['time','memory','accum','upload','download']
         data = pd.read_table(datafile,header=None,skiprows=28,skipinitialspace=True, delimiter=' ',names=cols,usecols=[0,13,14,33,34])

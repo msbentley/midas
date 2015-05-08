@@ -1054,7 +1054,7 @@ def locate_scans(images, facet=None, segment=None, tip=None, show=False):
         y_offset = (scan.y_orig - y_centre) * y_cal
 
         # Take the cantilever and linear stage position into account for X position
-        left = ( (scan.lin_pos-common.lin_centre_pos_fm[scan.tip_num-1]) / common.linearcal ) + x_offset
+        left = ( (scan.lin_pos-common.lin_centre_pos_fm[int(scan.tip_num)-1]) / common.linearcal ) + x_offset
         x_orig_um.append(left)
 
         # Y position in this stripe is simple related to the offset from the Y origin
@@ -2656,7 +2656,7 @@ class tm:
         return fvec_header, feature
 
 
-    def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False):
+    def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False, expand_params=False):
         """Extracts images from telemetry packets. Setting info_only=True returns a
         dataframe containing the scan metadata, but no actual images"""
 
@@ -2682,6 +2682,10 @@ class tm:
         if len(img_header_pkts) == 0:
             print('INFO: no images found')
             return None
+
+        # Find the index of HK2 packets, used to extract anciliary info
+        if expand_params:
+            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
         # Loop over header packets, unpack the header values and append them to a list
         for idx,pkt in img_header_pkts.iterrows():
@@ -2878,11 +2882,49 @@ class tm:
         # Add the filename
         info['scan_file'] = info.apply( lambda row: src_file_to_img_file(os.path.basename(row.filename), row.start_time, row.target), axis=1 )
 
+        if expand_params:
+            # If requested, extract additional data from HK - note that this will make the routine SLOOOOOW!
+            #
+            # NMDA0306 (ResonanceAmpl),
+            # NMDA0245 (OpPointAmpl), NMDA0244 (OpPointPerc)
+            # NMDA0347 (FadjustAmpl),
+            # NMDA0181 (OpPntPercentAmpl)
+            # NMDA0271 (SettleTimeXY), # NMDA0270 (SettleTimeZ)
+
+            expanded_names = ['res_amp','set_pt', 'set_pt_per', 'fadj', 'work_pt', 'work_pt_per', 'xy_settle', 'z_settle']
+
+            # Create new columns
+            info = info.append( pd.DataFrame(columns=expanded_names) )
+
+            times = info.start_time.unique()
+
+            for time in times:
+
+                frame = hk2[hk2.obt>time].index
+                if len(frame)==0:
+                    print('WARNING: no HK2 frame found after scan start at %s' % start)
+                    continue
+                else:
+                    frame = frame[0]
+
+                indices = info[info.start_time==time].index
+
+                info['res_amp'].loc[indices] = self.get_param('NMDA0306', frame=frame)[1]
+                info['set_pt'].loc[indices] = self.get_param('NMDA0245', frame=frame)[1]
+                info['set_pt_per'].loc[indices] = self.get_param('NMDA0244', frame=frame)[1]
+                info['fadj'].loc[indices] = self.get_param('NMDA0347', frame=frame)[1]
+                info['work_pt_per'].loc[indices] = self.get_param('NMDA0181', frame=frame)[1]
+                info['work_pt'].loc[indices] = info['res_amp'] * abs(info['work_pt_per'].loc[indices].iloc[0]) / 100.
+                info['xy_settle'].loc[indices] = self.get_param('NMDA0271', frame=frame)[1]
+                info['z_settle'].loc[indices] = self.get_param('NMDA0270', frame=frame)[1]
+
+
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um','z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
             'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy']
 
         if sw_flags: return_data.extend(sw_flags_names)
+        if expand_params: return_data.extend(expanded_names)
 
         images = info[return_data]
 

@@ -1836,6 +1836,9 @@ class itl:
             print('ERROR: frequency adjust must be between 0 and 100%')
             return False
 
+        z_settle = int(z_settle)
+        xy_settle = int(xy_settle)
+
         # Return parameters for selected cantilever
         fscan = self.cantilever_select(cantilever)
         fscan_params = self.freq_scan(cantilever, num_scans=num_fcyc, params_only=True)
@@ -2004,14 +2007,15 @@ class itl:
 
     def tip_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
-        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2):
+        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2,
+        z_settle=50, xy_settle=50):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         self.scan(cantilever=cantilever, facet=3, channels=['ZS'], openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
             op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
-            set_start=set_start, fadj_numscans=fadj_numscans)
+            set_start=set_start, fadj_numscans=fadj_numscans, z_settle=z_settle, xy_settle=xy_settle)
 
         return
 

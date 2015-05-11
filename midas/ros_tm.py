@@ -2902,7 +2902,7 @@ class tm:
 
                 frame = hk2[hk2.obt>time].index
                 if len(frame)==0:
-                    print('WARNING: no HK2 frame found after scan start at %s' % start)
+                    print('WARNING: no HK2 frame found after scan start at %s' % time)
                     continue
                 else:
                     frame = frame[0]

@@ -63,7 +63,7 @@ def run_daily():
         tm = ros_tm.tm(obs_file) # open TM file
 
         # Extract and save images in various formats
-        images = tm.get_images() # extract images
+        images = tm.get_images(expand_params=True) # extract images
         if images is not None:
             ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
             ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
@@ -91,9 +91,10 @@ def run_daily():
         tm = ros_tm.tm()
         for f in tm_files:
             tm.get_pkts(f, append=True)
-            tm.pkts = tm.pkts[tm.pkts.apid==1084]
+            tm.pkts = tm.pkts[ (tm.pkts.apid==1084) & (tm.pkts.apid==1076 & tm.pkts.sid==2) ]
 
-        images = tm.get_images(info_only=True)
+        images = tm.get_images(info_only=True, expand_params=True)
+        del(tm)
 
         # Tidy up the metadata a little
 
@@ -160,7 +161,7 @@ def show_scans():
 def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
     """Regenerate images and/or event and packet loss data for all TM files"""
 
-    what_types = ['all', 'images', 'events', 'exposures']
+    what_types = ['all', 'images', 'events', 'exposures', 'meta']
 
     what=what.lower()
     if what not in what_types:

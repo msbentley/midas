@@ -2919,6 +2919,9 @@ class tm:
                 info['z_settle'].loc[indices] = self.get_param('NMDA0270', frame=frame)[1]
 
 
+        # Convert all data types to numeric forms
+        info = info.convert_objects(convert_numeric=True)
+
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um','z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
             'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy']

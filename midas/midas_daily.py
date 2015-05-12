@@ -57,7 +57,7 @@ def run_daily():
     for obs_file in obs_filenames:
 
         new_data = True
-        print('\nProcessing TLM file: %s' % obs_file)
+        print('\nINFO: Processing TLM file: %s' % obs_file)
 
         obs_path,obs_fname = os.path.split(obs_file)
         tm = ros_tm.tm(obs_file) # open TM file
@@ -121,27 +121,52 @@ def run_daily():
         exposures = tm.get_exposures(html=os.path.join(log_dir,'exposures.html'))
 
         # (Re-)build the packet index
-        print('\n\nUpdating packet index\n')
+        print('\n\nINFO: Updating packet index\n')
         build_pkt_index()
 
         # Generate a list of html files corresponding to each ITL/EVF pair
-        print('\n\nGenerating commanding summaries\n')
+        print('\n\nINFO: Generating commanding summaries\n')
         generate_timelines()
 
-        print('\n\Requesting latest time correlation packet (TCP)\n')
+        print('\n\nINFO: Requesting latest time correlation packet (TCP)\n')
         tcorr = dds_utils.get_timecorr(outputpath=tlm_dir)
 
         # Use this to write a binary HDF5 file with all image data
         print('\n\nINFO: updating binary image index\n')
-        tm = ros_tm.tm()
-        tm.query_index(what='science')
-        tm.pkts = tm.pkts[ (tm.pkts.sid==129) | (tm.pkts.sid==130) ]
-        tm.get_images().to_hdf(os.path.join(tlm_dir, 'all_images_data.h5'), mode='w', key='images', format='f', complib='blosc', complevel=5)
-
+        image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.h5', append=False)
 
     tunnel.kill()
 
     print('MIDAS daily end: %s' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+
+
+def image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.h5', append=True):
+    """Iterates through data files and retrieves binary image data, appending to an HDF5 file"""
+
+    # Check for the h5 file and remove if it exists
+    h5_file = os.path.join(out_path, out_file)
+
+    if os.path.exists(h5_file):
+        if not append:
+            os.remove(h5_file)
+    else:
+        if append:
+            print("WARNING: file %s does not exist, cannot append!" % h5_file)
+
+    import glob
+    tm_files = sorted(glob.glob(os.path.join(src_path,src_files)))
+
+    if len(tm_files)==0:
+        print('ERROR: no files matching pattern')
+        return False
+
+    for f in tm_files:
+        tm=ros_tm.tm(f)
+        images = tm.get_images(info_only=False, expand_params=True)
+        if images is not None:
+            images.to_hdf(h5_file, mode='a', key='images', format='f', complib='blosc', complevel=5)
+
+    return
 
 
 def show_scans():
@@ -173,7 +198,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
     if what=='all' or what=='images':
         # Load packet index, either from a pickle or individual TLM files
         if from_index:
-            tm.query_index(what='science')
+            images = ros_tm.load_images(data=True)
             # Save BCR and GWY files
             if type(images)!=bool:
                 ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
@@ -187,7 +212,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
                 return False
             for f in tm_files:
                 tm=ros_tm.tm(f)
-                images = tm.get_images(info_only=False)
+                images = tm.get_images(info_only=False, expand_params=True)
 
                 # Save BCR and GWY files
                 if type(images)!=bool:
@@ -205,10 +230,10 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
                 return False
             for f in tm_files:
                 tm.get_pkts(f, append=True)
-                tm.pkts = tm.pkts[ (tm.pkts.apid==1084) & ((tm.pkts.sid==129) | (tm.pkts.sid==130)) ]
+                tm.pkts = tm.pkts[ ((tm.pkts.apid==1084) & ((tm.pkts.sid==129) | (tm.pkts.sid==130))) & ((tm.pkts.apid==1076) & (tm.pkts.sid==2)) ]
 
         # Extract image data
-        images = tm.get_images(info_only=True)
+        images = tm.get_images(info_only=True, expand_params=True)
 
         # Save the two meta-data spreadsheets
         images['filename'] = images['filename'].apply( lambda name: os.path.basename(name) )
@@ -217,6 +242,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
         images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
+        image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.h5', append=False)
 
 
     if what=='exposures' or what=='all':

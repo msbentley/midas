@@ -155,14 +155,19 @@ def midas_events():
     return pid[ (pid.type==5) & (pid.apid==1079) ]
 
 
-def plot_line_scans(lines, units='real', label=None):
-    """Plot one or more line scans"""
+def plot_line_scans(lines, units='real', label=None, align=False, title=None):
+    """Plot one or more line scans. units= can be real or DAC.
+    label= can be set to any attribute of lines.
+    If align=True, the tip offset will be used to align plots in real space. Setting this also sets units=real"""
 
     if type(lines) == pd.Series:
         lines = pd.DataFrame(columns=lines.to_dict().keys()).append(lines)
 
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
+
+    if align:
+        units='real'
 
     for idx, line in lines.iterrows():
 
@@ -178,6 +183,9 @@ def plot_line_scans(lines, units='real', label=None):
 
             height = (line['data'] - line['data'].min()) * common.cal_factors[0]
             distance = (line.step_size*common.xycal['open']/1000.)*np.arange(line.num_steps)
+
+            if align:
+                distance += line.tip_offset
 
         elif units=='dac':
 
@@ -195,6 +203,9 @@ def plot_line_scans(lines, units='real', label=None):
     if label is not None:
         leg = ax.legend(loc=0, prop={'size':10}, fancybox=True, title=label)
         leg.get_frame().set_alpha(0.7)
+
+    if title is not None:
+        ax.set_title(title)
 
     return
 
@@ -653,7 +664,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.'):
             z_unit, z_power = gwy.gwy_si_unit_new_parse(common.units[chan_idx])
 
             c.set_string_by_name('/%i/data/title' % (chan_idx),common.channel_names[chan_idx])
-            datafield = gwy.DataField(channel.xsteps, channel.ysteps, xlen, ylen, True)
+            datafield = gwy.DataField(int(channel.xsteps), int(channel.ysteps), xlen, ylen, True)
             datafield.set_si_unit_xy(xy_unit)
             datafield.set_si_unit_z(z_unit)
 

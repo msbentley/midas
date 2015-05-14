@@ -653,7 +653,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.'):
             z_unit, z_power = gwy.gwy_si_unit_new_parse(common.units[chan_idx])
 
             c.set_string_by_name('/%i/data/title' % (chan_idx),common.channel_names[chan_idx])
-            datafield = gwy.DataField(channel.xsteps, channel.ysteps, xlen, ylen, True)
+            datafield = gwy.DataField(int(channel.xsteps), int(channel.ysteps), xlen, ylen, True)
             datafield.set_si_unit_xy(xy_unit)
             datafield.set_si_unit_z(z_unit)
 

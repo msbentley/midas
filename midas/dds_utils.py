@@ -457,8 +457,8 @@ def add_observations(evf_file):
         obs_data['stp'] = stp
         obs_data['observation'] = obs.obs_type
         obs_data['cnt'] = obs.obs_id
-        obs_data['start'] = datetime.strftime(obs.start_time,isofmt)
-        obs_data['end'] = datetime.strftime(obs.end_time,isofmt)
+        obs_data['start'] = obs.start_time # datetime.strftime(obs.start_time,isofmt)
+        obs_data['end'] = obs.end_time # datetime.strftime(obs.end_time,isofmt)
         obs_data['retrieved'] = False
 
         observations = observations.append(obs_data, ignore_index=True)

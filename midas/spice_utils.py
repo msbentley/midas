@@ -114,7 +114,10 @@ def load_default_kernels(kernel_path=kernel_path):
 
 def load_kernels(kernels, kernel_path=kernel_path, load_defaults=True):
 
-    if type(kernels) != list: kernels = [kernels]
+    if type(kernels) == dict:
+        kernels - kernels.values()
+    elif type(kernels) == string:
+        kernels = [kernels]
 
     result = [spice.furnsh(os.path.join(kernel_path,kernel)) for kernel in kernels]
     if load_defaults: load_default_kernels(kernel_path)
@@ -166,7 +169,7 @@ def mtp_kernels(mtp, case='P'):
     ratm = sorted(ratm, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
     catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
 
-    return [rorl, corl, ratm, catt]
+    return {'rorl': rorl, 'corl': corl, 'ratm': ratm, 'catt': catt}
 
 
 def operational_kernels():
@@ -205,17 +208,21 @@ def operational_kernels():
     catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[8:11]), int(os.path.basename(x)[23:26])) )[-1]
     sclk = sorted(sclk, key=lambda x: ( int(os.path.basename(x)[4:10])))[-1]
 
-    return [rorb, corb, ratt, catt, sclk]
+    return { 'rorb': rorb, 'corb': corb, 'ratt': ratt, 'catt': catt, 'sclk': sclk }
 
 
-def get_geometry(start, end, timestep=3660.):
+def get_geometry(start, end, timestep=3660., kernels=None):
     """Accepts a start and end date/time (either a string or a datetime object)
     and an optional timestep. Loads operational kernels, calculates all
     geometric data and returns a time-indexed dataframe"""
 
     import pandas as pd
 
-    load_kernels(operational_kernels(), load_defaults=True)
+    if kernels is None:
+        load_kernels(operational_kernels(), load_defaults=True)
+    else:
+        load_kernels(kernels, load_defaults=True)
+
     ets, times = get_timesteps(start, end, timestep=timestep)
 
     cometdist = comet_sun_au(ets)

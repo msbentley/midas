@@ -163,11 +163,41 @@ def image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, ou
     for f in tm_files:
         tm=ros_tm.tm(f)
         images = tm.get_images(info_only=False, expand_params=True)
+        images = images.convert_objects()
         if images is not None:
-            images.to_hdf(h5_file, mode='a', key='images', format='f', complib='blosc', complevel=5)
+            images.to_hdf(h5_file, mode='a', key='images', format='t', complib='blosc', complevel=5, append=True, data_columns=True)
 
     return
 
+
+def image_msgpack(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.msg', append=True):
+    """Iterates through data files and retrieves binary image data, appending to an HDF5 file"""
+
+    # Check for the h5 file and remove if it exists
+    msg_file = os.path.join(out_path, out_file)
+
+    if os.path.exists(msg_file):
+        if not append:
+            os.remove(msg_file)
+    else:
+        if append:
+            print("WARNING: file %s does not exist, cannot append!" % msg_file)
+
+    import glob
+    tm_files = sorted(glob.glob(os.path.join(src_path,src_files)))
+
+    if len(tm_files)==0:
+        print('ERROR: no files matching pattern')
+        return False
+
+    for f in tm_files:
+        tm=ros_tm.tm(f)
+        images = tm.get_images(info_only=False, expand_params=True)
+        if images is not None:
+            images = images.convert_objects()
+            images.to_msgpack(msg_file, append=True)
+
+    return
 
 def show_scans():
     """Uses ros_tm.locate_scans() to iterate through all segments having image scans and plots the scans

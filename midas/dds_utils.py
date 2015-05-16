@@ -39,8 +39,8 @@ obs_list_file = 'observations.csv'
 obs_list_file = os.path.join(obs_list_path,obs_list_file)
 
 data_path  = os.path.expanduser('~/Copy/midas/data') if socket.gethostname() in servers else os.path.expanduser('~/Copy/midas/data')
-fdyn_path = os.path.expanduser('~/Copy/midas/fdyn')
-
+# fdyn_path = os.path.expanduser('~/Copy/midas/fdyn')
+fdyn_path = '/media/data/fdyn'
 
 def validate_xml(xml, schema_file, isfile=False):
     """Validate a DDS request (or other) XML file against a given schema"""

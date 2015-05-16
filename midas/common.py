@@ -106,7 +106,7 @@ data_channels = ['ZS', 'AC', 'AM', 'PH', 'DC', 'XH', 'YH', 'ZH', 'M1', 'YP', 'ZP
 data_channels.extend(status_channels)
 
 cal_factors = [ zcal, 20./65535., 20./65535., 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1 ]
-offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0.]
+offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
 units = ['nm', 'V', 'V', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none' ]
 channel_names = [
     'Topography (Z piezo position set value)', # ZS
@@ -130,7 +130,7 @@ channel_names = [
     'Line aborted', # LA
     'Max. number of cycles reached', # MC
     'Point aborted', # PA
-    'Point converged'] # PC 
+    'Point converged'] # PC
 
 
 def get_channel(channels):

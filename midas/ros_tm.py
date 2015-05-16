@@ -952,42 +952,44 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
         unit = common.units[chan_idx]
         target = common.seg_to_facet(image.wheel_pos)
 
-        if fig is None: fig = plt.figure()
-        if ax is None: ax = fig.add_subplot(1,1,1)
+        if fig is None:
+            print('Opening new figure')
+            figure = plt.figure()
+        if ax is None: axis = figure.add_subplot(1,1,1)
 
         data = image['data']
 
         if units == 'real':
             data = (data - data.min()) * common.cal_factors[chan_idx]
-            plot1 = ax.imshow(data, origin='upper', interpolation='nearest', extent=[0,image.xlen_um,0,image.ylen_um], cmap=cmap)
-            ax.set_xlabel('X (microns)')
-            ax.set_ylabel('Y (microns)')
+            plot1 = axis.imshow(data, origin='upper', interpolation='nearest', extent=[0,image.xlen_um,0,image.ylen_um], cmap=cmap)
+            axis.set_xlabel('X (microns)')
+            axis.set_ylabel('Y (microns)')
 
         elif units == 'dac':
             xstart = image.x_orig
             xstop = image.x_orig + image.xsteps * image.x_step
             ystart = image.y_orig
             ystop = image.y_orig + image.ysteps * image.y_step
-            plot1 = ax.imshow(data, origin='upper', interpolation='nearest', extent=[xstart,xstop,ystop,ystart], cmap=cmap)
+            plot1 = axis.imshow(data, origin='upper', interpolation='nearest', extent=[xstart,xstop,ystop,ystart], cmap=cmap)
 
         elif units == 'pix':
-            plot1 = ax.imshow(data, origin='upper', interpolation='nearest', cmap=cmap)
-            ax.set_xlabel('X (pixels)')
-            ax.set_ylabel('Y (pixels)')
+            plot1 = axis.imshow(data, origin='upper', interpolation='nearest', cmap=cmap)
+            axis.set_xlabel('X (pixels)')
+            axis.set_ylabel('Y (pixels)')
             data = image['data']
 
-        ax.grid(True)
+        axis.grid(True)
 
         if shade:
             data = ls.shade(data,cmap)
 
         if not shade:
-            cbar = fig.colorbar(plot1, ax=ax) # Now plot using a colourbar
+            cbar = figure.colorbar(plot1, ax=ax) # Now plot using a colourbar
             if units=='real':
                 cbar.set_label(unit, rotation=90)
 
         if title:
-            ax.set_title(image.scan_file, fontsize=12)
+            axis.set_title(image.scan_file, fontsize=12)
 
         # If show_fscans is True, index the appropriate TLM file, get the OBTs of frequency scans
         # between the start and end times, find the line number of these times in HK and then
@@ -1014,11 +1016,11 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
 
                     line = telem.get_param('NMDA0165', frame=frame)[1]
 
-                    xstart, xstop = ax.get_xlim()
+                    xstart, xstop = axis.get_xlim()
                     arrow_delta = (xstop-xstart)*0.025
-                    ax.arrow(xstop+arrow_delta*2, line, -arrow_delta, 0, head_width=4, head_length=arrow_delta, fc='k', ec='k', clip_on=False)
+                    axis.arrow(xstop+arrow_delta*2, line, -arrow_delta, 0, head_width=4, head_length=arrow_delta, fc='k', ec='k', clip_on=False)
 
-    return fig, ax
+    return figure, axis
 
 
 
@@ -2671,7 +2673,7 @@ class tm:
         return fvec_header, feature
 
 
-    def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False, expand_params=False):
+    def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False, expand_params=False, unpack_status=False):
         """Extracts images from telemetry packets. Setting info_only=True returns a
         dataframe containing the scan metadata, but no actual images"""
 
@@ -2958,9 +2960,42 @@ class tm:
         if not info_only:
             images['data'] = pd.Series([image['data'] for image in image_temp])
 
+            # Unpack ST channel into multiple virtual channels if requested. Format:
+            # NC: Bits 15-5 = number of cycles (limited to 0x7FF)
+            # RP: Bit 4 = retraction after point advance flag
+            # LA: Bit 3 = line aborted flag
+            # MC: Bit 2 = max. number of cycles reached flag
+            # PA: Bit 1 = point aborted flag
+            # PC: Bit 0 = point converged flag
+
+            if unpack_status:
+
+                status_channels = ['NC', 'RP', 'LA', 'MC', 'PA', 'PC']
+                bit_start = [5, 4, 3, 2, 1, 0]
+                bit_len =  [11, 1, 1, 1, 1, 1]
+                status_images = images[images.channel=='ST']
+
+                # duplicate the status channel the correct number of times
+                # then correctly mask the data and edit the channel designation
+                for idx, status in status_images.iterrows():
+
+                    images = images.append([status]*(len(status_channels)-1)) # duplicate
+                    images.loc[ images.index==idx, 'channel' ] = status_channels # re-label channel names
+
+                images.reset_index(inplace=True) # to avoid duplicate indices
+
+                # loop through each status channel and apply bit shifts and masks
+                for idx, channel in enumerate(status_channels):
+                    images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply( lambda row: row >> bit_start[idx] )
+                    images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply( lambda row: row & 2**bit_len[idx]-1 )
+
+                    # Set the 1-bit types to booleans
+                    if channel != 'NC':
+                        images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply(lambda item: item.astype('bool'))
+
         print('INFO: %i images found' % (len(info.start_time.unique())))
 
-        return images.sort('start_time')
+        return images.sort(['start_time','channel'])
 
 
     def get_freq_scans(self, printdata=False, cantilever=False, fit=False, info_only=False, get_thresh=False):

@@ -100,10 +100,14 @@ def closed_to_open(x,y):
 	return (x,y)
 
 
+# Adding virtual channels for unpacked status
+status_channels = ['NC', 'RP', 'LA', 'MC', 'PA', 'PC']
 data_channels = ['ZS', 'AC', 'AM', 'PH', 'DC', 'XH', 'YH', 'ZH', 'M1', 'YP', 'ZP', 'M2', 'YE', 'ZE', 'M3', 'ST']
-cal_factors = [ zcal, 20./65535., 20./65535., 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1 ]
+data_channels.extend(status_channels)
+
+cal_factors = [ zcal, 20./65535., 20./65535., 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1 ]
 offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0.]
-units = ['nm', 'V', 'V', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none' ]
+units = ['nm', 'V', 'V', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none' ]
 channel_names = [
     'Topography (Z piezo position set value)', # ZS
     'Cantilever AC signal', # AC
@@ -120,7 +124,13 @@ channel_names = [
     'Y piezo offset error (capacitive sensor)', # YE
     'Z piezo offset error (strain gauge)', # ZE
     'RMS signal at position 1 (magnetic mode)', # M3
-    'Status'] # ST
+    'Status', # ST
+    'Number of cycles', # NC
+    'Retraction after point advance', # RP
+    'Line aborted', # LA
+    'Max. number of cycles reached', # MC
+    'Point aborted', # PA
+    'Point converged'] # PC 
 
 
 def get_channel(channels):

@@ -953,9 +953,9 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
         target = common.seg_to_facet(image.wheel_pos)
 
         if fig is None:
-            print('Opening new figure')
             figure = plt.figure()
-        if ax is None: axis = figure.add_subplot(1,1,1)
+        if ax is None:
+            axis = figure.add_subplot(1,1,1)
 
         data = image['data']
 

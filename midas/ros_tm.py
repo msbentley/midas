@@ -322,6 +322,15 @@ def plot_ctrl_data(ctrl):
 
     plt.show()
 
+def stp_from_name(name):
+    """Simply returns the integer STP number from a scan or TLM filename"""
+
+    if name[13].upper()!='S':
+        print('ERROR: this filename does not seem to contain an STP number...')
+        return None
+
+    return int(name[14:17])
+
 
 def calibrate_amplitude(ctrl, return_data=False):
     """Interactively calibrate the cantilever amplitude via control data. Accepts a
@@ -1009,7 +1018,7 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
 
                     frame = hk2[hk2.obt>obt].index
                     if len(frame)==0:
-                        print('WARNING: no HK2 frame found after frequency scan at %s' % start)
+                        print('WARNING: no HK2 frame found after frequency scan at %s' % image.start_time)
                         continue
                     else:
                         frame = frame[0]
@@ -1019,6 +1028,8 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
                     xstart, xstop = axis.get_xlim()
                     arrow_delta = (xstop-xstart)*0.025
                     axis.arrow(xstop+arrow_delta*2, line, -arrow_delta, 0, head_width=4, head_length=arrow_delta, fc='k', ec='k', clip_on=False)
+            else:
+                print('INFO: no frequency re-tunes occured during the image at OBT %s' % image.start_time)
 
     return figure, axis
 
@@ -2315,6 +2326,13 @@ class tm:
             self.plot_params(volt_params, label_events='scan', start=start, end=end)
 
 
+    def plot_cantilever(self, start=False, end=False, events='scan'):
+        """Plot the cantilever AC and DC values"""
+
+        cant_params = ['NMDA0102', 'NMDA0103']
+        self.plot_params(cant_params, label_events=events, start=start, end=end)
+
+
 
     def list_params(self, spid=None):
         """Lists available parameters in the listed packets. If SPID= is set to an
@@ -2911,7 +2929,7 @@ class tm:
             expanded_names = ['res_amp','set_pt', 'set_pt_per', 'fadj', 'work_pt', 'work_pt_per', 'xy_settle', 'z_settle']
 
             # Create new columns
-            info = info.append( pd.DataFrame(columns=expanded_names) )
+            info = pd.concat( [info, pd.DataFrame(columns=expanded_names)], axis=1 )
 
             times = info.start_time.unique()
 

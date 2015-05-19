@@ -116,7 +116,7 @@ def load_kernels(kernels, kernel_path=kernel_path, load_defaults=True):
 
     if type(kernels) == dict:
         kernels - kernels.values()
-    elif type(kernels) == string:
+    elif type(kernels) == str:
         kernels = [kernels]
 
     result = [spice.furnsh(os.path.join(kernel_path,kernel)) for kernel in kernels]
@@ -219,7 +219,7 @@ def get_geometry(start, end, timestep=3660., kernels=None):
     import pandas as pd
 
     if kernels is None:
-        load_kernels(operational_kernels(), load_defaults=True)
+        load_kernels(operational_kernels().values(), load_defaults=True)
     else:
         load_kernels(kernels, load_defaults=True)
 

@@ -91,7 +91,7 @@ def run_daily():
         tm = ros_tm.tm()
         for f in tm_files:
             tm.get_pkts(f, append=True)
-            tm.pkts = tm.pkts[ (tm.pkts.apid==1084) & (tm.pkts.apid==1076 & tm.pkts.sid==2) ]
+            tm.pkts = tm.pkts.query( 'apid==1084 | (apid==1076 & sid==2)')
 
         images = tm.get_images(info_only=True, expand_params=True)
         del(tm)
@@ -171,7 +171,7 @@ def image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, ou
 
 
 def image_msgpack(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.msg', append=True):
-    """Iterates through data files and retrieves binary image data, appending to an HDF5 file"""
+    """Iterates through data files and retrieves binary image data, appending to a msgpack"""
 
     # Check for the h5 file and remove if it exists
     msg_file = os.path.join(out_path, out_file)

@@ -114,6 +114,7 @@ def run_daily():
 
         # Update the list of exposures
         print('\n\nINFO: updating table of exposures\n')
+        tm = ros_tm.tm()
         for f in tm_files:
             tm.get_pkts(f, append=True)
             tm.pkts = tm.pkts[ ((tm.pkts.apid==1079) & ( (tm.pkts.sid==42553) | (tm.pkts.sid==42554) )) |

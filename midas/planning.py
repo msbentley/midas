@@ -1140,13 +1140,18 @@ class ptrm:
 
 
 
-    def merge(self, observations=None, selected=None):
+    def merge(self, observations=None, selected=None, avoid_wols=False):
         """Accepts a list of PTRM entries and merges consecutive OK types to create
         a set of pointing blocks compatible with MIDAS operations"""
 
         ptrm = self.ptrm.sort('Start')
-        ok_blocks = ptrm[ptrm.Activity.isin(pointing_ok)]
+        blocks = pointing_ok[:]
 
+        if avoid_wols:
+            blocks.remove('MWOL')
+            blocks.remove('MWNV')
+
+        ok_blocks = ptrm[ptrm.Activity.isin(blocks)]
         num_blocks = len(ok_blocks)
 
         if selected:

@@ -115,7 +115,7 @@ def load_default_kernels(kernel_path=kernel_path):
 def load_kernels(kernels, kernel_path=kernel_path, load_defaults=True):
 
     if type(kernels) == dict:
-        kernels - kernels.values()
+        kernels = kernels.values()
     elif type(kernels) == str:
         kernels = [kernels]
 
@@ -159,15 +159,14 @@ def mtp_kernels(mtp, case='P'):
     ratm = glob.glob(os.path.join(ck_path,  'RATM_DM_%03i_??____%c__00???.BC') % (mtp,case.upper()))
     catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_______00???.BC'))
 
-    if len(rorl)==0 or len(corl)==0 or len(ratm)==0:
-        print('ERROR: no matching RORL/CORL/RATM files found in folder')
-        return False
+    if len(rorl)==0 or len(corl)==0 or len(ratm)==0 or len(catt)==0:
+        print('WARNING: incomplete set of RORL/CORL/RATM/CATT files found in folder')
 
     # Find the latest file
-    rorl = sorted(rorl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    corl = sorted(corl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    ratm = sorted(ratm, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
-    catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1]
+    rorl = sorted(rorl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1] if len(rorl)>0 else None
+    corl = sorted(corl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1] if len(corl)>0 else None
+    ratm = sorted(ratm, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1] if len(ratm)>0 else None
+    catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1] if len(catt)>0 else None
 
     return {'rorl': rorl, 'corl': corl, 'ratm': ratm, 'catt': catt}
 

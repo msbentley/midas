@@ -2029,9 +2029,10 @@ class tm:
         if type(end)==str:
             end = pd.Timestamp(end)
 
-        if start > end:
-            print('ERROR: start time must be before end!')
-            return None
+        if start and end:
+            if start > end:
+                print('ERROR: start time must be before end!')
+                return None
 
         if start:
             pkts = pkts[pkts.obt>start]
@@ -2044,7 +2045,7 @@ class tm:
             & (pkts.apid.isin(pkt_info.apid)) & (pkts.sid.isin(pkt_info.sid)) ]
 
         # If requested, filter out packets that are not time-sync'd
-        if tsync:
+        if tsync and self.model!='FS':
             pkts = pkts[ pkts.tsync ]
 
         num_params = len(pkts)
@@ -2178,9 +2179,10 @@ class tm:
         if type(end)==str:
             end = parser.parse(end)
 
-        if start > end:
-            print('ERROR: start time must be before end time!')
-            return None
+        if start and end:
+            if start > end:
+                print('ERROR: start time must be before end time!')
+                return None
 
         if len(units) > 2:
             print('ERROR: cannot plot parameters with more than 2 different units on the same figure')
@@ -3236,27 +3238,6 @@ class tm:
         return pd.DataFrame(approaches)
 
 
-    def sample_slope(self):
-        """Extracts all images in pkts and fits a plane to the image, returning the
-        plane fit and maximum height difference in the image, as well as the target
-        segment"""
-
-        import common
-
-        #TODO
-
-        images = self.get_images(self.pkts)
-        if images is None:
-            print('WARNING: no images in this TM')
-            return False
-
-        for image in images:
-            height_diff = (image['data'].max()-image['data'].min())*common.zcal
-            # TODO - get new bits/bytes in image header to extract segment
-
-        return segment, fit, height_diff
-
-
     def target_usage(self, target=None):
         """Summarises targe usage (number of image and line scans etc.) for all
         targets, or for some specified by target="""
@@ -3281,6 +3262,47 @@ class tm:
         return target_use
 
 #----- end of TM class
+
+def sample_slope(images, add_to_df=True):
+    """Accepts one or more images returned by tm.get_images(), performs a least
+    squares fit to the image data and returns the angle of this fit in X and Y."""
+
+    indices = []
+    x_deg = []
+    y_deg = []
+
+    if type(images) == pd.Series:
+        images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+
+    topo = images.query('channel=="ZS"')
+
+    for idx, image in topo.iterrows():
+
+        data = image['data']
+
+        xvals = np.arange(data.shape[0]) * image.x_step_nm
+        yvals = np.arange(data.shape[1]) * image.y_step_nm
+        z = data.ravel() * common.zcal
+
+        xs, ys = np.meshgrid(xvals, yvals)
+        x = xs.ravel()
+        y = ys.ravel()
+
+        A = np.column_stack([x, y, np.ones_like(x)])
+        abc, residuals, rank, s = np.linalg.lstsq(A, z)
+
+        indices.append(idx)
+        x_deg.append(np.rad2deg(np.arctan(abc[0])))
+        y_deg.append(np.rad2deg(np.arctan(abc[1])))
+
+
+    if add_to_df:
+        images['x_deg'] = pd.Series(x_deg, index=indices)
+        images['y_deg'] = pd.Series(y_deg, index=indices)
+        return images
+    else:
+        return indices, x_deg, y_deg
+
 
 def check_retract(image, boolmask=True):
     """Accepts an image produced by get_images() and checks whether any points have

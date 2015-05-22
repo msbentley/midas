@@ -2164,7 +2164,10 @@ class tm:
 
     def plot_params(self, param_names, start=False, end=False, label_events=False):
         """Plot a TM parameter vs OBT. Requires a packet list and parameter
-        name. label_events= can optionally be set to label key events."""
+        name. start= and end= can be set to a string or DateTime to limit the returned
+        data.
+
+        label_events= can be one of scan, fscan, lines or all and will label events."""
 
         import matplotlib.dates as md
         from dateutil import parser

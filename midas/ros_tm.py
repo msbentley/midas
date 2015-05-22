@@ -3710,12 +3710,26 @@ def load_images(filename=None, data=False, sourcepath=None):
 
     if filename is None:
         if data:
-            filename = os.path.join(common.tlm_path, 'all_images_data.h5')
-            images = pd.read_hdf(filename, 'images')
+
+            filename = os.path.join(common.tlm_path, 'all_images_data.pkl')
+            f = open(filename, 'rb')
+            import cPickle as pkl
+
+            objs = []
+            while 1:
+                try:
+                    objs.append(pkl.load(f))
+                except EOFError:
+                    break
+
+            images = pd.concat(iter(objs), axis=0)
+
         else:
             filename = os.path.join(common.tlm_path, 'all_images.msg')
             images = pd.read_msgpack(filename)
 
+    images.sort('start_time', inplace=True)
+    images.reset_index(inplace=True)
 
     if sourcepath is not None:
         tm.pkts.filename = tm.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )

@@ -132,9 +132,9 @@ def run_daily():
         print('\n\nINFO: Requesting latest time correlation packet (TCP)\n')
         tcorr = dds_utils.get_timecorr(outputpath=tlm_dir)
 
-        # Use this to write a binary HDF5 file with all image data
+        # Use this to write a binary file with all image data
         print('\n\nINFO: updating binary image index\n')
-        image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.h5', append=False)
+        image_pickle()
 
     tunnel.kill()
 
@@ -199,6 +199,38 @@ def image_msgpack(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir
             images.to_msgpack(msg_file, append=True)
 
     return
+
+def image_pickle(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.pkl'):
+
+    import cPickle as pkl
+
+    # Check for the h5 file and remove if it exists
+    pkl_file = os.path.join(out_path, out_file)
+
+    if os.path.exists(pkl_file):
+        os.remove(pkl_file)
+
+    pkl_f = open(pkl_file, 'wb')
+
+    import glob
+    tm_files = sorted(glob.glob(os.path.join(src_path,src_files)))
+
+    if len(tm_files)==0:
+        print('ERROR: no files matching pattern')
+        return False
+
+    for f in tm_files:
+        tm=ros_tm.tm(f)
+        images = tm.get_images(info_only=False, expand_params=True)
+
+        if images is not None:
+            pkl.dump(images, file=pkl_f, protocol=pkl.HIGHEST_PROTOCOL)
+
+    pkl_f.close()
+
+    return
+
+
 
 def show_scans():
     """Uses ros_tm.locate_scans() to iterate through all segments having image scans and plots the scans

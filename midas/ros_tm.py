@@ -1456,6 +1456,9 @@ class tm:
         tlm = tlm.reset_index(drop=True)
 
         if sftp: self.sftp = sftp
+
+        tlm['description'] = tlm['description'].astype('category')
+
         self.pkts = tlm
 
         return
@@ -3018,6 +3021,11 @@ class tm:
 
         print('INFO: %i images found' % (len(info.start_time.unique())))
 
+        # Use categories instead of pure strings for columns where the input range is limited
+        catcols = ['sw_ver', 'channel', 'target_type', 'x_dir', 'y_dir', 'fast_dir', 'scan_type']
+        for cat in catcols:
+            images['%s'%cat] = images['%s'%cat].astype('category')
+
         return images.sort(['start_time','channel'])
 
 
@@ -3304,7 +3312,7 @@ def sample_slope(images, add_to_df=True):
         images['y_deg'] = pd.Series(y_deg, index=indices)
         return images
     else:
-        return indices, x_deg, y_deg
+        return (indices, x_deg, y_deg)
 
 
 def check_retract(image, boolmask=True):

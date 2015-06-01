@@ -96,6 +96,8 @@ def run_daily():
         images = tm.get_images(info_only=True, expand_params=True)
         del(tm)
 
+        images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
+
         # Tidy up the metadata a little
 
         # remove the path from the absolute source filename
@@ -110,7 +112,6 @@ def run_daily():
         # Write to XLS, CSV and msgpack format
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
-        images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
 
         # Update the list of exposures
         print('\n\nINFO: updating table of exposures\n')

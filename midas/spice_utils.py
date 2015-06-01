@@ -8,10 +8,6 @@ import os, spice, dateutil
 import numpy as np
 
 debug = True
-
-cspice_exe_path = os.path.expanduser('~/Dropbox/work/midas/software/python/PySPICE/cspice/exe/')
-kernel_path = os.path.expanduser('~/Copy/midas/spice')
-
 km_to_au = (1/149598000.)
 
 

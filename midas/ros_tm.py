@@ -1194,7 +1194,7 @@ class tm:
 
 
     def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'),
-        start=None, end=None, stp=None, what='all', sourcepath=os.path.expanduser('~/Copy/midas/data/tlm')):
+        start=None, end=None, stp=None, what='all', sourcepath=common.tlm_path):
         """Restores a TLM packet index from filename. The entire file is read if no other options are given, otherwise
         filters can be applied:
 
@@ -3717,7 +3717,7 @@ def strfdelta(tdelta, fmt):
     return fmt.format(**d)
 
 
-def load_images(filename=None, data=False, sourcepath=None):
+def load_images(filename=None, data=False, sourcepath=common.tlm_path):
     """Load a messagepack file containing all image meta-data"""
 
     if filename is None:

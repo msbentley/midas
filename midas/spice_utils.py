@@ -9,6 +9,7 @@ import numpy as np
 
 debug = True
 km_to_au = (1/149598000.)
+kernel_path = common.kernel_path
 
 
 def spk_interval(spk_list):

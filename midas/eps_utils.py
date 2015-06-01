@@ -315,13 +315,13 @@ def plot_eps_output(power,data, start=False, end=False, observations=False):
 
     if not start: start = ax.get_xlim()[0]
     if not end: end = ax.get_xlim()[1]
-    plt.autoscale()
-
-    # ax.autoscale_view(True,True,True)
-    # ax_right.autoscale_view(True,True,True)
 
     ax.set_xlim(start,end)
 
+    # ax.relim()
+    # ax_right.relim()
+    # ax.autoscale_view()
+    # ax_right.autoscale_view()
 
     if type(observations) != bool:
 
@@ -348,5 +348,5 @@ def plot_eps_output(power,data, start=False, end=False, observations=False):
         ax_right.plot(times,mtp_data,color='r',label='MTP envelope data')
 
     plt.show()
-    plt.draw()
+
     return

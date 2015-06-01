@@ -4,6 +4,7 @@ spice_utils.py - a collection of routines to facilitate using SPICE under
 python - mainly using PySPICE and calling cspice executables
 """
 
+from midas import common
 import os, spice, dateutil
 import numpy as np
 

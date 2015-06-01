@@ -3744,7 +3744,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path):
     images.reset_index(inplace=True)
 
     if sourcepath is not None:
-        tm.pkts.filename = tm.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
+        images.tlm_file = images.tlm_file.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
 
     return images
 

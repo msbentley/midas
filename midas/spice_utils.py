@@ -97,7 +97,7 @@ def load_default_kernels(kernel_path=kernel_path):
                 'fk/NEW_NORCIA_TOPO.TF',
                 'fk/ROS_V24.TF',
                 'ik/ROS_MIDAS_V10.TI',
-                'lsk/NAIF0010.TLS',
+                'lsk/NAIF0011.TLS',
                 'pck/PCK00010.TPC',
                 # 'RS_ROT_PARAM_500m.tpc'
                 'sclk/ros_triv.tsc',

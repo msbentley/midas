@@ -1813,7 +1813,7 @@ class itl:
 
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50):
+        ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1885,6 +1885,11 @@ class itl:
         image_data_bytes = ntypes * (80 + 2096 * xpixels * ypixels / 1024)
         line_data_bytes = (num_lines*1072)
         data_bytes = image_data_bytes + line_data_bytes
+
+        # Add additional data rate if control data packets are enabled
+        if ctrl_data:
+            data_bytes += (32 * 32 * 2096)
+
         data_rate = (data_bytes*8/duration_s)
 
         # Set up the list of parameters for this template - these will be replaced in the template
@@ -1911,7 +1916,8 @@ class itl:
             'z_ret': zretract,
             'fadj_numscans': fadj_numscans,
             'z_settle': z_settle,
-            'xy_settle': xy_settle }
+            'xy_settle': xy_settle,
+            'ctrl_data': 'ON*' if ctrl_data else 'OFF*' }
 
         freq_params = { \
 
@@ -2000,7 +2006,7 @@ class itl:
         return
 
 
-    def z_cal(self, cantilever, channels=['ZS'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
+    def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
         xlh=True, ylh=True, mainscan_x=True, zstep=4):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
 
@@ -2342,7 +2348,7 @@ class itl:
 
     def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
-        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=False,
+        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
         at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50):
 
         import scanning

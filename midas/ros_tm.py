@@ -1460,7 +1460,7 @@ class tm:
 
         if sftp: self.sftp = sftp
 
-        tlm['description'] = tlm['description'].astype('category')
+        # tlm['description'] = tlm['description'].astype('category')
 
         self.pkts = tlm
 

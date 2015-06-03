@@ -1712,7 +1712,7 @@ class itl:
     def instrument_setup(self, fscan_phase=False, last_z_lf=False, zero_lf=False, calc_retract=False,
         line_tx=True, ctrl_full=False, ctrl_retract=False, anti_creep=True, auto_exp=False,
         auto_thresh=32768, auto_trig=10, auto_seg=0, acreep=4, x_zoom=256, y_zoom=256, retr_m2=0, retr_m3=0,
-        hk1=0, hk2=0, hk3=0, hk4=0):
+        send_lines=True, mag_phase=False, hk1=0, hk2=0, hk3=0, hk4=0):
         """Calls SQ AMDF034B, which performs a variety of instrument setup tasks, including:
 
         - Set software flags
@@ -1751,6 +1751,8 @@ class itl:
         # Bit 7 (value = 0x0080) : SW_ANTI_CREEP      1 = perform anti-creep scan before full scan
         #
         # Bit 8 (value = 0x0100) : SW_AUTO_EXP        1 = enable auto-exposure mode
+        # Bit 12                 : SW_ACREEP_FULL     1 = Tx anti-creep lines during fullscan
+        # Bit 13                 : SW_MAGN_PHASE      1 = phase signal at magnetic positions
         proc = {}
         proc['template'] = 'SETUP'
 
@@ -1766,6 +1768,8 @@ class itl:
         if ctrl_retract: sw_flags += 0x0040
         if anti_creep: sw_flags   += 0x0080
         if auto_exp: sw_flags     += 0x0100
+        if send_lines: sw_flags   += 0x1000
+        if mag_phase: sw_flags    += 0x2000
 
         if not(0 <= auto_thresh <= 65535):
             print('ERROR: auto exposure dust count threshold must be between 0 and 65535 - setting default 32768')

@@ -102,6 +102,7 @@ def closed_to_open(x,y):
 
 	return (x,y)
 
+scan_type = ['DYN','CON','MAG']
 
 # Adding virtual channels for unpacked status
 status_channels = ['NC', 'RP', 'LA', 'MC', 'PA', 'PC']

@@ -2490,8 +2490,11 @@ class tm:
 
 
 
-    def get_line_scans(self, info_only=False):
-        """Extracts line scans from TM packets"""
+    def get_line_scans(self, info_only=False, expand_params=False, ignore_image=False):
+        """Extracts line scans from TM packets.
+
+        info_only=True will return meta-data, but not line scan data.
+        expand_params=True will look up additional data in HK but only for non-image lines!"""
 
         line_scan_fmt = ">H2Bh6H6H"
         line_scan_size = struct.calcsize(line_scan_fmt)
@@ -2509,22 +2512,46 @@ class tm:
 
         linescans = []
 
+        if expand_params:
+            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+
+
         for idx,pkt in line_scan_pkts.iterrows():
             line_type = {}
             line_type['info'] = line_scan_names(*struct.unpack(line_scan_fmt,pkt['data'][0:line_scan_size]))
             num_steps = line_type['info'].num_steps
+
+            in_image = bool(line_type['info'].sw_flags & 1)
+
+            # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
+            if expand_params:
+                line_type['info'] = line_type['info']._asdict()
+                frame = hk2[hk2.obt>pkt.obt].index[0]
+                line_type['info']['op_pt'] = np.nan if in_image else self.get_param('NMDA0181', frame=frame)[1]
+                line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
+                line_type['info']['exc_lvl'] = np.nan if in_image else self.get_param('NMDA0147', frame=frame)[1]
+                line_type['info']['ac_gain'] = np.nan if in_image else self.get_param('NMDA0118', frame=frame)[1]
+
             if not info_only:
                 line_type['data'] = np.array(struct.unpack(">%iH" % (num_steps),pkt['data'][line_scan_size:line_scan_size+num_steps*2]))
-                # line_type['data'] = 32767 - line_type['data'] # invert to get height
+
             linescans.append(line_type)
 
-        lines = pd.DataFrame([line['info'] for line in linescans],columns=line_scan_names._fields,index=line_scan_pkts.index)
-        # Adding new flags
-        # Software flags:
-        # Bits   15-3: Spare
-        # Bit     2-1: Anti-creep status (0=idle, 1=init, 2=active)
-        # Bit       0: Image scan active flag
+        cols = line_scan_names._fields
+        if expand_params:
+            cols += ('op_pt', 'set_pt', 'exc_lvl', 'ac_gain')
+
+        lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=line_scan_pkts.index)
+
         lines['in_image'] = lines.sw_flags.apply( lambda flag: bool(flag & 1))
+
+        if not info_only:
+            lines['data'] = [line['data'] for line in linescans]
+
+        if ignore_image:
+            lines = lines[~lines.in_image]
+
+
         lines['anti_creep'] = lines.sw_flags.apply( lambda flag: bool(flag >> 1 & 0b11))
 
         lines['obt'] = line_scan_pkts.obt
@@ -2541,10 +2568,7 @@ class tm:
 
         lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
 
-        if not info_only:
-            lines['data'] = [line['data'] for line in linescans]
-
-        print('INFO: %i line scans extracted' % (len(linescans)))
+        print('INFO: %i line scans extracted' % (len(lines)))
 
         return lines
 
@@ -2705,8 +2729,6 @@ class tm:
         dataframe containing the scan metadata, but no actual images"""
 
         import common
-
-        scan_type = ['DYN','CON','MAG']
 
         # structure definition for the image header packet
         image_header_fmt = ">H2B2IHh11H11H2H"
@@ -2880,7 +2902,7 @@ class tm:
         info['fast_dir'] = info.scan_type.apply( lambda fast: 'X' if (fast & 2**15)==0 else 'Y')
         info['aborted'] = info.scan_type.apply( lambda stype: bool(stype >> 14 & 1) )
         info['dummy'] = info.scan_type.apply( lambda mode: bool(mode >> 2 & 1) )
-        info['scan_type'] = info.scan_type.apply( lambda mode: scan_type[ mode & 0b11 ] )
+        info['scan_type'] = info.scan_type.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
         info['exc_lvl'] = info.scan_mode.apply( lambda mode: mode >> 13 )
         info['dc_gain'] = info.scan_mode.apply( lambda mode: mode >> 10 & 0b111 )
         info['ac_gain'] = info.scan_mode.apply( lambda mode: mode >> 7  & 0b111 )
@@ -3023,9 +3045,16 @@ class tm:
         print('INFO: %i images found' % (len(info.start_time.unique())))
 
         # Use categories instead of pure strings for columns where the input range is limited
-        catcols = ['sw_ver', 'channel', 'target_type', 'x_dir', 'y_dir', 'fast_dir', 'scan_type']
-        for cat in catcols:
+        catcols = {
+            'channel': common.data_channels,
+            'target_type': ['CAL', 'SOLGEL', 'SILICON'],
+            'x_dir': ['L_H', 'H_L'],
+            'y_dir': ['L_H', 'H_L'],
+            'fast_dir': ['X', 'Y'],
+            'scan_type': common.scan_type}
+        for cat in catcols.keys():
             images['%s'%cat] = images['%s'%cat].astype('category')
+            images['%s'%cat].cat.set_categories(catcols[cat])
 
         return images.sort(['start_time','channel'])
 
@@ -3737,8 +3766,8 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path):
             images = pd.concat(iter(objs), axis=0)
 
         else:
-            filename = os.path.join(common.tlm_path, 'all_images.msg')
-            images = pd.read_msgpack(filename)
+            filename = os.path.join(common.tlm_path, 'all_images.pkl')
+            images = pd.read_pickle(filename)
 
     images.sort('start_time', inplace=True)
     images.reset_index(inplace=True)

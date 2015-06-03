@@ -62,7 +62,7 @@ def run_daily():
         obs_path,obs_fname = os.path.split(obs_file)
         tm = ros_tm.tm(obs_file) # open TM file
 
-        # Extract and save images in various formats
+        # Extract and save images in various formatos.path.join(os.path.expanduser('~/Copy/midas/data/tlm'), 'all_images.pkl'))s
         images = tm.get_images(expand_params=True) # extract images
         if images is not None:
             ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
@@ -96,7 +96,7 @@ def run_daily():
         images = tm.get_images(info_only=True, expand_params=True)
         del(tm)
 
-        images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
+        images.to_pickle(os.path.join(tlm_dir, 'all_images.pkl'))
 
         # Tidy up the metadata a little
 
@@ -301,11 +301,11 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
 
         # Save the two meta-data spreadsheets
         images['filename'] = images['filename'].apply( lambda name: os.path.basename(name) )
+        images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
         images['duration'] = images['duration'].apply( lambda dur: "%s" % timedelta( seconds = dur / np.timedelta64(1, 's')) if not pd.isnull(dur) else '' )
         images.rename(columns={'filename':'tlm_file'}, inplace=True)
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
-        images.to_msgpack(os.path.join(tlm_dir, 'all_images.msg'))
         image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.h5', append=False)
 
 

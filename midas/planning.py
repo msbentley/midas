@@ -43,6 +43,8 @@ scan_templates = {
     'SCAN_AT_SURFACE': 'ITLS_MD_SCAN_AT_SURFACE.itl',
     'LINE_SCAN': 'ITLS_MD_LINE_SCAN.itl',
     'LINE_SURF': 'ITLS_MD_LINE_SCAN_AT_SURFACE.itl',
+    'LINE_CONTACT': 'ITLS_MD_LINE_SCAN_CONTACT.itl',
+    'LINE_CON_SURF': 'ITLS_MD_LINE_SCAN_CONTACT_AT_SURFACE.itl',
     'AUTOZOOM': 'ITLS_MD_AUTO_ZOOM.itl',
     'SCAN_NOSETUP': 'ITLS_MD_SCAN_NOSETUP.itl',
     'CONTACT_SCAN': 'ITLS_MD_SCAN_CONTACT.itl',
@@ -2023,39 +2025,41 @@ class itl:
 
     def xy_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
         xlh=True, ylh=True, mainscan_x=True, at_surface=False, set_start=True, fadj_numscans=2,
-        ac_gain=False, exc_lvl=False, set_pt=False, op_amp=False, fadj=85.0, z_settle=50, xy_settle=50):
+        ac_gain=False, exc_lvl=False, set_pt=False, op_amp=False, fadj=85.0, z_settle=50, xy_settle=50,
+        contact=False, threshold=False):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         self.scan(cantilever=cantilever, facet=2, channels=channels, openloop=openloop, \
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, at_surface=at_surface, safety_factor=4.0, \
             xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep,
             ac_gain=ac_gain, exc_lvl=exc_lvl, set_start=set_start, z_settle=z_settle, xy_settle=xy_settle,
-            op_amp=op_amp, fadj=fadj,  set_pt=set_pt, fadj_numscans=fadj_numscans)
+            op_amp=op_amp, fadj=fadj,  set_pt=set_pt, fadj_numscans=fadj_numscans, contact=contact, threshold=threshold)
 
         return
 
 
     def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
-        xlh=True, ylh=True, mainscan_x=True, zstep=4):
+        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         self.scan(cantilever=cantilever, facet=1, channels=channels, openloop=openloop, \
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep, \
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0)
+            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, contact=contact, threshold=threshold)
 
         return
 
     def tip_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=4, ystep=4,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
         fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2,
-        z_settle=50, xy_settle=50):
+        z_settle=50, xy_settle=50, contact=False, threshold=False):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         self.scan(cantilever=cantilever, facet=3, channels=channels, openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
             op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
-            set_start=set_start, fadj_numscans=fadj_numscans, z_settle=z_settle, xy_settle=xy_settle)
+            set_start=set_start, fadj_numscans=fadj_numscans, z_settle=z_settle, xy_settle=xy_settle,
+            contact=contact, threshold=threshold)
 
         return
 
@@ -2378,15 +2382,23 @@ class itl:
     def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
-        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False):
+        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False):
 
         import scanning
         proc = {}
 
+        if contact: set_start=False
+
         if at_surface:
-            proc['template'] = 'LINE_SURF'
+            if contact:
+                proc['template'] = 'LINE_CON_SURF'
+            else:
+                proc['template'] = 'LINE_SURF'
         else:
-            proc['template'] = 'LINE_SCAN'
+            if contact:
+                proc['template'] = 'LINE_CONTACT'
+            else:
+                proc['template'] = 'LINE_SCAN'
 
         # validate inputs
         if (cantilever<1) or (cantilever>16):
@@ -2407,7 +2419,6 @@ class itl:
         # Return parameters for selected cantilever
         fscan = self.cantilever_select(cantilever)
         fscan_params = self.freq_scan(cantilever, num_scans=num_fcyc, params_only=True)
-
 
         # Centre the scan on the XY table unless specified
         if type(xorigin)==bool and type(yorigin)==bool:
@@ -2450,6 +2461,7 @@ class itl:
         proc['params'] = { \
 
             'linear_posn': linear_posn,
+            'linear_posn_pre': linear_posn-0.5,
             'segment': facet*16,
 
             # Cantilever dependent fscan parameters
@@ -2457,7 +2469,8 @@ class itl:
             'cant_block': fscan['cant_block'],
             'block1_pwr': fscan['block1_pwr'],
             'block2_pwr': fscan['block2_pwr'],
-            'freq_hi': fscan['freq_hi'],
+            'freq_hi': fscan_params['freq_hi'],
+            'freq_lo': fscan_params['freq_lo'],
             'ac_gain': fscan['ac_gain'] if type(ac_gain)==bool else ac_gain,
             'exc_lvl': fscan['exc_lvl'] if type(exc_lvl)==bool else exc_lvl,
             'fstep_fine': fscan['fstep_fine'],
@@ -2488,6 +2501,19 @@ class itl:
             'scan_algo': 1 if threshold else 0,
 
             'scan_data_rate': "%3.2f" % (data_rate) }
+
+            # Contact mode parameters:
+            # <dc_set_pt>, <contact_window>, <delta_dc_contact>
+            # Typically set to:
+            # dc_set_pt = 0.1
+            # delta_dc_contact = 2*dc_set_pt
+            # contact_window = 0.1 * dc_set_pt
+
+        if contact:
+            proc['params'].update({
+                'dc_set_pt': 0.1,
+                'delta_dc_contact': 0.2,
+                'contact_window': 0.01 })
 
         if set_start:
             self.tech_cmd( [779, fscan_params['freq_hi_dig'], 780, fscan_params['freq_lo_dig'], 33536])

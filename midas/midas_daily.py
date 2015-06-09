@@ -96,12 +96,11 @@ def run_daily():
         images = tm.get_images(info_only=True, expand_params=True)
         del(tm)
 
-        images.to_pickle(os.path.join(tlm_dir, 'all_images.pkl'))
-
         # Tidy up the metadata a little
 
         # remove the path from the absolute source filename
         images['filename'] = images['filename'].apply( lambda name: os.path.basename(name) )
+        images.to_pickle(os.path.join(tlm_dir, 'all_images.pkl'))
 
         # Format the duration into a string
         images['duration'] = images['duration'].apply( lambda dur: "%s" % timedelta( seconds = dur / np.timedelta64(1, 's')) if not pd.isnull(dur) else '' )

@@ -2504,8 +2504,6 @@ class tm:
 
         line_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=132)
 
-        scan_type = ['DYN','CON','MAG']
-
         if len(line_scan_pkts)==0:
             print('WARNING: no line image packets found')
             return False
@@ -2550,6 +2548,9 @@ class tm:
 
         if ignore_image:
             lines = lines[~lines.in_image]
+            if len(lines)==0:
+                print('WARNING: ignore_image is set, but there are no lines not forming an image')
+                return None
 
 
         lines['anti_creep'] = lines.sw_flags.apply( lambda flag: bool(flag >> 1 & 0b11))
@@ -2562,7 +2563,7 @@ class tm:
 
         lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
         lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
-        lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: scan_type[ mode & 0b11 ] )
+        lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
         lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
         lines['target'] = lines.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
 
@@ -2575,8 +2576,6 @@ class tm:
 
     def get_ctrl_data(self, rawdata=False, info_only=False, expand_params=False):
         """Extracts control data from TM packets"""
-
-        scan_type = ['DYN','CON','MAG']
 
         ctrl_data_fmt = ">H2Bh6H2B2H3H"
         ctrl_data_size = struct.calcsize(ctrl_data_fmt)
@@ -2611,7 +2610,7 @@ class tm:
         ctrl_data.tip_num += 1
         ctrl_data['scan_dir'] = ctrl_data.scan_mode.apply( lambda fast: 'X' if (fast >> 12 & 1)==0 else 'Y')
         ctrl_data['x_dir'] = ctrl_data.scan_mode.apply( lambda xdir: 'H_L' if (xdir >> 8 & 1) else 'L_H')
-        ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: scan_type[ mode & 0b11 ] )
+        ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
 
         ctrl_data['hires'] = ctrl_data.sw_flags.apply( lambda flags: bool(flags >> 1 & 1))
         ctrl_data['in_image'] = ctrl_data.sw_flags.apply( lambda flag: bool(flag & 1))
@@ -3279,13 +3278,62 @@ class tm:
         return pd.DataFrame(approaches)
 
 
-    def target_usage(self, target=None):
-        """Summarises targe usage (number of image and line scans etc.) for all
-        targets, or for some specified by target="""
+    def cantilever_usage(self, cantilever=None):
+        """Summarises cantilever usage (number of image and line scans etc.) for all
+        cantilevers, or for those specified by cantilever="""
 
         images = self.get_images(info_only=True)
         lines = self.get_line_scans(info_only=True)
 
+         # in theory could use the in_image flag for line scans, but this was only introduced later
+         # so for now treat lines that have OBTs between image start/stop as part of that image
+         # BUT this doesn't account for the anti-creep lines (start_time is start of real scan)...
+         # 42656 = Full scan start
+         # 42513 - Ev scan finished
+
+        lines = lines[ (~lines.in_image) | (~lines.anti_creep)]
+
+        for idx, image in images.iterrows():
+            lines = lines[ (lines.obt<image.start_time) | (lines.obt>image.end_time) ]
+
+        cant_usage = pd.DataFrame(columns=['cant_num', 'num_images', 'num_lines', 'num_points'])
+
+        if cantilever is None:
+            cantilever=range(1,17)
+        elif type(cantilever) not in [list, int]:
+            print('WARNING: cantilever= must be an integer or list of integers')
+        elif type(cantilever)==int:
+            cantilever=[cantilever]
+
+        for cant in cantilever:
+
+            num_points = 0
+
+            start_times = images.query('tip_num==%i' % cant).start_time.unique()
+
+            for time in start_times:
+                img = images[ (images.tip_num==cant) & (images.start_time==time) & (images.channel=='ZS') ].squeeze()
+                num_points += img.xsteps * img.ysteps
+
+            num_points += lines.query('tip_num==%i' % cant).num_steps.sum()
+
+            cant_usage = cant_usage.append(
+                {'cant_num': cant,
+                'num_images': len(images.query('tip_num==%i' % cant)),
+                'num_lines':  len(lines.query('tip_num==%i' % cant)),
+                'num_points': num_points }, ignore_index=True)
+
+        cant_usage.set_index(cant_usage.cant_num, inplace=True, drop=True)
+
+        return cant_usage
+
+
+    def target_usage(self, target=None):
+        """Summarises targe usage (number of image and line scans etc.) for all
+        cantilevers, or for those specified by cantilever="""
+
+        images = self.get_images(info_only=True)
+        lines = self.get_line_scans(info_only=True)
 
          # in theory could use the in_image flag for line scans, but this was only introduced later
          # so for now treat lines that have OBTs between image start/stop as part of that image
@@ -3293,14 +3341,40 @@ class tm:
         for idx, image in images.iterrows():
             lines = lines[ (lines.obt<image.start_time) & (lines.obt>image.end_time) ]
 
-        target_use = pd.DataFrame(columns=['target', 'num_images', 'num_lines'])
+        cant_usage = pd.DataFrame(columns=['cant_num', 'num_images', 'num_lines', 'num_points'])
 
-        for facet in range(0,64):
-            target_use.target.ix[facet] = facet
-            target_use.num_images.ix[facet] = len(images.query('target==%i') % facet)
-            target_use.nun_lines.ix[facet] = len(lines.query('target==%i') % facet)
+        if cantilever is None:
+            cantilever=range(1,17)
+        elif type(cantilever) not in [list, int]:
+            print('WARNING: cantilever= must be an integer or list of integers')
+        elif type(cantilever)==int:
+            cantilever=[cantilever]
 
-        return target_use
+        for cant in cantilever:
+
+            num_points = 0
+
+            start_times = images.query('tip_num==%i' % cant).start_time.unique()
+
+            for time in start_times:
+                img = images[ (images.tip_num==cant) & (images.start_time==time) & (images.channel=='ZS') ].squeeze()
+                num_points += img.xsteps * img.ysteps
+
+            num_points += lines.query('tip_num==%i' % cant).num_steps.sum()
+
+            cant_usage = cant_usage.append(
+                {'cant_num': cant,
+                'num_images': len(images.query('tip_num==%i' % cant)),
+                'num_lines':  len(lines.query('tip_num==%i' % cant)),
+                'num_points': num_points }, ignore_index=True)
+
+        cant_usage.set_index(cant_usage.cant_num, inplace=True, drop=True)
+
+        return cant_usage
+
+            # target_use.target.ix[facet] = facet
+            # target_use.num_images.ix[facet] = len(images.query('target==%i') % facet)
+            # target_use.nun_lines.ix[facet] = len(lines.query('target==%i') % facet)
 
 #----- end of TM class
 
@@ -3773,7 +3847,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path):
     images.reset_index(inplace=True)
 
     if sourcepath is not None:
-        images.tlm_file = images.tlm_file.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
+        images.filename = images.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
 
     return images
 

@@ -3376,31 +3376,36 @@ class tm:
             # target_use.num_images.ix[facet] = len(images.query('target==%i') % facet)
             # target_use.nun_lines.ix[facet] = len(lines.query('target==%i') % facet)
 
-    def target_history(self, target=1, html=None):
+    def target_history(self, target=1, images=None, exposures=None, html=None):
         """Produces a summary of target usage (exposures, image scans)"""
 
         if (target<1) or (target>64):
             print('ERROR: target= must be between 1 and 64')
             return None
 
-        images = self.get_images(info_only=True)
-        exposures = self.get_exposures()
+        if images is None:
+            images = self.get_images(info_only=True)
+        if exposures is None:
+            exposures = self.get_exposures()
 
         images = images[ (images.target==target) & (images.channel=='ZS')]
-        images.rename(columns={'start_time':'start'}, inplace=True)
-        images['description'] = images.apply( lambda row: '%d x %d (%3.2f x %3.2f) with tip %d' % (row.xsteps, row.ysteps, row.xlen_um, row.ylen_um, row.tip_num), axis=1)
-        images = images[ ['start', 'description', 'scan_file' ] ]
-        images['activity'] = 'IMAGE SCAN'
+        if len(images)>0:
+            images.rename(columns={'start_time':'start'}, inplace=True)
+            images['description'] = images.apply( lambda row: '%d x %d (%3.2f x %3.2f) with tip %d' % (row.xsteps, row.ysteps, row.xlen_um, row.ylen_um, row.tip_num), axis=1)
+            images = images[ ['start', 'description', 'scan_file' ] ]
+            images['activity'] = 'IMAGE SCAN'
 
+        if len(exposures)>0:
+            exposures = exposures[exposures.target==target]
+            exposures['activity'] = 'TARGET EXPOSE'
+            exposures['description'] = exposures.duration.apply( lambda dur: '%s' % timedelta( seconds = dur / np.timedelta64(1, 's')))
+            exposures.drop(['end','target', 'duration'], inplace=True, axis=1)
 
-        exposures = exposures[exposures.target==target]
-        exposures['activity'] = 'TARGET EXPOSE'
-        exposures['description'] = exposures.duration.apply( lambda dur: '%s' % timedelta( seconds = dur / np.timedelta64(1, 's')))
-        exposures.drop(['end','target', 'duration'], inplace=True, axis=1)
-
+        if len(exposures)==0 and len(images)==0:
+            print('WARNING: target %d has no exposures or images' % target)
+            return None
 
         history = pd.concat([exposures, images]).sort('start')
-        # history.start = history.start.to_datetime()
 
         history = history[ ['start','activity','scan_file', 'description'] ]
 

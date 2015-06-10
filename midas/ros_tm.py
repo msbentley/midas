@@ -3053,7 +3053,7 @@ class tm:
             'scan_type': common.scan_type}
         for cat in catcols.keys():
             images['%s'%cat] = images['%s'%cat].astype('category')
-            images['%s'%cat].cat.set_categories(catcols[cat])
+            images['%s'%cat].cat.set_categories(catcols[cat], inplace=True)
 
         return images.sort(['start_time','channel'])
 
@@ -3375,6 +3375,43 @@ class tm:
             # target_use.target.ix[facet] = facet
             # target_use.num_images.ix[facet] = len(images.query('target==%i') % facet)
             # target_use.nun_lines.ix[facet] = len(lines.query('target==%i') % facet)
+
+    def target_history(self, target=1, html=None):
+        """Produces a summary of target usage (exposures, image scans)"""
+
+        if (target<1) or (target>64):
+            print('ERROR: target= must be between 1 and 64')
+            return None
+
+        images = self.get_images(info_only=True)
+        exposures = self.get_exposures()
+
+        images = images[ (images.target==target) & (images.channel=='ZS')]
+        images.rename(columns={'start_time':'start'}, inplace=True)
+        images['description'] = images.apply( lambda row: '%d x %d (%3.2f x %3.2f) with tip %d' % (row.xsteps, row.ysteps, row.xlen_um, row.ylen_um, row.tip_num), axis=1)
+        images = images[ ['start', 'description', 'scan_file' ] ]
+        images['activity'] = 'IMAGE SCAN'
+
+
+        exposures = exposures[exposures.target==target]
+        exposures['activity'] = 'TARGET EXPOSE'
+        exposures['description'] = exposures.duration.apply( lambda dur: '%s' % timedelta( seconds = dur / np.timedelta64(1, 's')))
+        exposures.drop(['end','target', 'duration'], inplace=True, axis=1)
+
+
+        history = pd.concat([exposures, images]).sort('start')
+        # history.start = history.start.to_datetime()
+
+        history = history[ ['start','activity','scan_file', 'description'] ]
+
+        if html is not None:
+
+            timeformatter = lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M:%S')
+            history_html = history.to_html(classes='alt_table', na_rep='', index=False, formatters={ 'start': timeformatter} )
+            css_write(html=history_html, filename=html)
+
+        return history
+
 
 #----- end of TM class
 

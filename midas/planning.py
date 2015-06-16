@@ -70,7 +70,8 @@ other_templates = {
     'LINEAR_MIN': 'ITLS_MD_LINEAR_MIN.itl',
     'TECH_CMD': 'ITLS_MD_TECH_CMD.itl',
     'LIN_ABS': 'ITLS_MD_LINEAR_ABS.itl',
-    'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl' }
+    'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl',
+    'COMMENT': 'ITLS_MD_COMMENT.itl' }
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
 
@@ -329,7 +330,8 @@ def ltp_from_mtp(mtp):
         2: range(7,8+1),
         3: range(9,10+1),
         4: range(11,13+1),
-        5: range(14,17+1) }
+        5: range(14,18+1),
+        6: range(19,21+1), }
 
     return [ltp for (ltp,mtps) in ltps.iteritems() if mtp in mtps][0]
 
@@ -1394,10 +1396,12 @@ class itl:
         template = templatefile.read()
         templatefile.close()
 
-        # Add observation specific event label and count information
-        procedure['params']['event_start'] = obs.start_id
-        # procedure['params']['event_end'] = obs.end_id
-        procedure['params']['event_count'] = obs.obs_id
+        if procedure['template'] != 'COMMENT':
+
+            # Add observation specific event label and count information
+            procedure['params']['event_start'] = obs.start_id
+            # procedure['params']['event_end'] = obs.end_id
+            procedure['params']['event_count'] = obs.obs_id
 
         # find positions of opening and closing tags ('<', '>')
         opentag = [tag.start() for tag in re.finditer('<',template)]
@@ -1428,38 +1432,42 @@ class itl:
         for tag in tags:
             template = template.replace('<'+tag+'>',str(procedure['params'][tag]))
 
-        # deal with the relative times (adding an offset if necessary)
-        rel_times = re.findall(r'\{(.+?)\}',template)
-        new_times = []
-        for time in rel_times:
-            # ignore pos/neg times for now - templates should only have positive times
-            if( time.startswith('+') or time.startswith('-') ): time = time[1:]
-            days = int(time.split('_')[0]) if time.find('_') >= 0 else 0
-            hours,minutes,seconds = map(int,(time.split('_')[1].split(':'))) if time.find('_') >= 0 else map(int,time.split(':'))
-            reltime = timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
-            shifted = reltime + self.time
-            new_times.append("+%03d_%02d:%02d:%02d" % (shifted.days, shifted.seconds//3600, (shifted.seconds//60)%60, shifted.seconds%60))
+        if procedure['template'] != 'COMMENT':
 
-        # Now search and replace each rel_times entry for the corresponding new_times entry
-        for idx, time in enumerate(rel_times):
-            template = template.replace('{'+time+'}',new_times[idx])
+            # deal with the relative times (adding an offset if necessary)
+            rel_times = re.findall(r'\{(.+?)\}',template)
+            new_times = []
+            for time in rel_times:
+                # ignore pos/neg times for now - templates should only have positive times
+                if( time.startswith('+') or time.startswith('-') ): time = time[1:]
+                days = int(time.split('_')[0]) if time.find('_') >= 0 else 0
+                hours,minutes,seconds = map(int,(time.split('_')[1].split(':'))) if time.find('_') >= 0 else map(int,time.split(':'))
+                reltime = timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+                shifted = reltime + self.time
+                new_times.append("+%03d_%02d:%02d:%02d" % (shifted.days, shifted.seconds//3600, (shifted.seconds//60)%60, shifted.seconds%60))
 
-        end_time = shifted+duration
-        real_duration = end_time - self.time
-        remaining = self.current_block['offset'] + self.current_block['duration'] - end_time
+            # Now search and replace each rel_times entry for the corresponding new_times entry
+            for idx, time in enumerate(rel_times):
+                template = template.replace('{'+time+'}',new_times[idx])
+
+            end_time = shifted+duration
+            real_duration = end_time - self.time
+            remaining = self.current_block['offset'] + self.current_block['duration'] - end_time
+
+            self.time = end_time
+            self.abs_time = obs.start_time + self.time
+
+            print('INFO: %s: %s (duration %s)' % (start, procedure['template'], real_duration))
+
+            if end_time > self.current_block['offset'] + self.current_block['duration']:
+                exceeded = -remaining # end_time - self.current_block['offset'] + self.current_block['duration']
+                print('WARNING: observation is %s too long for block %i' % (exceeded, self.current_block['index']))
+            else:
+                print('INFO: %s left in block %i' % (remaining,self.current_block['index']))
 
         # Add the ITL regardless (some time over-runs are "soft")
         self.itl.append(template)
-        self.time = end_time
-        self.abs_time = obs.start_time + self.time
 
-        print('INFO: %s: %s (duration %s)' % (start, procedure['template'], real_duration))
-
-        if end_time > self.current_block['offset'] + self.current_block['duration']:
-            exceeded = -remaining # end_time - self.current_block['offset'] + self.current_block['duration']
-            print('WARNING: observation is %s too long for block %i' % (exceeded, self.current_block['index']))
-        else:
-            print('INFO: %s left in block %i' % (remaining,self.current_block['index']))
 
         return
 
@@ -1538,6 +1546,15 @@ class itl:
 
     #-------------------------------------
     # Below are python functions that create ITL fragments
+
+    def comment(self, comment):
+        """Inserts a string comment into an ITL template"""
+
+        params = { 'template': 'COMMENT', 'params': { 'comment': comment} }
+        self.generate(params, duration=timedelta(seconds=0))
+
+        return
+
 
     def pstp_placeholder(self, duration, drate=333.0):
         """Insert a PSTP placeholder (test command)"""

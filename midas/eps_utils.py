@@ -5,6 +5,7 @@ example ITL timeline files, and outputs (e.g. power and data profiles)."""
 
 debug = False
 import numpy as np
+import pandas as pd
 import os
 from midas import common, planning
 
@@ -350,3 +351,70 @@ def plot_eps_output(power,data, start=False, end=False, observations=False):
     plt.show()
 
     return
+
+def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instrument='MIDAS', return_tcs=False):
+    """Reads the EPS generated actions.out file and counts the number of telecommands
+    generated for the given instrument. If start= and end= are specified TCs are
+    only counted for this period"""
+
+    import re
+
+    if instrument not in common.instruments.keys():
+        print('ERROR: instrument name %s is invalid' % instrument)
+        return None
+
+    if start is not None:
+        if type(start) == str:
+            start=pd.Timestamp(start)
+        elif type(start) != pd.tslib.Timestamp:
+            print('ERROR: start= must be a string or a Timestamp')
+            return None
+
+    if end is not None:
+        if type(end) == str:
+            end=pd.Timestamp(end)
+        elif type(end) != pd.tslib.Timestamp:
+            print('ERROR: end= must be a string or a Timestamp')
+            return None
+
+    tcs = []
+
+    for line in open(actions_file).readlines():
+        if re.search(instrument, line):
+            time, instr, mode, tc_sq = line.split()[0:4]
+            if instr != instrument:
+                continue
+            if tc_sq.startswith('A'+common.instruments[instrument]):
+                continue
+            time = pd.Timestamp(time.replace('_',' '))
+            if start is not None:
+                if time < start:
+                    continue
+            if end is not None:
+                if time > end:
+                    continue
+
+            tcs.append(tc_sq)
+
+    if return_tcs:
+        return tcs
+    else:
+        return len(tcs)
+
+
+def count_all_tcs(eps_path, mtp=None, stp=None):
+    """Summarise TCs for all instruments"""
+
+    if stp is not None:
+        if mtp is None:
+            print('ERROR: specify MTP and STP')
+            return None
+        ltp = planning.ltp_from_mtp(mtp)
+        start, end = planning.get_stp(ltp=ltp, stp=stp)
+
+    num_tcs = []
+
+    for instrument in common.instruments.keys():
+        num_tcs.append(count_tcs(eps_path, start=start, end=end, instrument=instrument))
+
+    return dict(zip(common.instruments.keys(), num_tcs))

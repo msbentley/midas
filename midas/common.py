@@ -24,6 +24,21 @@ gwy_path = os.path.expanduser('~/Copy/midas/data/images/gwy') if os.getenv("GWY_
 kernel_path = os.path.expanduser('~/Copy/midas/spice') if os.getenv("SPICE_PATH") is None else os.getenv("SPICE_PATH")
 
 
+# Instrument acronyms
+instruments = {
+    'ALICE':   'AL',
+    'CONSERT': 'CN',
+    'COSIMA':  'CS',
+    'GIADA':   'GD',
+    'MIDAS':   'MD',
+    'MIRO':    'MR',
+    'ROSINA':  'RN',
+    'RPC':     'RP',
+    'SREM':    'SE',
+    'OSIRIS':  'SR',
+    'VIRTIS':  'VR' }
+
+
 # Calibration factors
 zcal = 0.164 # nm/bit
 xycal = {'open': 3.81384, 'closed': 1.388889} # nm/bit

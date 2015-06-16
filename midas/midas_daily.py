@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 
 log_dir = '/var/www/html/'
 event_dir = '/var/www/html/events/'
+target_dir = '/var/www/html/targets'
 commanding_dir = '/var/www/html/commanding'
 image_dir = '/home/midas/images/'
 tlm_dir = '/home/midas/tlm/'
@@ -120,6 +121,7 @@ def run_daily():
             tm.pkts = tm.pkts[ ((tm.pkts.apid==1079) & ( (tm.pkts.sid==42553) | (tm.pkts.sid==42554) )) |
                 ((tm.pkts.apid==1076) & (tm.pkts.sid==2)) ]
         exposures = tm.get_exposures(html=os.path.join(log_dir,'exposures.html'))
+        exposures.to_msgpack(os.path.join(tlm_dir, 'exposures.msg'))
 
         # (Re-)build the packet index
         print('\n\nINFO: Updating packet index\n')
@@ -135,6 +137,13 @@ def run_daily():
         # Use this to write a binary file with all image data
         print('\n\nINFO: updating binary image index\n')
         image_pickle()
+
+        # Generate a target history for each target
+        print('\n\nINFO: generating target histories')
+        for target in range(1,65):
+            history = tm.target_history(target=target, images=images, exposures=exposures,
+                html=os.path.join(target_dir, 'tgt_%02d_history.html' % target))
+
 
     tunnel.kill()
 

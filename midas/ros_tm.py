@@ -208,7 +208,8 @@ def plot_line_scans(lines, units='real', label=None, align=False, title=None):
     return
 
 
-def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, xmax=False, ymin=False, ymax=False):
+def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, xmax=False, ymin=False, ymax=False,
+        figure=None, axis=None, title=True):
     """Plots one or more frequency scan (read previously with get_freq_scans()). Optionally
     plot a Lorentzian fit"""
 
@@ -222,8 +223,15 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
         print('ERROR: no frequency scans available (for selected cantilever)')
         return None
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    if figure is None:
+        fig = plt.figure()
+    else:
+        fig = figure
+
+    if axis is None:
+        ax = fig.add_subplot(1,1,1)
+    else:
+        ax = axis
 
     ax.set_xlabel('Frequency (Hz)')
     ax.grid(True)
@@ -244,7 +252,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
                 ax.plot(scan.frequency, lorentzian(scan.frequency, scan.offset, scan.fit_max-scan.offset, \
                         scan.res_freq, scan.half_width),label='Lorentzian fit')
 
-    if len(fscans)==1:
+    if len(fscans)==1 and title:
         ax.set_title('Ex/Gn: %i/%i, Freq start/step: %3.2f/%3.2f, Peak amp %3.2f V @ %3.2f Hz' % \
             (scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
             fontsize=12 )
@@ -2245,6 +2253,8 @@ class tm:
         xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
         ax_left.xaxis.set_major_formatter(xfmt)
 
+        ax_left.yaxis.get_major_formatter().set_useOffset(False)
+
         if label_events:
 
             events = self.get_events(ignore_giada=True, verbose=False)
@@ -2726,8 +2736,6 @@ class tm:
     def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False, expand_params=False, unpack_status=False):
         """Extracts images from telemetry packets. Setting info_only=True returns a
         dataframe containing the scan metadata, but no actual images"""
-
-        import common
 
         # structure definition for the image header packet
         image_header_fmt = ">H2B2IHh11H11H2H"
@@ -3278,20 +3286,19 @@ class tm:
         return pd.DataFrame(approaches)
 
 
-    def cantilever_usage(self, cantilever=None):
+    def cantilever_usage(self, cantilever=None, html=None):
         """Summarises cantilever usage (number of image and line scans etc.) for all
         cantilevers, or for those specified by cantilever="""
 
         images = self.get_images(info_only=True)
         lines = self.get_line_scans(info_only=True)
 
-         # in theory could use the in_image flag for line scans, but this was only introduced later
-         # so for now treat lines that have OBTs between image start/stop as part of that image
-         # BUT this doesn't account for the anti-creep lines (start_time is start of real scan)...
-         # 42656 = Full scan start
-         # 42513 - Ev scan finished
+        events = self.get_events(info=False, verbose=False)
+        events - events[ events.sid.isin([42611, 42655])]
 
-        lines = lines[ (~lines.in_image) | (~lines.anti_creep)]
+        lines = lines[ ~lines.in_image ]
+        lines = lines[ ~lines.anti_creep ]
+        lines = lines[ lines.line_cnt==1 ]
 
         for idx, image in images.iterrows():
             lines = lines[ (lines.obt<image.start_time) | (lines.obt>image.end_time) ]
@@ -3319,62 +3326,19 @@ class tm:
 
             cant_usage = cant_usage.append(
                 {'cant_num': cant,
-                'num_images': len(images.query('tip_num==%i' % cant)),
+                'num_images': len(images.query('channel=="ZS" & tip_num==%i' % cant)),
                 'num_lines':  len(lines.query('tip_num==%i' % cant)),
                 'num_points': num_points }, ignore_index=True)
 
-        cant_usage.set_index(cant_usage.cant_num, inplace=True, drop=True)
+        cant_usage.sort('num_points', ascending=False, inplace=True)
+
+        if html is not None:
+
+            usage_html = cant_usage.to_html(classes='alt_table', na_rep='', index=False)
+            css_write(html=usage_html, filename=html)
+
 
         return cant_usage
-
-
-    def target_usage(self, target=None):
-        """Summarises targe usage (number of image and line scans etc.) for all
-        cantilevers, or for those specified by cantilever="""
-
-        images = self.get_images(info_only=True)
-        lines = self.get_line_scans(info_only=True)
-
-         # in theory could use the in_image flag for line scans, but this was only introduced later
-         # so for now treat lines that have OBTs between image start/stop as part of that image
-
-        for idx, image in images.iterrows():
-            lines = lines[ (lines.obt<image.start_time) & (lines.obt>image.end_time) ]
-
-        cant_usage = pd.DataFrame(columns=['cant_num', 'num_images', 'num_lines', 'num_points'])
-
-        if cantilever is None:
-            cantilever=range(1,17)
-        elif type(cantilever) not in [list, int]:
-            print('WARNING: cantilever= must be an integer or list of integers')
-        elif type(cantilever)==int:
-            cantilever=[cantilever]
-
-        for cant in cantilever:
-
-            num_points = 0
-
-            start_times = images.query('tip_num==%i' % cant).start_time.unique()
-
-            for time in start_times:
-                img = images[ (images.tip_num==cant) & (images.start_time==time) & (images.channel=='ZS') ].squeeze()
-                num_points += img.xsteps * img.ysteps
-
-            num_points += lines.query('tip_num==%i' % cant).num_steps.sum()
-
-            cant_usage = cant_usage.append(
-                {'cant_num': cant,
-                'num_images': len(images.query('tip_num==%i' % cant)),
-                'num_lines':  len(lines.query('tip_num==%i' % cant)),
-                'num_points': num_points }, ignore_index=True)
-
-        cant_usage.set_index(cant_usage.cant_num, inplace=True, drop=True)
-
-        return cant_usage
-
-            # target_use.target.ix[facet] = facet
-            # target_use.num_images.ix[facet] = len(images.query('target==%i') % facet)
-            # target_use.nun_lines.ix[facet] = len(lines.query('target==%i') % facet)
 
     def target_history(self, target=1, images=None, exposures=None, html=None):
         """Produces a summary of target usage (exposures, image scans)"""
@@ -3388,7 +3352,7 @@ class tm:
         if exposures is None:
             exposures = self.get_exposures()
 
-        images = images[ (images.target==target) & (images.channel=='ZS')]
+        images = images[ (images.target==target) & (images.channel=='ZS') ]
         if len(images)>0:
             images.rename(columns={'start_time':'start'}, inplace=True)
             images['description'] = images.apply( lambda row: '%d x %d (%3.2f x %3.2f) with tip %d' % (row.xsteps, row.ysteps, row.xlen_um, row.ylen_um, row.tip_num), axis=1)

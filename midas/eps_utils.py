@@ -359,6 +359,8 @@ def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instru
 
     import re
 
+    actions_file = os.path.join(eps_path, actions_file)
+
     if instrument not in common.instruments.keys():
         print('ERROR: instrument name %s is invalid' % instrument)
         return None

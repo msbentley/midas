@@ -279,10 +279,25 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
     return
 
-def plot_ctrl_data(ctrl):
+def plot_ctrl_data(ctrldata, interactive=True):
     """Accepts a single control data entry and plots all four channels"""
 
-    xdata = range(0,ctrl.num_meas/4)
+    if type(ctrldata)==pd.Series:
+        interactive=False
+        numpoints = 1
+    else:
+        numpoints = len(ctrldata)
+
+    def update_data(select):
+        ctrl = ctrldata.iloc[select]
+        zposn = ctrl.zpos
+        zposn = zposn - zposn.min()
+        xdata = range(0,ctrl.num_meas/4)
+
+        return xdata, zposn, ctrl.ac, ctrl.dc, ctrl.phase
+
+    select = 0
+    xdata, zposn, ac, dc, phase = update_data(select)
 
     ctrl_fig = plt.figure()
     ax4 = ctrl_fig.add_subplot(4, 1, 4)
@@ -294,10 +309,10 @@ def plot_ctrl_data(ctrl):
     plt.setp(ax2.get_xticklabels(), visible=False)
     plt.setp(ax3.get_xticklabels(), visible=False)
 
-    line_ac, = ax1.plot(xdata, ctrl['ac'],'x-')
-    line_dc, = ax2.plot(xdata, ctrl['dc'],'x-')
-    line_phase, = ax3.plot(xdata,ctrl['phase'],'x-')
-    line_zpos, = ax4.plot(xdata,ctrl['zpos'],'x-')
+    line_ac, =    ax1.plot(xdata, ac,'x-')
+    line_dc, =    ax2.plot(xdata, dc,'x-')
+    line_phase, = ax3.plot(xdata, phase,'x-')
+    line_zpos, =  ax4.plot(xdata, zposn,'x-')
 
     ax1.set_yticks(ax1.get_yticks()[1:-1])
     ax2.set_yticks(ax2.get_yticks()[1:-1])
@@ -323,8 +338,81 @@ def plot_ctrl_data(ctrl):
 
     ax4.set_xlim(xdata[0],xdata[-1])
     plt.subplots_adjust(hspace=0.0)
-    plt.suptitle('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( \
-        ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
+    # title = plt.suptitle('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
+
+    if interactive:
+        from matplotlib.widgets import Button
+
+        class Index:
+            selected = select
+
+            def next(self, event):
+                self.selected += 1
+                if self.selected > (numpoints-1):
+                    self.selected = (numpoints-1)
+                line_count = ctrldata.iloc[self.selected].main_cnt
+                xdata, zposn, ac, dc, phase = update_data(self.selected)
+                line_ac.set_xdata(xdata)
+                line_ac.set_ydata(ac)
+                line_dc.set_xdata(xdata)
+                line_dc.set_ydata(dc)
+                line_phase.set_xdata(xdata)
+                line_phase.set_ydata(phase)
+                line_zpos.set_xdata(xdata)
+                line_zpos.set_ydata(zposn)
+                ax1.relim()
+                ax1.autoscale_view(scalex=True,scaley=True)
+                ax2.relim()
+                ax2.autoscale_view(scalex=True,scaley=True)
+                ax3.relim()
+                ax3.autoscale_view(scalex=True,scaley=True)
+                # title.set_text('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
+                ctrl_fig.canvas.draw()
+
+            def prev(self, event):
+                self.selected -= 1
+                if self.selected < 0: self.selected = 0
+                line_count = ctrldata.iloc[self.selected].main_cnt
+                xdata, zposn, ac, dc, phase = update_data(self.selected)
+                line_ac.set_xdata(xdata)
+                line_ac.set_ydata(ac)
+                line_dc.set_xdata(xdata)
+                line_dc.set_ydata(dc)
+                line_phase.set_xdata(xdata)
+                line_phase.set_ydata(phase)
+                line_zpos.set_xdata(xdata)
+                line_zpos.set_ydata(zposn)
+                ax1.relim()
+                ax1.autoscale_view(scalex=True,scaley=True)
+                ax2.relim()
+                ax2.autoscale_view(scalex=True,scaley=True)
+                ax3.relim()
+                ax3.autoscale_view(scalex=True,scaley=True)
+                # title.set_text('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
+                ctrl_fig.canvas.draw()
+
+            def runcal(self, event):
+                calibrate(controldata['points'][self.selected])
+
+        callback = Index()
+
+        # buttons are linked to a parent axis, and scale to fit
+        button_width  = 0.05
+        button_height = 0.05
+        start_height = 0.95
+        start_width = 0.8
+        axprev = plt.axes([start_width, start_height, button_width, button_height])
+        axnext = plt.axes([start_width+button_width, start_height, button_width, button_height])
+        axcal = plt.axes([start_width,start_height-button_height, button_width*2, button_height])
+
+        bnext = Button(axnext, '>')
+        bnext.on_clicked(callback.next)
+
+        bprev = Button(axprev, '<')
+        bprev.on_clicked(callback.prev)
+
+        bcal = Button(axcal, 'Calibrate')
+        bcal.on_clicked(callback.runcal)
 
     plt.show()
 
@@ -2539,6 +2627,8 @@ class tm:
                 line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
                 line_type['info']['exc_lvl'] = np.nan if in_image else self.get_param('NMDA0147', frame=frame)[1]
                 line_type['info']['ac_gain'] = np.nan if in_image else self.get_param('NMDA0118', frame=frame)[1]
+                line_type['info']['xy_settle'] = np.nan if in_image else self.get_param('NMDA0271', frame=frame)[1]
+                line_type['info']['z_settle'] = np.nan if in_image else self.get_param('NMDA0270', frame=frame)[1]
 
             if not info_only:
                 line_type['data'] = np.array(struct.unpack(">%iH" % (num_steps),pkt['data'][line_scan_size:line_scan_size+num_steps*2]))
@@ -2547,7 +2637,7 @@ class tm:
 
         cols = line_scan_names._fields
         if expand_params:
-            cols += ('op_pt', 'set_pt', 'exc_lvl', 'ac_gain')
+            cols += ('op_pt', 'set_pt', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle')
 
         lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=line_scan_pkts.index)
 
@@ -3380,6 +3470,37 @@ class tm:
             css_write(html=history_html, filename=html)
 
         return history
+
+
+    def commanding_events(self, itl_file, evf_file, html=False):
+        """Accepts an ITL and EVF file corresponding to the TM object and lists the commands
+        along with the matching event history"""
+
+        from midas import planning
+
+        events=tm.get_events(info=True, verbose=False)
+        events.rename(columns={'obt': 'event_time'}, inplace=True)
+        events.drop(labels=['doy', 'sid'], inplace=True, axis=1)
+        events.set_index(keys='event_time', drop=True, inplace=True)
+
+        timeline = planning.resolve_time(itl_file=itl, evf_file=evf)
+        timeline.rename(columns={'abs_time': 'tc_time'}, inplace=True)
+        timeline.drop(labels=['doy'], inplace=True, axis=1)
+        timeline.set_index(keys='tc_time', drop=True, inplace=True)
+
+        merged = timeline.join(events, how='outer')
+        merged['time'] = merged.index
+        merged['time'] = merged.time.astype(pd.Timestamp)
+
+        merged = merged[ ['time', 'sequence', 'description', 'event', 'information', 'severity' ] ]
+
+        if html:
+
+            timeformatter = lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M:%S')
+            merged_html = merged.to_html(classes='alt_table', na_rep='',index=False, formatters={ 'time': timeformatter } )
+            ros_tm.css_write(html=merged_html, filename=html)
+
+        return merged
 
 
 #----- end of TM class

@@ -3478,7 +3478,7 @@ class tm:
 
         from midas import planning
 
-        events=tm.get_events(info=True, verbose=False)
+        events=self.get_events(info=True, verbose=False)
         events.rename(columns={'obt': 'event_time'}, inplace=True)
         events.drop(labels=['doy', 'sid'], inplace=True, axis=1)
         events.set_index(keys='event_time', drop=True, inplace=True)

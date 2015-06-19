@@ -2238,7 +2238,7 @@ class itl:
         return
 
 
-    def linear_tile(self, num_tiles, overlap, cantilever, facet, channels=['ZS','PH'], openloop=True,
+    def linear_tile(self, num_tiles, overlap, cantilever, facet, channels=['ZS','PH', 'ST'], openloop=True,
         xpixels=256, ypixels=256, xstep=15, ystep=15, xlh=True, ylh=True, mainscan_x=True, fadj=85.,
         safety_factor=2.0, zstep=4):
         """Generate a series of identical scans at different linear positions, with a given
@@ -2262,7 +2262,7 @@ class itl:
                 fadj=fadj, safety_factor=safety_factor, zstep=zstep, tip_offset=offset)
 
             # TODO - quick hack to also add fine prescans in
-            self.scan(cantilever=cantilever, facet=facet, openloop=openloop, xpixels=128, ypixels=128, xstep=14, ystep=39, at_surface=True)
+            # self.scan(cantilever=cantilever, facet=facet, openloop=openloop, xpixels=128, ypixels=128, xstep=14, ystep=39, at_surface=True)
 
         return
 

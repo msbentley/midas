@@ -61,6 +61,10 @@ def run_daily():
         print('\nINFO: Processing TLM file: %s' % obs_file)
 
         obs_path,obs_fname = os.path.split(obs_file)
+
+        mtp = int(obs_fname[9:12])
+        stp = int(obs_fname[14:17])
+
         tm = ros_tm.tm(obs_file) # open TM file
 
         # Extract and save images in various formatos.path.join(os.path.expanduser('~/Copy/midas/data/tlm'), 'all_images.pkl'))s
@@ -69,8 +73,11 @@ def run_daily():
             ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
             ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
 
-        # Extract and save event data as an HTML
-        events = tm.get_events(info=True, html=os.path.join(event_dir,os.path.splitext(obs_fname)[0]+'_events.html'))
+        # Extract and save event data as an HTML including commanding history
+        itl_file = ros_tm.select_files(wildcard='ITLS_MD_M%03i_S%03i*P_RSUXPIYZ.itl' % (mtp, stp), directory=common.ros_sgs_path, recursive=True)[0]
+        evf_file = ros_tm.select_files(wildcard='EVF__MD_M%03i_S%03i*P_RSUXPIYZ.evf' % (mtp, stp), directory=common.ros_sgs_path, recursive=True)[0]
+        events = tm.commanding_events(itl_file, evf_file, html=os.path.join(event_dir,os.path.splitext(obs_fname)[0]+'_events.html'))
+        # events = tm.get_events(info=True, html=os.path.join(event_dir,os.path.splitext(obs_fname)[0]+'_events.html'))
 
         # Check the sequence counter and generate a report per-observation
         missing_pkts = tm.check_seq(html=os.path.join(event_dir,os.path.splitext(obs_fname)[0]+'_seq_check.html'))

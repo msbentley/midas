@@ -3483,7 +3483,7 @@ class tm:
         events.drop(labels=['doy', 'sid'], inplace=True, axis=1)
         events.set_index(keys='event_time', drop=True, inplace=True)
 
-        timeline = planning.resolve_time(itl_file=itl, evf_file=evf)
+        timeline = planning.resolve_time(itl_file=itl_file, evf_file=evf_file)
         timeline.rename(columns={'abs_time': 'tc_time'}, inplace=True)
         timeline.drop(labels=['doy'], inplace=True, axis=1)
         timeline.set_index(keys='tc_time', drop=True, inplace=True)

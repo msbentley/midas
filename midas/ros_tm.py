@@ -3498,7 +3498,7 @@ class tm:
 
             timeformatter = lambda x: pd.to_datetime(x).strftime('%Y-%m-%d %H:%M:%S')
             merged_html = merged.to_html(classes='alt_table', na_rep='',index=False, formatters={ 'time': timeformatter } )
-            ros_tm.css_write(html=merged_html, filename=html)
+            css_write(html=merged_html, filename=html)
 
         return merged
 

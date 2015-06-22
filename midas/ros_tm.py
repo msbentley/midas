@@ -279,7 +279,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
     return
 
-def plot_ctrl_data(ctrldata):
+def plot_ctrl_data(ctrldata, interactive=True):
     """Accepts a single control data entry and plots all four channels"""
 
     from matplotlib.widgets import Button as mplButton
@@ -409,37 +409,39 @@ def plot_ctrl_data(ctrldata):
 
     callback = Index()
 
-    def pressed(event):
-        if event.key=='left':
-            callback.prev(event)
-        if event.key=='right':
-            callback.next(event)
-        if event.key=='home':
-            callback.selected = 0
-            callback.update()
-        if event.key=='end':
-            callback.selected = numpoints-1
-            callback.update()
+    if interactive:
 
-    # buttons are linked to a parent axis, and scale to fit
-    button_width  = 0.05
-    button_height = 0.05
-    start_height = 0.95
-    start_width = 0.8
-    axprev = plt.axes([start_width, start_height, button_width, button_height])
-    axnext = plt.axes([start_width+button_width, start_height, button_width, button_height])
-    axcal = plt.axes([start_width,start_height-button_height, button_width*2, button_height])
+        def pressed(event):
+            if event.key=='left':
+                callback.prev(event)
+            if event.key=='right':
+                callback.next(event)
+            if event.key=='home':
+                callback.selected = 0
+                callback.update()
+            if event.key=='end':
+                callback.selected = numpoints-1
+                callback.update()
 
-    bnext = mplButton(axnext, '>')
-    bnext.on_clicked(callback.next)
+        # buttons are linked to a parent axis, and scale to fit
+        button_width  = 0.05
+        button_height = 0.05
+        start_height = 0.95
+        start_width = 0.8
+        axprev = plt.axes([start_width, start_height, button_width, button_height])
+        axnext = plt.axes([start_width+button_width, start_height, button_width, button_height])
+        axcal = plt.axes([start_width,start_height-button_height, button_width*2, button_height])
 
-    bprev = mplButton(axprev, '<')
-    bprev.on_clicked(callback.prev)
+        bnext = mplButton(axnext, '>')
+        bnext.on_clicked(callback.next)
 
-    bcal = mplButton(axcal, 'Calibrate')
-    bcal.on_clicked(callback.runcal)
+        bprev = mplButton(axprev, '<')
+        bprev.on_clicked(callback.prev)
 
-    ctrl_fig.canvas.mpl_connect('key_press_event', pressed)
+        bcal = mplButton(axcal, 'Calibrate')
+        bcal.on_clicked(callback.runcal)
+
+        ctrl_fig.canvas.mpl_connect('key_press_event', pressed)
 
     plt.show()
 

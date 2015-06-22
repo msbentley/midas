@@ -29,29 +29,6 @@ def run_daily():
     sys.stdout = open(os.path.join(log_dir,'log.txt'), 'a')
     print('\n\nMIDAS daily start: %s' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
-    # Download any new SPICE kernels (spawn as background job)
-    print('\nINFO: Downloading new or updated SPICE kernels...')
-    status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
-
-    # Download any new NAVCAM images (via rsync)
-    print('\nINFO: Downloading new NAVCAM images')
-    get_navcam()
-
-    # Check for new auto-pushed files from FDyn
-    print('\nINFO: Retrieving FDyn auto-pushed files')
-    dds_utils.get_fdyn_files()
-
-    # Check for new OFPM-pushed files from SGS
-    print('\nINFO: Retrieving RSGS OFPM pushed files\n')
-    dds_utils.get_sgs_files()
-
-    # Perform a pull of the ROS_SGS Git archive
-    print('\nINFO: Pulling the ROS_SGS git archive\n')
-    tunnel = open_rostun()
-    time.sleep(30)
-    os.chdir(common.ros_sgs_path)
-    pull = subprocess.call( 'proxychains git pull', shell=True )
-
     # Check for new completed observations and extract BCR and PNG images
     obs_filenames = dds_utils.get_new_observations(tlm_dir, mtpstp_dir=False, max_retry=10, retry_delay=5)
 
@@ -151,6 +128,28 @@ def run_daily():
             history = tm.target_history(target=target, images=images, exposures=exposures,
                 html=os.path.join(target_dir, 'tgt_%02d_history.html' % target))
 
+    # Download any new SPICE kernels (spawn as background job)
+    print('\nINFO: Downloading new or updated SPICE kernels...')
+    status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
+
+    # Download any new NAVCAM images (via rsync)
+    print('\nINFO: Downloading new NAVCAM images')
+    get_navcam()
+
+    # Check for new auto-pushed files from FDyn
+    print('\nINFO: Retrieving FDyn auto-pushed files')
+    dds_utils.get_fdyn_files()
+
+    # Check for new OFPM-pushed files from SGS
+    print('\nINFO: Retrieving RSGS OFPM pushed files\n')
+    dds_utils.get_sgs_files()
+
+    # Perform a pull of the ROS_SGS Git archive
+    print('\nINFO: Pulling the ROS_SGS git archive\n')
+    tunnel = open_rostun()
+    time.sleep(30)
+    os.chdir(common.ros_sgs_path)
+    pull = subprocess.call( 'proxychains git pull', shell=True )
 
     tunnel.kill()
 

@@ -279,25 +279,18 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
     return
 
-def plot_ctrl_data(ctrldata, interactive=True):
+def plot_ctrl_data(ctrldata):
     """Accepts a single control data entry and plots all four channels"""
 
-    if type(ctrldata)==pd.Series:
-        interactive=False
-        numpoints = 1
-    else:
-        numpoints = len(ctrldata)
+    from matplotlib.widgets import Button as mplButton
 
-    def update_data(select):
-        ctrl = ctrldata.iloc[select]
-        zposn = ctrl.zpos
-        zposn = zposn - zposn.min()
-        xdata = range(0,ctrl.num_meas/4)
+    if type(ctrldata) == pd.Series:
+        ctrldata = pd.DataFrame(columns=ctrldata.to_dict().keys()).append(ctrldata)
 
-        return xdata, zposn, ctrl.ac, ctrl.dc, ctrl.phase
-
-    select = 0
-    xdata, zposn, ac, dc, phase = update_data(select)
+    numpoints = len(ctrldata)
+    if numpoints==0:
+        print('WARNING: no control data passed')
+        return None
 
     ctrl_fig = plt.figure()
     ax4 = ctrl_fig.add_subplot(4, 1, 4)
@@ -305,114 +298,148 @@ def plot_ctrl_data(ctrldata, interactive=True):
     ax2 = ctrl_fig.add_subplot(4, 1, 2, sharex=ax4)
     ax1 = ctrl_fig.add_subplot(4, 1, 1, sharex=ax4)
 
-    plt.setp(ax1.get_xticklabels(), visible=False)
-    plt.setp(ax2.get_xticklabels(), visible=False)
-    plt.setp(ax3.get_xticklabels(), visible=False)
+    class Index:
 
-    line_ac, =    ax1.plot(xdata, ac,'x-')
-    line_dc, =    ax2.plot(xdata, dc,'x-')
-    line_phase, = ax3.plot(xdata, phase,'x-')
-    line_zpos, =  ax4.plot(xdata, zposn,'x-')
+        def __init__(self):
+            self.selected = 0
+            self.ctrl = ctrldata.iloc[self.selected]
+            self.update(firsttime=True)
 
-    ax1.set_yticks(ax1.get_yticks()[1:-1])
-    ax2.set_yticks(ax2.get_yticks()[1:-1])
-    ax3.set_yticks(ax3.get_yticks()[1:-1])
-    ax4.set_yticks(ax4.get_yticks()[1:-1])
+        def update(self, firsttime=False):
 
-    ax1.set_ylabel('Cant AC (V)')
-    ax2.set_ylabel('Cant DC (V)')
-    ax3.set_ylabel('Phase (deg)')
-    ax4.set_ylabel('Z position (nm)')
+            self.ctrl = ctrldata.iloc[self.selected]
+            xdata = range(0,int(self.ctrl.num_meas/4))
 
-    ax1.yaxis.set_label_coords(-0.12, 0.5)
-    ax2.yaxis.set_label_coords(-0.12, 0.5)
-    ax3.yaxis.set_label_coords(-0.12, 0.5)
-    ax4.yaxis.set_label_coords(-0.12, 0.5)
+            if firsttime:
 
-    ax4.set_xlabel('Data point')
+                self.line_ac, =    ax1.plot(xdata, self.ctrl.ac,'x-')
+                self.line_dc, =    ax2.plot(xdata, self.ctrl.dc,'x-')
+                self.line_phase, = ax3.plot(xdata, self.ctrl.phase,'x-')
+                self.line_zpos, =  ax4.plot(xdata, self.ctrl.zpos-self.ctrl.zpos.min(),'x-')
 
-    ax1.grid(True)
-    ax2.grid(True)
-    ax3.grid(True)
-    ax4.grid(True)
+                plt.setp(ax1.get_xticklabels(), visible=False)
+                plt.setp(ax2.get_xticklabels(), visible=False)
+                plt.setp(ax3.get_xticklabels(), visible=False)
 
-    ax4.set_xlim(xdata[0],xdata[-1])
-    plt.subplots_adjust(hspace=0.0)
-    # title = plt.suptitle('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
+                ax1.set_yticks(ax1.get_yticks()[1:-1])
+                ax2.set_yticks(ax2.get_yticks()[1:-1])
+                ax3.set_yticks(ax3.get_yticks()[1:-1])
+                ax4.set_yticks(ax4.get_yticks()[1:-1])
 
-    if interactive:
-        from matplotlib.widgets import Button
+                ax1.set_ylabel('Cant AC (V)')
+                ax2.set_ylabel('Cant DC (V)')
+                ax3.set_ylabel('Phase (deg)')
+                ax4.set_ylabel('Z position (nm)')
 
-        class Index:
-            selected = select
+                ax1.yaxis.set_label_coords(-0.12, 0.5)
+                ax2.yaxis.set_label_coords(-0.12, 0.5)
+                ax3.yaxis.set_label_coords(-0.12, 0.5)
+                ax4.yaxis.set_label_coords(-0.12, 0.5)
 
-            def next(self, event):
-                self.selected += 1
-                if self.selected > (numpoints-1):
-                    self.selected = (numpoints-1)
-                line_count = ctrldata.iloc[self.selected].main_cnt
-                xdata, zposn, ac, dc, phase = update_data(self.selected)
-                line_ac.set_xdata(xdata)
-                line_ac.set_ydata(ac)
-                line_dc.set_xdata(xdata)
-                line_dc.set_ydata(dc)
-                line_phase.set_xdata(xdata)
-                line_phase.set_ydata(phase)
-                line_zpos.set_xdata(xdata)
-                line_zpos.set_ydata(zposn)
+                ax4.set_xlabel('Data point')
+
+                ax1.grid(True)
+                ax2.grid(True)
+                ax3.grid(True)
+                ax4.grid(True)
+
+                plt.subplots_adjust(hspace=0.0)
+
+                ax1.yaxis.get_major_formatter().set_useOffset(False)
+                ax2.yaxis.get_major_formatter().set_useOffset(False)
+                ax3.yaxis.get_major_formatter().set_useOffset(False)
+                ax4.yaxis.get_major_formatter().set_useOffset(False)
+
+                from matplotlib.ticker import MaxNLocator
+                ax1.yaxis.set_major_locator(MaxNLocator(nbins=5, prune='both'))
+                ax2.yaxis.set_major_locator(MaxNLocator(nbins=5, prune='both'))
+                ax3.yaxis.set_major_locator(MaxNLocator(nbins=5, prune='both'))
+                ax4.yaxis.set_major_locator(MaxNLocator(nbins=5, prune='both'))
+
+                self.title = plt.suptitle('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' %
+                    ( self.ctrl.wheel_posn, self.ctrl.tip_num, self.ctrl.x_orig, self.ctrl.y_orig, self.ctrl.main_cnt, self.ctrl.num_steps))
+
+            else:
+
+                self.line_ac.set_xdata(xdata)
+                self.line_ac.set_ydata(self.ctrl.ac)
+
+                self.line_dc.set_xdata(xdata)
+                self.line_dc.set_ydata(self.ctrl.dc)
+
+                self.line_phase.set_xdata(xdata)
+                self.line_phase.set_ydata(self.ctrl.phase)
+
+                self.line_zpos.set_xdata(xdata)
+                self.line_zpos.set_ydata(self.ctrl.zpos-self.ctrl.zpos.min())
+
+                self.title.set_text('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' %
+                    ( self.ctrl.wheel_posn, self.ctrl.tip_num, self.ctrl.x_orig, self.ctrl.y_orig, self.ctrl.main_cnt, self.ctrl.num_steps))
+
                 ax1.relim()
-                ax1.autoscale_view(scalex=True,scaley=True)
+                ax1.autoscale_view(scaley=True)
+
                 ax2.relim()
-                ax2.autoscale_view(scalex=True,scaley=True)
+                ax2.autoscale_view(scaley=True)
+
                 ax3.relim()
-                ax3.autoscale_view(scalex=True,scaley=True)
-                # title.set_text('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
-                ctrl_fig.canvas.draw()
+                ax3.autoscale_view(scaley=True)
 
-            def prev(self, event):
-                self.selected -= 1
-                if self.selected < 0: self.selected = 0
-                line_count = ctrldata.iloc[self.selected].main_cnt
-                xdata, zposn, ac, dc, phase = update_data(self.selected)
-                line_ac.set_xdata(xdata)
-                line_ac.set_ydata(ac)
-                line_dc.set_xdata(xdata)
-                line_dc.set_ydata(dc)
-                line_phase.set_xdata(xdata)
-                line_phase.set_ydata(phase)
-                line_zpos.set_xdata(xdata)
-                line_zpos.set_ydata(zposn)
-                ax1.relim()
-                ax1.autoscale_view(scalex=True,scaley=True)
-                ax2.relim()
-                ax2.autoscale_view(scalex=True,scaley=True)
-                ax3.relim()
-                ax3.autoscale_view(scalex=True,scaley=True)
-                # title.set_text('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' % ( ctrl.wheel_posn, ctrl.tip_num, ctrl.x_orig, ctrl.y_orig, ctrl.main_cnt, ctrl.num_steps))
-                ctrl_fig.canvas.draw()
+                ax4.relim()
+                ax4.autoscale_view(scaley=True)
 
-            def runcal(self, event):
-                calibrate(controldata['points'][self.selected])
+            ax4.set_xlim(xdata[0],xdata[-1])
 
-        callback = Index()
+            ctrl_fig.canvas.draw()
 
-        # buttons are linked to a parent axis, and scale to fit
-        button_width  = 0.05
-        button_height = 0.05
-        start_height = 0.95
-        start_width = 0.8
-        axprev = plt.axes([start_width, start_height, button_width, button_height])
-        axnext = plt.axes([start_width+button_width, start_height, button_width, button_height])
-        axcal = plt.axes([start_width,start_height-button_height, button_width*2, button_height])
 
-        bnext = Button(axnext, '>')
-        bnext.on_clicked(callback.next)
+        def next(self, event):
+            self.selected += 1
+            if self.selected > (numpoints-1):
+                self.selected = (numpoints-1)
+            self.update()
 
-        bprev = Button(axprev, '<')
-        bprev.on_clicked(callback.prev)
+        def prev(self, event):
+            self.selected -= 1
+            if self.selected < 0: self.selected = 0
+            self.update()
 
-        bcal = Button(axcal, 'Calibrate')
-        bcal.on_clicked(callback.runcal)
+        def runcal(self, event):
+            calibrate_amplitude(ctrldata.iloc[self.selected])
+
+    callback = Index()
+
+    def pressed(event):
+        if event.key=='left':
+            callback.prev(event)
+        if event.key=='right':
+            callback.next(event)
+        if event.key=='home':
+            callback.selected = 0
+            callback.update()
+        if event.key=='end':
+            callback.selected = numpoints-1
+            callback.update()
+
+    # buttons are linked to a parent axis, and scale to fit
+    button_width  = 0.05
+    button_height = 0.05
+    start_height = 0.95
+    start_width = 0.8
+    axprev = plt.axes([start_width, start_height, button_width, button_height])
+    axnext = plt.axes([start_width+button_width, start_height, button_width, button_height])
+    axcal = plt.axes([start_width,start_height-button_height, button_width*2, button_height])
+
+    bnext = mplButton(axnext, '>')
+    bnext.on_clicked(callback.next)
+
+    bprev = mplButton(axprev, '<')
+    bprev.on_clicked(callback.prev)
+
+    bcal = mplButton(axcal, 'Calibrate')
+    bcal.on_clicked(callback.runcal)
+
+    ctrl_fig.canvas.mpl_connect('key_press_event', pressed)
 
     plt.show()
 
@@ -536,7 +563,7 @@ def calibrate_amplitude(ctrl, return_data=False):
     # Read out the index of the selected data point
     start = p.lastind
 
-    print 'Start of linear approaching fitting at point: ', start
+    # print 'Start of linear approaching fitting at point: ', start
 
     # Fit a straight line from this point until the end of the data set
     #
@@ -545,15 +572,15 @@ def calibrate_amplitude(ctrl, return_data=False):
 
     # Also fit using the linregress function
     gradient, intercept, r_value, p_value, std_err = stats.linregress(z_fit[start:],peak_amp_v[start:])
-    print gradient, intercept, r_value, p_value, std_err
+    # print gradient, intercept, r_value, p_value, std_err
 
     # With assumptions about gradient, calibrate the Y axis into nm
     # This gradient should be ~1.0 for a hard surface
     #
-    print 'Gradient of actual slope (V/nm): ', m2
+    # print 'Gradient of actual slope (V/nm): ', m2
     cal_amp = peak_amp_v / m2
 
-    print 'Calibrate amplitude of first point: ', cal_amp[0]
+    # print 'Calibrate amplitude of first point: ', cal_amp[0]
 
     # Plot calibrated approach curve!
     p.fig.clf()
@@ -2642,6 +2669,8 @@ class tm:
         lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=line_scan_pkts.index)
 
         lines['in_image'] = lines.sw_flags.apply( lambda flag: bool(flag & 1))
+        lines['aborted'] = lines.sw_flags.apply( lambda flag: bool(flag >> 3 & 1))
+
 
         if not info_only:
             lines['data'] = [line['data'] for line in linescans]
@@ -2667,7 +2696,8 @@ class tm:
         lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
         lines['target'] = lines.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
 
-        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
+        # lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
+        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
 
         print('INFO: %i line scans extracted' % (len(lines)))
 

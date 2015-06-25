@@ -1550,6 +1550,9 @@ class itl:
     def comment(self, comment):
         """Inserts a string comment into an ITL template"""
 
+        # Insert the current ITL time to the string
+        comment = '%s :' % self.abs_time + comment
+
         params = { 'template': 'COMMENT', 'params': { 'comment': comment} }
         self.generate(params, duration=timedelta(seconds=0))
 
@@ -1866,6 +1869,10 @@ class itl:
 
         if (fadj<0.) or (fadj>100.):
             print('ERROR: frequency adjust must be between 0 and 100%')
+            return False
+
+        if (xpixels * ypixels * len(channels)) > common.memory_size:
+            print('ERROR: memory capacity for a single image exceeded - reduce number of pixels of channels')
             return False
 
         z_settle = int(z_settle)

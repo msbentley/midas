@@ -38,6 +38,8 @@ instruments = {
     'OSIRIS':  'SR',
     'VIRTIS':  'VR' }
 
+# Maximum memory (number of pixels * channels)
+memory_size = 32 * 32 * 512
 
 # Calibration factors
 zcal = 0.164 # nm/bit
@@ -121,16 +123,16 @@ scan_type = ['DYN','CON','MAG']
 
 # Adding virtual channels for unpacked status
 status_channels = ['NC', 'RP', 'LA', 'MC', 'PA', 'PC']
-data_channels = ['ZS', 'AC', 'AM', 'PH', 'DC', 'XH', 'YH', 'ZH', 'M1', 'YP', 'ZP', 'M2', 'YE', 'ZE', 'M3', 'ST']
+data_channels = ['ZS', 'AC', 'S2', 'PH', 'DC', 'XH', 'YH', 'ZH', 'M1', 'YP', 'ZP', 'M2', 'YE', 'ZE', 'M3', 'ST']
 data_channels.extend(status_channels)
 
-cal_factors = [ zcal, 20./65535., 20./65535., 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1 ]
+cal_factors = [ zcal, 20./65535., 1, 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1 ]
 offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-units = ['nm', 'V', 'V', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none' ]
+units = ['nm', 'V', 'none', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none' ]
 channel_names = [
     'Topography (Z piezo position set value)', # ZS
     'Cantilever AC signal', # AC
-    'Cantilever AC signal difference (magnetic)', # AM
+    'Extended status (contact flag and retract dist)', # S2 (formerly AM)
     'Phase', # PH
     'Cantilever DC signal', # DC
     'X high voltage monitor', # XH

@@ -153,6 +153,9 @@ channel_names = [
     'Point aborted', # PA
     'Point converged'] # PC
 
+ctrl_channels = ['ac','dc','phase','zpos']
+ctrl_names = ['Cantilever AC', 'Cantilever DC', 'Phase', 'Z position']
+ctrl_units = ['V','V','deg','none']
 
 def get_channel(channels):
     """Accepts a list of data channel codes and returns the corresponding setting

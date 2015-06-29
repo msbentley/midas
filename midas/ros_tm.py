@@ -1619,8 +1619,6 @@ class tm:
 
         # Merge with the packet list, adding spid and description, then sort by OBT
         tlm = pd.merge(tlm,pid,how='left').sort('obt')
-        tm.pkts.spid = tm.pkts.spid.astype(np.int64)
-
 
         # Deal with the fact that MIDAS uses private SIDs that are not in the RMIB
         if 'midsid' in tlm.columns:
@@ -3621,6 +3619,42 @@ class tm:
 
 #----- end of TM class
 
+def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_file=os.path.join(common.tlm_path,'tlm_packet_index.hd5')):
+    """Builds an HDF5 (pandas/PyTables) table of the packet index (tm.pkts). This can be used for
+    on-disk queries to retrieve a selection of packets as input to ros_tm.tm()."""
+
+    import glob
+    from pandas import HDFStore
+
+    store = HDFStore(tm_index_file, 'w', complevel=9, complib='blosc')
+    table = 'pkts'
+
+    tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
+
+    longest_filename = len(max(tm_files, key=len))
+
+    if len(tm_files)==0:
+        print('ERROR: no files matching pattern')
+        return False
+
+    for f in tm_files:
+        telem = tm(f)
+        # data_columns determines which columns can be queried - here use OBT for time slicing, APID for choosing data
+        # source and filename to allow selection by MTP or STP.
+
+        try:
+            nrows = store.get_storer(table).nrows
+        except:
+            nrows = 0
+
+        telem.pkts.index = pd.Series(telem.pkts.index) + nrows
+        print(telem.pkts.dtypes)
+        store.append(table, telem.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
+
+    store.close()
+
+
+
 def sample_slope(images, add_to_df=True):
     """Accepts one or more images returned by tm.get_images(), performs a least
     squares fit to the image data and returns the angle of this fit in X and Y."""
@@ -3881,6 +3915,11 @@ def read_pid(filename=False):
     # cols = ('type','subtype','apid','sid','p2val','spid','description','unit','tpsd','dfh_size','time','inter','valid')
     cols = ('type','subtype','apid','sid','spid','description')
     pid=pd.read_table(filename,header=None,names=cols,usecols=[0,1,2,3,5,6])
+
+    # Database upgrade corresponding to 6.6.4 changed the packet type of even with SID 42777. In order that the old
+    # packets are not rejected, I will duplicate the row and correct here.
+    pid = pid.append(pid[ (pid.sid==42777) & (pid.apid==1079) ], ignore_index=True)
+    pid.subtype.iloc[-1] = 1
 
     return pid
 

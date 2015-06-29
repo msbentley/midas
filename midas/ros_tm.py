@@ -759,12 +759,15 @@ def to_bcr(images, outputdir='.'):
     return bcrs if len(bcrs) > 1 else bcrs[0]
 
 
-def save_gwy(images, outputdir='.', save_png=False, pngdir='.'):
+def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
     """Accepts one or more sets of image data from get_images() and returns individual
     GWY files, with multiple channels combined in single files and all meta-data.
 
     If save_png=True and the image contains a topographic channel, a bitmap will be
-    produced after a polynominal plane subtraction and saved to pngdir."""
+    produced after a polynominal plane subtraction and saved to pngdir.
+
+    pt_spec=True will check for control data packets acquired during the image and
+    write them to the GWY file as point spectra."""
 
     import common, gwy, gwyutils, math
 
@@ -842,6 +845,45 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.'):
                 # if there are bad pixels, add the max - otherwise don't
                 if len(m[m==1.])>0:
                     c.set_object_by_name('/%i/mask' % (chan_idx), mask)
+
+                if pt_spec:
+                    # check for control data packets sent between image start and image end
+                    telem = tm(scan['filename'].iloc[0])
+                    ctrl = telem.get_ctrl_data()
+                    ctrl = ctrl[ (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
+                        (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
+                        (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
+
+                    for ctrl_chan in range(len(common.ctrl_channels)):
+
+                        spec = gwy.Spectra()
+                        spec.set_title(common.ctrl_names[ctrl_chan])
+                        spec.set_si_unit_xy(xy_unit)
+                        x_unit, x_power = gwy.gwy_si_unit_new_parse('index')
+                        y_unit, y_power = gwy.gwy_si_unit_new_parse(common.ctrl_units[ctrl_chan])
+
+                        i = 0
+
+                        for idx, ctrl_pt in ctrl.iterrows():
+
+                            num_pix = len(ctrl_pt.zpos)
+                            spec_data = gwy.DataLine(num_pix, num_pix, False)
+                            spec_data.set_si_unit_x(x_unit)
+                            spec_data.set_si_unit_y(y_unit)
+
+                            ctrl_data = ctrl_pt['%s' % common.ctrl_channels[ctrl_chan]]
+                            for pt in range(num_pix):
+                                spec_data.set_val(pt, ctrl_data[pt])
+
+
+
+                            cal = xcal if ctrl_pt.scan_dir=='X' else ycal
+                            xpos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * cal * 10**xy_power
+                            ypos = sorted(ctrl.main_cnt.unique())[(i // 32)] * ctrl_pt.step_size * cal * 10**xy_power # FIXME
+                            spec.add_spectrum(spec_data, xpos, ypos)
+                            i += 1
+
+                        c.set_object_by_name('/sps/%i' % ctrl_chan, spec)
 
             # Calibrate channel according to cal-factor
             a *= cal_factor*10**z_power
@@ -1577,6 +1619,8 @@ class tm:
 
         # Merge with the packet list, adding spid and description, then sort by OBT
         tlm = pd.merge(tlm,pid,how='left').sort('obt')
+        tm.pkts.spid = tm.pkts.spid.astype(np.int64)
+
 
         # Deal with the fact that MIDAS uses private SIDs that are not in the RMIB
         if 'midsid' in tlm.columns:
@@ -2894,7 +2938,10 @@ class tm:
 
     def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False, expand_params=False, unpack_status=False):
         """Extracts images from telemetry packets. Setting info_only=True returns a
-        dataframe containing the scan metadata, but no actual images"""
+        dataframe containing the scan metadata, but no actual images.
+
+        expand_params=True will query HK for additional parameters (slow!)
+        unpack_status=True will unpack the ST and S2 channels into new channels"""
 
         # structure definition for the image header packet
         image_header_fmt = ">H2B2IHh11H11H2H"

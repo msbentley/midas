@@ -97,6 +97,9 @@ def run_daily():
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
 
+        # Delete memory objects to try and free space before we continue
+        del(images)
+
         # Update the list of exposures
         print('\n\nINFO: updating table of exposures\n')
         tm = ros_tm.tm()
@@ -109,7 +112,7 @@ def run_daily():
 
         # (Re-)build the packet index
         print('\n\nINFO: Updating packet index\n')
-        build_pkt_index()
+        ros_tm.build_pkt_index()
 
         # Generate a list of html files corresponding to each ITL/EVF pair
         print('\n\nINFO: Generating commanding summaries\n')
@@ -132,10 +135,6 @@ def run_daily():
     print('\nINFO: Downloading new or updated SPICE kernels...')
     status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
 
-    # Download any new NAVCAM images (via rsync)
-    print('\nINFO: Downloading new NAVCAM images')
-    get_navcam()
-
     # Check for new auto-pushed files from FDyn
     print('\nINFO: Retrieving FDyn auto-pushed files')
     dds_utils.get_fdyn_files()
@@ -143,6 +142,10 @@ def run_daily():
     # Check for new OFPM-pushed files from SGS
     print('\nINFO: Retrieving RSGS OFPM pushed files\n')
     dds_utils.get_sgs_files()
+
+    # Download any new NAVCAM images (via rsync)
+    print('\nINFO: Downloading new NAVCAM images')
+    get_navcam()
 
     # Perform a pull of the ROS_SGS Git archive
     print('\nINFO: Pulling the ROS_SGS git archive\n')
@@ -374,43 +377,6 @@ def get_navcam():
     p.expect('assword')
     p.sendline('OlERlE8k')
     p.expect(pexpect.EOF, timeout=5*60)
-
-
-
-def build_pkt_index(files='TLM__MD_M*.DAT', tm_index_file='tlm_packet_index.hd5'):
-    """Builds an HDF5 (pandas/PyTables) table of the packet index (tm.pkts). This can be used for
-    on-disk queries to retrieve a selection of packets as input to ros_tm.tm()."""
-
-    import glob
-    from pandas import HDFStore
-
-    tm = ros_tm.tm()
-
-    store = HDFStore(os.path.join(tlm_dir,tm_index_file), 'w', complevel=9, complib='blosc')
-    table = 'pkts'
-
-    tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
-
-    longest_filename = len(max(tm_files, key=len))
-
-    if len(tm_files)==0:
-        print('ERROR: no files matching pattern')
-        return False
-
-    for f in tm_files:
-        tm = ros_tm.tm(f)
-        # data_columns determines which columns can be queried - here use OBT for time slicing, APID for choosing data
-        # source and filename to allow selection by MTP or STP.
-
-        try:
-            nrows = store.get_storer().nrows
-        except:
-            nrows = 0
-
-        tm.pkts.index = pd.Series(tm.pkts.index) + nrows
-        store.append(table, tm.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
-
-    store.close()
 
 
 def generate_timelines(case='P'):

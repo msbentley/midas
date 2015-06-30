@@ -1628,6 +1628,10 @@ class tm:
 
         num_pkts = len(tlm)
 
+        # Due to a database change, the event with SID 42777 has changed from 1 to 2
+        # Easiest fix is to change the substype here
+        tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].subtype = 2
+
         if dedupe:
             # Remove duplicates (packets with the same OBT, APID and SID)
             tlm = tlm.drop_duplicates(subset=('obt','apid','sid'), take_last=False)
@@ -2190,7 +2194,7 @@ class tm:
 
             pkts.dds_time.loc[offsets.index] = dds_time
 
-        pkts.dds_time = pd.to_datetime(pkts.dds_time)
+        pkts.dds_time = pd.to_datetime(pkts.dds_time, coerce=False)
 
         return pkts
 
@@ -3918,8 +3922,8 @@ def read_pid(filename=False):
 
     # Database upgrade corresponding to 6.6.4 changed the packet type of even with SID 42777. In order that the old
     # packets are not rejected, I will duplicate the row and correct here.
-    pid = pid.append(pid[ (pid.sid==42777) & (pid.apid==1079) ], ignore_index=True)
-    pid.subtype.iloc[-1] = 1
+    # pid = pid.append(pid[ (pid.sid==42777) & (pid.apid==1079) ], ignore_index=True)
+    # pid.subtype.iloc[-1] = 1
 
     return pid
 

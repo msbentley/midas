@@ -3652,7 +3652,6 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
             nrows = 0
 
         telem.pkts.index = pd.Series(telem.pkts.index) + nrows
-        print(telem.pkts.dtypes)
         store.append(table, telem.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
 
     store.close()

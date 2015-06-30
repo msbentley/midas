@@ -1947,7 +1947,7 @@ class itl:
             'ypixels': ypixels,
             'xstep': xstep,
             'ystep': ystep,
-            'zstep', zstep,
+            'zstep': zstep,
             'z_ret': zretract,
             'fadj_numscans': fadj_numscans,
             'z_settle': z_settle,

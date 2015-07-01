@@ -97,6 +97,12 @@ def run_daily():
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
 
+        # Generate a target history for each target
+        print('\n\nINFO: generating target histories')
+        for target in range(1,65):
+            history = tm.target_history(target=target, images=images, exposures=exposures,
+                html=os.path.join(target_dir, 'tgt_%02d_history.html' % target))
+
         # Delete memory objects to try and free space before we continue
         del(images)
 
@@ -124,12 +130,6 @@ def run_daily():
         # Use this to write a binary file with all image data
         print('\n\nINFO: updating binary image index\n')
         image_pickle()
-
-        # Generate a target history for each target
-        print('\n\nINFO: generating target histories')
-        for target in range(1,65):
-            history = tm.target_history(target=target, images=images, exposures=exposures,
-                html=os.path.join(target_dir, 'tgt_%02d_history.html' % target))
 
     # Download any new SPICE kernels (spawn as background job)
     print('\nINFO: Downloading new or updated SPICE kernels...')

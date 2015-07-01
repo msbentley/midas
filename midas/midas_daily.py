@@ -79,7 +79,6 @@ def run_daily():
             tm.pkts = tm.pkts.query( 'apid==1084 | (apid==1076 & sid==2)')
 
         images = tm.get_images(info_only=True, expand_params=True)
-        del(tm)
 
         # Tidy up the metadata a little
 

@@ -96,15 +96,6 @@ def run_daily():
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
 
-        # Generate a target history for each target
-        print('\n\nINFO: generating target histories')
-        for target in range(1,65):
-            history = tm.target_history(target=target, images=images, exposures=exposures,
-                html=os.path.join(target_dir, 'tgt_%02d_history.html' % target))
-
-        # Delete memory objects to try and free space before we continue
-        del(images)
-
         # Update the list of exposures
         print('\n\nINFO: updating table of exposures\n')
         tm = ros_tm.tm()
@@ -114,6 +105,12 @@ def run_daily():
                 ((tm.pkts.apid==1076) & (tm.pkts.sid==2)) ]
         exposures = tm.get_exposures(html=os.path.join(log_dir,'exposures.html'))
         exposures.to_msgpack(os.path.join(tlm_dir, 'exposures.msg'))
+
+        # Generate a target history for each target
+        print('\n\nINFO: generating target histories')
+        for target in range(1,65):
+            history = tm.target_history(target=target, images=images, exposures=exposures,
+                html=os.path.join(target_dir, 'tgt_%02d_history.html' % target))
 
         # (Re-)build the packet index
         print('\n\nINFO: Updating packet index\n')

@@ -2376,7 +2376,7 @@ class tm:
 
 
 
-    def plot_params(self, param_names, start=False, end=False, label_events=False):
+    def plot_params(self, param_names, start=False, end=False, label_events=None):
         """Plot a TM parameter vs OBT. Requires a packet list and parameter
         name. start= and end= can be set to a string or DateTime to limit the returned
         data.
@@ -2455,7 +2455,7 @@ class tm:
 
         ax_left.yaxis.get_major_formatter().set_useOffset(False)
 
-        if label_events:
+        if label_events is not None:
 
             events = self.get_events(ignore_giada=True, verbose=False)
 
@@ -2504,7 +2504,7 @@ class tm:
         return
 
 
-    def plot_temps(self, cssc=False, start=False, end=False):
+    def plot_temps(self, cssc=False, start=False, end=False, label='scan'):
         """Plot the temperatures from all MIDAS sensors for the given TM packages.
         If start= and end= are set to date/time strings the data will be limited
         to those times, otherwise all data are plotted."""
@@ -2519,19 +2519,19 @@ class tm:
         if cssc:
             temp_params.extend(['NMDA0006','NMDA0007']) # CSSC X ref temp, CSSC Y ref temp
 
-        self.plot_params(temp_params, label_events='scan', start=start, end=end)
+        self.plot_params(temp_params, label_events=label, start=start, end=end)
         return
 
 
-    def plot_hv(self, start=False, end=False, events='scan'):
+    def plot_hv(self, start=False, end=False, label='scan'):
         """Plot piezo high voltages (HV)s"""
 
         hv_params = ['NMDA0110', 'NMDA0111', 'NMDA0115']
-        self.plot_params(hv_params, label_events=events, start=start, end=end)
+        self.plot_params(hv_params, label_events=label, start=start, end=end)
 
 
 
-    def plot_volts(self, cssc=False, start=False, end=False):
+    def plot_volts(self, cssc=False, start=False, end=False, label='scan'):
         """Plot the voltages from all MIDAS lines for the given TM packages.
         If start= and end= are set to date/time strings the data will be limited
         to those times, otherwise all data are plotted."""
@@ -2544,14 +2544,14 @@ class tm:
         if len(volt_params)==0:
             print('No MIDAS voltage data found in these packets')
         else:
-            self.plot_params(volt_params, label_events='scan', start=start, end=end)
+            self.plot_params(volt_params, label_events=label, start=start, end=end)
 
 
-    def plot_cantilever(self, start=False, end=False, events='scan'):
+    def plot_cantilever(self, start=False, end=False, label='scan'):
         """Plot the cantilever AC and DC values"""
 
         cant_params = ['NMDA0102', 'NMDA0103']
-        self.plot_params(cant_params, label_events=events, start=start, end=end)
+        self.plot_params(cant_params, label_events=label, start=start, end=end)
 
 
 

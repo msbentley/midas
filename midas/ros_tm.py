@@ -3646,6 +3646,9 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
         # data_columns determines which columns can be queried - here use OBT for time slicing, APID for choosing data
         # source and filename to allow selection by MTP or STP.
 
+        # When no DDS header is found (should be never?!) a NaT is returned, which breaks PyTables dtypes
+        telem.pkts.dds_time = telem.pkts.dds_time.astype('O')
+
         try:
             nrows = store.get_storer(table).nrows
         except:

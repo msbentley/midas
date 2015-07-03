@@ -6,17 +6,14 @@ Mark S. Bentley (mark@lunartech.org), 2013
 
 """
 
-debug = False
+debug = True
 
 import os
 import numpy as np
 import pandas as pd
 from bitstring import ConstBitStream, ReadError
 from pandas import HDFStore
-from midas import ros_tm
-
-archive_path = os.path.expanduser('~/Copy/midas/data/')
-tlm_path = os.path.expanduser('~/Copy/midas/data/tlm')
+from midas import common, ros_tm
 
 # Use https://code.google.com/p/python-bitstring/ to read the binary data (see also https://pythonhosted.org/bitstring/)
 
@@ -111,18 +108,29 @@ def search_params(search=''):
 
 
 
-def read_data(files, apid, sid, calibrate=False, tsync=True):
+def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False):
     """Read in data for a given APID and SID and return a dataframe of calibrated
     data for all matching frames. This can then be written to an archive.
 
-    If tsync=True packets with no time synch are ignored."""
+    If calibrate=False calibration is performed on query, otherwise calibration is performed
+    when writing the file.
+
+    If tsync=True packets with no time synch are ignored.
+
+    If use_index=True the telemetry index file is used instead of indexing each TLM file."""
 
     # Look up the packet format in the database
     pkt_name, fmt, param_names, param_desc, status_len = get_packet_format(apid=apid, sid=sid)
     if not fmt: return False
 
     # Index TM files and filter by APID and SID
-    tm = ros_tm.tm(files)
+
+    if use_index:
+        tm = ros_tm.tm()
+        tm.query_index(what='hk')
+    else:
+        tm = ros_tm.tm(files)
+
     pkts = tm.pkts[ (tm.pkts.apid==apid) & (tm.pkts.sid==sid) ]
 
     if tsync:
@@ -183,7 +191,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True):
     return hk_data
 
 
-def create(files='TLM*.DAT', path=tlm_path, archfile='tm_archive.h5', calibrate=False):
+def create(files='TLM*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive.h5', calibrate=False, use_index=True):
     """Writes a DataFrame of calibrated TM data to an hdf5 archive"""
 
     # data.to_hdf(hdf5file, pkt_name, mode='w', format='table', data_columns=True)
@@ -192,21 +200,28 @@ def create(files='TLM*.DAT', path=tlm_path, archfile='tm_archive.h5', calibrate=
 
     apid = 1076
 
-    files = os.path.join(path, files)
     store = HDFStore(os.path.join(archive_path,archfile), 'w', complevel=9, complib='blosc')
 
-    files = sorted(glob.glob(files))
+    if not use_index:
+        files = os.path.join(tlm_path, files)
+        files = sorted(glob.glob(files))
 
-    for f in files:
+        for f in files:
 
-        hk = read_data(f, apid=apid, sid=1, calibrate=calibrate)
+            hk = read_data(files=f, apid=apid, sid=1, calibrate=calibrate)
+            store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
+
+            hk = read_data(files=f, apid=apid, sid=2, calibrate=calibrate)
+            store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
+
+    else:
+
+        hk = read_data(files=None, apid=apid, sid=1, calibrate=calibrate, use_index=True)
         store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
 
-        hk = read_data(f, apid=apid, sid=2, calibrate=calibrate)
+        hk = read_data(files=None, apid=apid, sid=2, calibrate=calibrate, use_index=True)
         store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
 
-    # store.root._v_attrs.hk1_names = hk._metadata[0]
-    # store.root._v_attrs.hk2_names = hk._metadata[0]
     store.root._v_attrs.calibrated = calibrate
 
     store.close()
@@ -214,7 +229,7 @@ def create(files='TLM*.DAT', path=tlm_path, archfile='tm_archive.h5', calibrate=
     return
 
 
-def query(param, start=None, end=None, archfile='tm_archive.h5'):
+def query(param, start=None, end=None, archive_path=common.tlm_path, archfile='tm_archive.h5'):
     """Searches archfile for param= between times start= and end="""
 
     store = pd.HDFStore(os.path.join(archive_path,archfile), 'r')

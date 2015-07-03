@@ -1630,7 +1630,7 @@ class tm:
 
         # Due to a database change, the event with SID 42777 has changed from 1 to 2
         # Easiest fix is to change the substype here
-        tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].subtype = 2
+        tlm.loc[ tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].index ] = 2
 
         if dedupe:
             # Remove duplicates (packets with the same OBT, APID and SID)

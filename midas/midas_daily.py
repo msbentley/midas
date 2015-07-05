@@ -4,7 +4,7 @@
 import os, sys, subprocess, tempfile, time
 import pandas as pd
 import numpy as np
-from midas import common, dds_utils, ros_tm
+from midas import common, dds_utils, ros_tm, archive
 from datetime import date, datetime, timedelta
 
 log_dir = '/var/www/html/'
@@ -62,6 +62,10 @@ def run_daily():
         # Attempt to free some memory (though still have to wait for garbage collection)
         del(tm)
 
+        # Adding new data from these files into the HK archive
+        print('\n\nAdding new data to the HK archive\n')
+        archive.append(tlm_files=obs_fname, tlm_path=obs_path)
+        
 
     if new_data:
         print('\n\nGenerating meta-data spreadsheet for all images')

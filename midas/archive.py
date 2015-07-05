@@ -131,7 +131,8 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False):
     else:
         tm = ros_tm.tm(files)
 
-    pkts = tm.pkts[ (tm.pkts.apid==apid) & (tm.pkts.sid==sid) ]
+    pkts = tm.pkts[ (tm.pkts.apid==apid) & (tm.pkts.sid==sid) & (tm.pkts.tsync) ]
+    tm.pkts.sort('obt', inplace=True, axis=0)
 
     if tsync:
         pkts = pkts[ pkts.tsync ]
@@ -191,7 +192,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False):
     return hk_data
 
 
-def create(files='TLM*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive.h5', calibrate=False, use_index=True):
+def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive.h5', calibrate=False, use_index=False):
     """Writes a DataFrame of calibrated TM data to an hdf5 archive"""
 
     # data.to_hdf(hdf5file, pkt_name, mode='w', format='table', data_columns=True)
@@ -200,7 +201,7 @@ def create(files='TLM*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_p
 
     apid = 1076
 
-    store = HDFStore(os.path.join(archive_path,archfile), 'w', complevel=9, complib='blosc')
+    store = HDFStore(os.path.join(archive_path,archfile), 'w') # , complevel=9, complib='blosc')
 
     if not use_index:
         files = os.path.join(tlm_path, files)
@@ -209,22 +210,65 @@ def create(files='TLM*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_p
         for f in files:
 
             hk = read_data(files=f, apid=apid, sid=1, calibrate=calibrate)
-            store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
+            store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
 
             hk = read_data(files=f, apid=apid, sid=2, calibrate=calibrate)
-            store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
+            store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
 
     else:
 
         hk = read_data(files=None, apid=apid, sid=1, calibrate=calibrate, use_index=True)
-        store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
+        store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
 
         hk = read_data(files=None, apid=apid, sid=2, calibrate=calibrate, use_index=True)
-        store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2])
+        store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
 
     store.root._v_attrs.calibrated = calibrate
 
+    if debug: print('DEBUG: indexing HDF5 tables')
+
+    store.create_table_index('HK1',columns=['index'],optlevel=9,kind='full')
+    store.create_table_index('HK2',columns=['index'],optlevel=9,kind='full')
+
     store.close()
+
+    return
+
+
+def append(tlm_files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive.h5'):
+    """Appends data in HK packets contained in tlm_path/tlm_files to archive_path/archfile. Only packets with
+    OBTs after the final entry in the archive file will be added! Calibration status is maintained."""
+
+    apid = 1076
+
+    store = HDFStore(os.path.join(archive_path,archfile), 'a')
+    calibrated = True if store.root._v_attrs.calibrated else False
+
+    # TODO - getting the max() index is not helpful, since unsync'd OBTs are large!
+
+    hk = read_data(files=os.path.join(tlm_path,tlm_files), apid=apid, sid=1, calibrate=calibrated)
+    metadata = hk._metadata
+    obt_max = store.select_column('HK1','index').max()
+    hk = hk[hk.index>obt_max]
+    store.append('HK1', hk, format='table', data_columns=True, min_itemsize=meta[2], index=False)
+
+    hk = read_data(files=os.path.join(tlm_path,tlm_files), apid=apid, sid=2, calibrate=calibrated)
+    metadata = hk._metadata
+    obt_max = store.select_column('HK2','index').max()
+    hk = hk[hk.index>obt_max]
+    store.append('HK2', hk, format='table', data_columns=True, min_itemsize=meta[2], index=False)
+
+    store.close()
+
+    return
+
+
+def ptrepack(in_file, out_file, options):
+    """Runs the ptrepack command to re-write an HDF5/PyTables file. The string given in
+    options is passed directly to ptrepack with no checking!"""
+
+    # ptrepack --chunkshape=auto --propindexes --complevel=9 --complib=blosc in.h5 out.h5
+
 
     return
 

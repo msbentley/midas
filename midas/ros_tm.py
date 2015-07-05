@@ -1617,6 +1617,10 @@ class tm:
 
         tlm.obt = pd.to_datetime(tlm.obt)
 
+        # Due to a database change, the event with SID 42777 has changed from 1 to 2
+        # Easiest fix is to change the substype here
+        tlm.subtype.loc[ tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].index ] = 2
+
         # Merge with the packet list, adding spid and description, then sort by OBT
         tlm = pd.merge(tlm,pid,how='left').sort('obt')
 
@@ -1627,10 +1631,6 @@ class tm:
             tlm.drop('midsid', axis=1, inplace=True)
 
         num_pkts = len(tlm)
-
-        # Due to a database change, the event with SID 42777 has changed from 1 to 2
-        # Easiest fix is to change the substype here
-        tlm.loc[ tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].index ] = 2
 
         if dedupe:
             # Remove duplicates (packets with the same OBT, APID and SID)
@@ -3645,9 +3645,6 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
         telem = tm(f)
         # data_columns determines which columns can be queried - here use OBT for time slicing, APID for choosing data
         # source and filename to allow selection by MTP or STP.
-
-        # When no DDS header is found (should be never?!) a NaT is returned, which breaks PyTables dtypes
-        telem.pkts.dds_time = telem.pkts.dds_time.astype('O')
 
         try:
             nrows = store.get_storer(table).nrows

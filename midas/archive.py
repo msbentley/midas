@@ -6,7 +6,7 @@ Mark S. Bentley (mark@lunartech.org), 2013
 
 """
 
-debug = True
+debug = False
 
 import os
 import numpy as np
@@ -148,7 +148,8 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False):
         if debug: print('DEBUG: processing file %s' % f)
 
         # Open each file as a bitstream and filter the packet list to frames from this packet
-        s = ConstBitStream(filename=f)
+        # s = ConstBitStream(filename=f)
+        s = ConstBitStream(bytes=open(f, 'rb').read(), length=os.path.getsize(f)*8)
         frames = pkts[pkts.filename==f]
         frames.reset_index(inplace=True)
 
@@ -192,8 +193,8 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False):
     return hk_data
 
 
-def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive.h5', calibrate=False, use_index=False):
-    """Writes a DataFrame of calibrated TM data to an hdf5 archive"""
+def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive_raw.h5', calibrate=False, use_index=False):
+    """Writes a DataFrame of (optionally) calibrated TM data to an hdf5 archive"""
 
     # data.to_hdf(hdf5file, pkt_name, mode='w', format='table', data_columns=True)
 
@@ -201,7 +202,7 @@ def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common
 
     apid = 1076
 
-    store = HDFStore(os.path.join(archive_path,archfile), 'w') # , complevel=9, complib='blosc')
+    store = HDFStore(os.path.join(archive_path,archfile), 'w', complevel=9, complib='blosc')
 
     if not use_index:
         files = os.path.join(tlm_path, files)
@@ -227,93 +228,132 @@ def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common
 
     if debug: print('DEBUG: indexing HDF5 tables')
 
-    store.create_table_index('HK1',columns=['index'],optlevel=9,kind='full')
-    store.create_table_index('HK2',columns=['index'],optlevel=9,kind='full')
+    store.create_table_index('HK1', columns=['index'], optlevel=9, kind='full')
+    store.create_table_index('HK2', columns=['index'], optlevel=9, kind='full')
 
     store.close()
+
+    ptrepack()
 
     return
 
 
-def append(tlm_files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive.h5'):
+def append(tlm_files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive.h5', repack=True):
     """Appends data in HK packets contained in tlm_path/tlm_files to archive_path/archfile. Only packets with
     OBTs after the final entry in the archive file will be added! Calibration status is maintained."""
+
+    import shutil
 
     apid = 1076
 
     store = HDFStore(os.path.join(archive_path,archfile), 'a')
     calibrated = True if store.root._v_attrs.calibrated else False
 
-    # TODO - getting the max() index is not helpful, since unsync'd OBTs are large!
-
     hk = read_data(files=os.path.join(tlm_path,tlm_files), apid=apid, sid=1, calibrate=calibrated)
     metadata = hk._metadata
     obt_max = store.select_column('HK1','index').max()
     hk = hk[hk.index>obt_max]
-    store.append('HK1', hk, format='table', data_columns=True, min_itemsize=meta[2], index=False)
+    store.append('HK1', hk, format='table', data_columns=True, min_itemsize=metadata[2], index=False)
 
     hk = read_data(files=os.path.join(tlm_path,tlm_files), apid=apid, sid=2, calibrate=calibrated)
     metadata = hk._metadata
     obt_max = store.select_column('HK2','index').max()
     hk = hk[hk.index>obt_max]
-    store.append('HK2', hk, format='table', data_columns=True, min_itemsize=meta[2], index=False)
+    store.append('HK2', hk, format='table', data_columns=True, min_itemsize=metadata[2], index=False)
+
+    store.create_table_index('HK1',columns=['index'],optlevel=9,kind='full')
+    store.create_table_index('HK2',columns=['index'],optlevel=9,kind='full')
 
     store.close()
+
+    if repack:
+
+        # Copy to a temporary file and run ptrepack
+        archfile = os.path.join(archive_path, archfile)
+        archfile_temp = os.path.join(archive_path, archfile.split('.')[-2]+'_raw.'+archfile.split('.')[-1])
+
+        shutil.copyfile(archfile, archfile_temp)
+        ptrepack(in_file=archfile_temp, out_file=archfile)
+        os.remove(archfile_temp)
 
     return
 
 
-def ptrepack(in_file, out_file, options):
+def ptrepack(in_file='tm_archive_raw.h5', out_file='tm_archive.h5', archive_path=common.tlm_path, options='--chunkshape=auto --propindexes --complevel=9 --complib=blosc'):
     """Runs the ptrepack command to re-write an HDF5/PyTables file. The string given in
     options is passed directly to ptrepack with no checking!"""
 
     # ptrepack --chunkshape=auto --propindexes --complevel=9 --complib=blosc in.h5 out.h5
 
 
-    return
+    import subprocess
+
+    in_file = os.path.join(archive_path, in_file)
+    out_file = os.path.join(archive_path, out_file)
+
+    if os.path.isfile(out_file):
+        os.remove(out_file)
+
+    command_string = ['ptrepack']
+    command_string.extend(options.split())
+    command_string.extend([in_file, out_file])
+
+    try:
+        ptrepack_cmd = subprocess.check_output(command_string, shell=False, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError, e:
+        print "ERROR: ptrepack failed! Output: \n\n", e.output
+        return False
+
+    # print('INFO: ptrepack output:\n\n %s' % ptrepack_cmd)
+
+    return ptrepack_cmd
 
 
-def query(param, start=None, end=None, archive_path=common.tlm_path, archfile='tm_archive.h5'):
+def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='tm_archive.h5'):
     """Searches archfile for param= between times start= and end="""
+
+    if type(params) != list:
+        params = [params]
 
     store = pd.HDFStore(os.path.join(archive_path,archfile), 'r')
 
-    hk1_params = store.root.HK1.table.colnames
+    hk1_params = store.root.HK1.table.colpathnames
     hk1_params.remove('index')
 
-    hk2_params = store.root.HK2.table.colnames
+    hk2_params = store.root.HK2.table.colpathnames
     hk2_params.remove('index')
 
-    if param in hk1_params:
-        table='HK1'
-    elif param in hk2_params:
-        table='HK2'
-    else:
-        print('ERROR: parameter %s not found in the archive' % (param))
+    if not set(params).issubset(hk1_params + hk2_params):
+        print('ERROR: one or more parameters not found in the archive')
         return False
 
-    if (start is None) and (end is None): # read the entire column (fast!)
-        data = pd.Series(store.select_column(table,param).values, index=store.select_column(table,'index').values, name=param)
-    else:
+    hk1_list = [param for param in params if param in hk1_params]
+    if len(hk1_list) > 0:
+        hk1_index = store.select_column('HK1','index').values
+        hk1_data = pd.DataFrame(columns=hk1_list, index=hk1_index)
 
-        obt = store.select_column(table,'index')
+    hk2_list = [param for param in params if param in hk2_params]
+    if len(hk2_list) > 0:
+        hk2_index = store.select_column('HK2','index').values
+        hk2_data = pd.DataFrame(columns=hk2_list, index=hk2_index)
 
-        if start is None:
-            start = obt.min()
+    for param in params:
 
-        if end is None:
-            end = obt.max()
+        if param in hk1_params:
+            hk1_data[param] = pd.Series(store.select_column('HK1',param).values, index=hk1_index)
+            if not store.root._v_attrs.calibrated:
+                hk1_data[param] = ros_tm.calibrate('%s' % param, hk1_data[param].values)
 
-        where = obt[ (obt>start) & (obt<end) ].index
-
-        # data = store.select(table, where="index>Timestamp(%r) and index<Timestamp(%r)" % (start,end), columns=[param])
-        data = store.select(table, where=where, columns=[param])
-        data = data['%s' % param]
-
-    # If data is uncalibrated, run the calibration
-    if not store.root._v_attrs.calibrated:
-        data = pd.Series( ros_tm.calibrate('%s' % param,data.values), index=data.index, name=data.name)
+        elif param in hk2_params:
+            hk2_data[param] = pd.Series(store.select_column('HK2',param).values, index=hk2_index)
+            if not store.root._v_attrs.calibrated:
+                hk2_data[param] = ros_tm.calibrate('%s' % param, hk2_data[param].values)
 
     store.close()
 
-    return data
+    if len(hk1_list)==0:
+        return hk2_data
+    elif len(hk2_list)==0:
+        return hk1_data
+    else:
+        return pd.concat([hk1_data, hk2_data]).sort()

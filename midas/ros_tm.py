@@ -2474,6 +2474,13 @@ class tm:
                 scan_events = [42656, 42756, 42513, 42713]
                 events = events[events.sid.isin(scan_events)]
 
+            elif label_events=='wheel':
+                # 42904 - EvSegSearchTimeout
+                # 42592 - EvSegmentFound
+                # 42591 - EvSearchForRefPulse
+                scan_events = [42904, 42592, 42591]
+                events = events[events.sid.isin(scan_events)]
+
             elif label_events=='fscan':
                 # 42641 - EvFScanStarted
                 # 42645 - EvAutoFScanFinshed
@@ -2748,6 +2755,7 @@ class tm:
                 line_type['info']['ac_gain'] = np.nan if in_image else self.get_param('NMDA0118', frame=frame)[1]
                 line_type['info']['xy_settle'] = np.nan if in_image else self.get_param('NMDA0271', frame=frame)[1]
                 line_type['info']['z_settle'] = np.nan if in_image else self.get_param('NMDA0270', frame=frame)[1]
+                line_type['info']['z_ret'] = np.nan if in_image else self.get_param('NMDA0188', frame=frame)[1]
 
             if not info_only:
                 line_type['data'] = np.array(struct.unpack(">%iH" % (num_steps),pkt['data'][line_scan_size:line_scan_size+num_steps*2]))
@@ -2756,7 +2764,7 @@ class tm:
 
         cols = line_scan_names._fields
         if expand_params:
-            cols += ('op_pt', 'set_pt', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle')
+            cols += ('op_pt', 'set_pt', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle', 'z_ret')
 
         lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=line_scan_pkts.index)
 

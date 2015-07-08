@@ -773,6 +773,11 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
 
     if images is None: return None
 
+    # tidy up the input data
+    if type(images) == pd.Series: images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+    if type(images)==bool:
+        if not images: return
+
     if 'data' not in images.columns:
         print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')
         return None
@@ -780,11 +785,6 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
     scan_count = 0
     first_time = True
     filenames = []
-
-    # tidy up the input data
-    if type(images) == pd.Series: images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
-    if type(images)==bool:
-        if not images: return
 
     last_filename = images.filename.irow(0)
     xy_unit, xy_power = gwy.gwy_si_unit_new_parse('nm')
@@ -847,14 +847,14 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
                     c.set_object_by_name('/%i/mask' % (chan_idx), mask)
 
                 if pt_spec:
-                    # check for control data packets sent between image start and image end
+                    # check for control data packets sent between image start and image end (+/- 5 minutes)
                     telem = tm(scan['filename'].iloc[0])
                     ctrl = telem.get_ctrl_data()
                     ctrl = ctrl[ (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
                         (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
                         (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
 
-                    for ctrl_chan in range(len(common.ctrl_channels)):
+                    for ctrl_chan in range(len(common.ctrl_channels)): # GWY stores point per channel, so loop over this first
 
                         spec = gwy.Spectra()
                         spec.set_title(common.ctrl_names[ctrl_chan])
@@ -864,7 +864,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
 
                         i = 0
 
-                        for idx, ctrl_pt in ctrl.iterrows():
+                        for idx, ctrl_pt in ctrl.iterrows(): # loop over control data points
 
                             num_pix = len(ctrl_pt.zpos)
                             spec_data = gwy.DataLine(num_pix, num_pix, False)
@@ -875,11 +875,18 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
                             for pt in range(num_pix):
                                 spec_data.set_val(pt, ctrl_data[pt])
 
+                            # TODO - control data points do not (yet!) uniquely identify their position, so we
+                            # need to calculate this from dimensions, open/closed loop and main scan direction
+                            # of the parent image. Update when the OBSW has been upgraded!
 
+                            if ctrl_pt.scan_dir=='X':
+                                xpos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * xcal * 10**xy_power
+                                ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
 
-                            cal = xcal if ctrl_pt.scan_dir=='X' else ycal
-                            xpos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * cal * 10**xy_power
-                            ypos = sorted(ctrl.main_cnt.unique())[(i // 32)] * ctrl_pt.step_size * cal * 10**xy_power # FIXME
+                            else:
+                                ypos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * ycal * 10**xy_power
+                                xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
+
                             spec.add_spectrum(spec_data, xpos, ypos)
                             i += 1
 
@@ -3234,7 +3241,6 @@ class tm:
 
             if unpack_status:
 
-                status_channels = ['NC', 'RP', 'LA', 'MC', 'PA', 'PC']
                 bit_start = [5, 4, 3, 2, 1, 0]
                 bit_len =  [11, 1, 1, 1, 1, 1]
                 status_images = images[images.channel=='ST']
@@ -3243,19 +3249,46 @@ class tm:
                 # then correctly mask the data and edit the channel designation
                 for idx, status in status_images.iterrows():
 
-                    images = images.append([status]*(len(status_channels)-1)) # duplicate
-                    images.loc[ images.index==idx, 'channel' ] = status_channels # re-label channel names
+                    images = images.append([status]*(len(common.status_channels)-1)) # duplicate
+                    images.loc[ images.index==idx, 'channel' ] = common.status_channels # re-label channel names
 
                 images.reset_index(inplace=True) # to avoid duplicate indices
 
                 # loop through each status channel and apply bit shifts and masks
-                for idx, channel in enumerate(status_channels):
+                for idx, channel in enumerate(common.status_channels):
                     images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply( lambda row: row >> bit_start[idx] )
                     images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply( lambda row: row & 2**bit_len[idx]-1 )
 
                     # Set the 1-bit types to booleans
                     if channel != 'NC':
                         images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply(lambda item: item.astype('bool'))
+
+
+                # Unpack S2 if present
+                # 0x0004 = Scan status parameters 2 (S2):
+                #   Bits 15-1 = retraction distance / 2
+                #   Bit        0 = contact flag
+
+                bit_start = [1, 0]
+                bit_len =  [15, 1]
+                status_images = images[images.channel=='S2']
+
+                for idx, status in status_images.iterrows():
+
+                    images = images.append([status]*(len(common.s2_channels)-1)) # duplicate
+                    images.loc[ images.index==idx, 'channel' ] = common.s2_channels # re-label channel names
+
+                images.reset_index(inplace=True) # to avoid duplicate indices
+
+                # loop through each status channel and apply bit shifts and masks
+                for idx, channel in enumerate(common.s2_channels):
+                    images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply( lambda row: row >> bit_start[idx] )
+                    images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply( lambda row: row & 2**bit_len[idx]-1 )
+
+                    # Set the 1-bit types to booleans
+                    if channel == 'CF':
+                        images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply(lambda item: item.astype('bool'))
+
 
         print('INFO: %i images found' % (len(info.start_time.unique())))
 

@@ -64,8 +64,8 @@ def run_daily():
 
         # Adding new data from these files into the HK archive
         print('\n\nAdding new data to the HK archive\n')
-        archive.append(tlm_files=obs_fname, tlm_path=obs_path)
-        
+        archive.append(tlm_files=obs_fname, tlm_path=obs_path, on_disk=True)
+
 
     if new_data:
         print('\n\nGenerating meta-data spreadsheet for all images')

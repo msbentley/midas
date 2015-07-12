@@ -31,6 +31,10 @@ def parse_itl(filename, header=True):
     comment = hashmark + pp.restOfLine
     continuation = pp.Literal('\\')
 
+    # M.S.Bentley 09/07/2015 - latest generated files include "Source_file: "filename" lines - ignore for now
+    source_start = pp.Literal('Source_file:')
+    source_line = source_start + pp.restOfLine
+
     # Define the header (sequence of key:value pairs)
     headerKey = pp.Word(pp.alphanums + '_')
     headerVal = pp.Word(pp.alphanums + '-._:')
@@ -99,6 +103,7 @@ def parse_itl(filename, header=True):
     else:
         itlparse = timeline + pp.StringEnd()
     itlparse.ignore(comment)
+    itlparse.ignore(source_line)
     itlparse.ignore(continuation)
 
     itl = itlparse.parseString(open(filename,'U').read())

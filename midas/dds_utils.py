@@ -6,6 +6,7 @@ debug = False
 import pandas as pd
 import os, time, socket
 from midas import ros_tm
+from dateutil import parser
 
 # Global module level definitions
 dds_req_params = ['request-id', 'filename', 'directory', 'apid', 'start_time', 'end_time']
@@ -29,6 +30,7 @@ template_file = 'midas_dds_request.xml'
 template_file = os.path.join(template_path,template_file)
 
 tcp_template = os.path.join(template_path,'tcp_dds_request.xml')
+single_template = os.path.join(template_path,'generic_dds_req.xml')
 
 schema_path = os.path.expanduser('~/MIDAS/software') if socket.gethostname() in servers else os.path.expanduser('~/Dropbox/work/midas/software')
 schema_file = 'GDDSRequest.xsd'
@@ -75,10 +77,11 @@ def validate_xml(xml, schema_file, isfile=False):
         return True
     except:
         print('ERROR: file or parse error')
+        print(sf)
         return False
 
 
-def generate_request(start_time, end_time, apid, template_file=template_file, target=False):
+def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype=None, template_file=template_file, target=False):
     """Generates and returns a DDS XML request based on a template,
     start and end time and an APID."""
 
@@ -91,14 +94,19 @@ def generate_request(start_time, end_time, apid, template_file=template_file, ta
     # validate inputs
     if apid not in ros_tm.midas_apids:
         print('WARNING: APID %i invalid for MIDAS' % apid)
-        # return 0
 
-    if (type(start_time) or type(end_time)) is not datetime.datetime:
-        print('ERROR: start and end times must be given as a datetime!')
-        return 0
+    if type(start_time)==str:
+        start_time = pd.Timestamp(start_time)
 
-    start_time = datetime.datetime.strftime(start_time,isofmt)
-    end_time = datetime.datetime.strftime(end_time,isofmt)
+    if type(end_time)==str:
+        end_time = pd.Timestamp(end_time)
+
+    if (type(start_time) or type(end_time)) is not pd.Timestamp:
+        print('ERROR: start and end times must be given as a Timestamp!')
+        return False
+
+    start_time = start_time.isoformat()
+    end_time = end_time.isoformat()
 
     request = 'MD_TLM_%i_%s--%s' % (apid, start_time, end_time)
     request = request.replace(":","")
@@ -118,6 +126,12 @@ def generate_request(start_time, end_time, apid, template_file=template_file, ta
                 'apid' : apid,
                 'start_time' : start_time,
                 'end_time' : end_time }
+
+    if pkt_type is not None and pkt_subtype is not None and sid is not None:
+        request_params.update( {
+            'pkt_type': pkt_type,
+            'pkt_subtype': pkt_subtype,
+            'sid': sid })
 
     f = open(template_file, 'r')
     template = f.read()
@@ -143,7 +157,7 @@ def generate_request(start_time, end_time, apid, template_file=template_file, ta
     if matches < len(tags):
         print('ERROR: %i tags in template %s but only %i parameters given' % \
             (len(tags), template_file, len(['params'])))
-        return 0
+        return False
 
     # open the file again and search and replace all tags
     f = open(template_file, 'r')
@@ -200,7 +214,7 @@ def submit_request(template, request, socks):
     return (put_result, rename_result)
 
 
-def request_data(start_time, end_time, apid=False, target=False, socks=False, template_file=template_file):
+def request_data_by_apid(start_time, end_time, apid=False, target=False, socks=False, template_file=template_file):
     """General XML, validate and submit to the DDS in a given time frame. All standard
     date/time strings are accapted for the start/end times. If the optional apid= keyword is set,
     only this APID will be requested, otherwise all MIDAS APIDs are used.
@@ -211,7 +225,6 @@ def request_data(start_time, end_time, apid=False, target=False, socks=False, te
     If socks=True then a socks5 tunnel to the appropriate server must already be open and listening
     on port 1080."""
 
-    from dateutil import parser
     from datetime import datetime
 
     st = parser.parse(start_time) if (type(start_time) != pd.tslib.Timestamp and type(start_time) != datetime) else start_time
@@ -239,7 +252,7 @@ def request_data(start_time, end_time, apid=False, target=False, socks=False, te
 
 def get_data(start_time, end_time, outputfile=False, outputpath='.', apid=False, socks=False, delfiles=True, max_retry=5, retry_delay=2):
 
-    filenames, aplist = request_data(start_time, end_time, apid=apid, socks=socks)
+    filenames, aplist = request_data_by_apid(start_time, end_time, apid=apid, socks=socks)
 
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
@@ -249,10 +262,42 @@ def get_data(start_time, end_time, outputfile=False, outputpath='.', apid=False,
     return filelist, apid
 
 
-def get_data_since(start_time, outputfile, outputpath='.', apid=False, socks=False, max_retry=5, retry_delay=2):
-    """Calls request_data_since() and retrieves packets from remote SFTP site"""
+def request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, target=False, socks=False, template_file=single_template):
+    """Requests data for a given packet type, sub-type and APIDs, between start_time and end_time."""
 
-    filenames, aplist = request_data_since(start_time, apid=apid, socks=socks)
+    from datetime import datetime
+
+    st = parser.parse(start_time) if (type(start_time) != pd.tslib.Timestamp and type(start_time) != datetime) else start_time
+    et = parser.parse(end_time) if type(end_time) != pd.tslib.Timestamp else end_time
+
+    packet = ros_tm.pid[ (ros_tm.pid.apid==apid) & (ros_tm.pid.type==pkt_type) & (ros_tm.pid.subtype==pkt_subtype) & (ros_tm.pid.sid==sid) ]
+    if len(packet)==0:
+        print('ERROR: no packet found in the database for APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
+        return False
+    elif len(packet)>1:
+        print('ERROR: more than one packet found matching APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
+    else:
+        print('INFO: building request for packet %s' % packet.description.squeeze())
+
+    # start_time, end_time, apid, pkt_type=None, pkt_subtype=None, template_file=template_file, target=False
+    xml, request_id = generate_request(start_time=st, end_time=et, apid=apid, sid=sid, pkt_type=pkt_type, pkt_subtype=pkt_subtype, template_file=template_file, target=target)
+    filename = request_id + '.DAT'
+
+    if validate_xml(xml, schema_file):
+        submit_request(xml, request_id, socks)
+        pass
+    else:
+        print('ERROR: problem validating XML against schema')
+
+    print('INFO: request submitted to the DDS')
+
+    return filename
+
+
+def get_data_since(start_time, outputfile, outputpath='.', apid=False, socks=False, max_retry=5, retry_delay=2):
+    """Calls request_data_by_apid_since() and retrieves packets from remote SFTP site"""
+
+    filenames, aplist = request_data_by_apid_since(start_time, apid=apid, socks=socks)
 
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
@@ -268,20 +313,20 @@ def get_new_data(since, outputfile, outputpath, apid=False, socks=False, max_ret
     get_files(filenames, outputpath, outputfile=outputfile, apid=aplist, max_retry=max_retry, retry_delay=retry_delay)
 
 
-def request_data_since(start_time, apid=False, socks=False):
-    """Calls request_data() from a given date until the present"""
+def request_data_by_apid_since(start_time, apid=False, socks=False):
+    """Calls request_data_by_apid() from a given date until the present"""
 
     from datetime import datetime
 
     end_time = datetime.now().isoformat()
-    filenames, aplist = request_data(start_time, end_time, apid, socks=socks)
+    filenames, aplist = request_data_by_apid(start_time, end_time, apid, socks=socks)
 
 
     return filenames, aplist
 
 
 def request_new_data(since, apid=False, socks=False):
-    """Calls request_data() for a period specified by the current time and since, in hours"""
+    """Calls request_data_by_apid() for a period specified by the current time and since, in hours"""
 
     from datetime import datetime, timedelta, date
 
@@ -291,7 +336,7 @@ def request_new_data(since, apid=False, socks=False):
     start_time = date.strftime(start_time, '%c')
     end_time = date.strftime(end_time, '%c')
 
-    filenames, aplist = request_data(start_time, end_time, apid, socks=socks)
+    filenames, aplist = request_data_by_apid(start_time, end_time, apid, socks=socks)
 
     return filenames, aplist
 
@@ -310,6 +355,13 @@ def get_files(filenames, outputpath, apid=False, outputfile=False, delfiles=True
 
     # return an empty filelist if no matching files are on server
     if len(retrieved)==0: return []
+
+    if type(filenames)!=list:
+        filenames=[filenames]
+
+    if apid:
+        if type(apid)!=list:
+            apid=[apid]
 
     if outputfile:
         tm = ros_tm.tm()
@@ -390,13 +442,12 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
 
 def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
 
-    from dateutil import parser
     from datetime import datetime
 
     start_time = parser.parse('2 March 2004  07:17').isoformat() # Rosetta launch date
     end_time = datetime.utcnow().isoformat()
 
-    filenames, aplist = request_data(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
+    filenames, aplist = request_data_by_apid(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
 
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
@@ -404,6 +455,20 @@ def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
     filelist = get_files('TLM__MD_TIMECORR.DAT', outputpath=outputpath, apid=aplist, outputfile=False, max_retry=max_retry, retry_delay=retry_delay)
 
     return filelist
+
+
+def get_single_pkt(start_time, end_time, apid, sid, pkt_type, pkt_subtype, outputfile=False, outputpath='.', socks=False, delfiles=True, max_retry=5, retry_delay=2):
+
+    # request_data(start_time, end_time, apid, pkt_type, pkt_subtype, target=False, socks=False, template_file=single_template):
+    filename = request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, socks=socks)
+
+    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
+
+    filelist = get_files(filename, outputpath=outputpath, apid=apid, outputfile=outputfile, delfiles=delfiles, max_retry=max_retry, retry_delay=retry_delay)
+
+    return filelist
+
 
 
 def add_observations(evf_file):
@@ -545,7 +610,7 @@ def get_new_observations(outputdir=data_path, mtpstp_dir=True, max_retry=10, ret
     for idx,obs in new_obs.iterrows():
 
         # Build and submit DDS requests for the observation times, all APIDs
-        filelist, aplist = request_data(obs.start.isoformat(), obs.end.isoformat())
+        filelist, aplist = request_data_by_apid(obs.start.isoformat(), obs.end.isoformat())
         time.sleep(dds_wait_time) # wait n minutes before accessing the data via SFTP
 
         # Data go into subdirectories of the data root, e.g. ./MTP003/STP004/

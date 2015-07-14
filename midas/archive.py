@@ -13,7 +13,14 @@ import numpy as np
 import pandas as pd
 from bitstring import ConstBitStream, ReadError
 from pandas import HDFStore
+<<<<<<< HEAD
 from midas import common, ros_tm
+=======
+from midas import ros_tm
+
+archive_path = os.path.expanduser('~/Copy/midas/data/tlm')
+tlm_path = os.path.expanduser('~/Copy/midas/data/tlm')
+>>>>>>> dev
 
 # Use https://code.google.com/p/python-bitstring/ to read the binary data (see also https://pythonhosted.org/bitstring/)
 

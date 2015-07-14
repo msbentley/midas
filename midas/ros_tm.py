@@ -1630,6 +1630,8 @@ class tm:
 
         # Merge with the packet list, adding spid and description, then sort by OBT
         tlm = pd.merge(tlm,pid,how='left').sort('obt')
+        tlm.spid = tlm.spid.astype(np.int64)
+
 
         # Deal with the fact that MIDAS uses private SIDs that are not in the RMIB
         if 'midsid' in tlm.columns:
@@ -1672,7 +1674,7 @@ class tm:
         return
 
 
-    def simple_locate_pkts(self, filename, dds_header=True, verbose=False):
+    def simple_locate_pkts(self, filename, dds_header=True):
         """Scans a TM file and returns OBT, packet type and sub-type, APID and offset.
         Minimal checking is performed, and the dds_header flag must be set correctly.
 

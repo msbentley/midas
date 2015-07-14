@@ -15,7 +15,7 @@ from bitstring import ConstBitStream, ReadError
 from pandas import HDFStore
 from midas import ros_tm
 
-archive_path = os.path.expanduser('~/Copy/midas/data/')
+archive_path = os.path.expanduser('~/Copy/midas/data/tlm')
 tlm_path = os.path.expanduser('~/Copy/midas/data/tlm')
 
 # Use https://code.google.com/p/python-bitstring/ to read the binary data (see also https://pythonhosted.org/bitstring/)

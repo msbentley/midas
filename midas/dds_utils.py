@@ -95,10 +95,10 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
     if apid not in ros_tm.midas_apids:
         print('WARNING: APID %i invalid for MIDAS' % apid)
 
-    if type(start_time)==str:
+    if type(start_time)!=pd.Timestamp:
         start_time = pd.Timestamp(start_time)
 
-    if type(end_time)==str:
+    if type(end_time)!=pd.Timestamp:
         end_time = pd.Timestamp(end_time)
 
     if (type(start_time) or type(end_time)) is not pd.Timestamp:

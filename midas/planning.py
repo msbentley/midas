@@ -398,7 +398,7 @@ def pstp_itl(itl_file, evf_file):
     return pstp_itl
 
 
-def generate_pdor(itl_file, evf_file, pdor_file, comments=True):
+def generate_pdor(itl_file, pdor_file=None, evf_file=None, comments=True):
     """Generate a PDOR given a corresponding ITLS (and if needed EVF) file. If
     relative=True then relative timing is used, otherwise absolute timing is used."""
 
@@ -412,14 +412,24 @@ def generate_pdor(itl_file, evf_file, pdor_file, comments=True):
     # Load and parse the ITLS into a timeline
     itl = eps_utils.parse_itl(itl_file)
 
+    if evf_file is None:
+        for header in itl.header:
+            if header.key == 'Start_time': itl_start = datetime.strptime(header.val,dateformat)
+    else:
+        evf_start, evf_end, event_list = read_evf(evf_file)
+        event_list = pd.DataFrame(event_list)
+
     csf=ros_tm.read_csf()
     csf = csf[csf.sequence.str.startswith('AMD')] # filter by MIDAS sequences
 
     # Load the command parameter details
     csp = ros_tm.read_csp()
 
-    evf_start, evf_end, event_list = read_evf(evf_file)
-    event_list = pd.DataFrame(event_list)
+    # PDOP template
+    # PDOP_PI5RSO_DAPPTEST________00018.ROS
+    if pdor_file is None:
+        sq_num = get_orfa_seq('PDOP')
+        pdor_file = 'PDOP_PI5RSO_D_______________%05d.ROS' % (sq_num)
 
     # Open the PDOR file for output
     f = open(pdor_file, 'w')
@@ -430,7 +440,7 @@ def generate_pdor(itl_file, evf_file, pdor_file, comments=True):
     # Write the primary header
     # DOR_ 00001 11-067T11:10:23.
     f.write('C Primary header (PDOR, version %d, generated at %s)\n' % (version, filetime))
-    f.write('C Generated from ITL file %s and EVF %s\n' % (os.path.basename(itl_file), os.path.basename(evf_file)))
+    f.write('C Generated from ITL file %s\n' % (os.path.basename(itl_file) )) # and EVF %s\n' % , os.path.basename(evf_file)))
     f.write('DOR_ %05d %s\n\n' % (version, '{:>20}'.format(filetime)))
 
 
@@ -443,16 +453,17 @@ def generate_pdor(itl_file, evf_file, pdor_file, comments=True):
     first_sequence = itl.timeline[0]
     event = first_sequence.label
     count = int(first_sequence.options.val)
-    event_time = event_list[ (event_list.event_id==event) & (event_list.obs_id==count) ]
-    event_time = event_time.time.squeeze()
+    if evf_file is None:
+        event_time = itl_start
+    else:
+        event_time = event_list[ (event_list.event_id==event) & (event_list.obs_id==count) ]
+        event_time = event_time.time.squeeze()
     first_request_time = event_time + first_sequence.time
     first_request_time = datetime.strftime(first_request_time,ccsds_b_fmt)
 
     last_sequence = itl.timeline[-1]
     event = last_sequence.label
     count = int(last_sequence.options.val)
-    event_time = event_list[ (event_list.event_id==event) & (event_list.obs_id==count) ]
-    event_time = event_time.time.squeeze()
     last_request_time = event_time + last_sequence.time
     last_request_time = datetime.strftime(last_request_time,ccsds_b_fmt)
 
@@ -490,11 +501,12 @@ def generate_pdor(itl_file, evf_file, pdor_file, comments=True):
         # executed relative to this
         event = sequence.label
         count = int(sequence.options.val)
-        event_time = event_list[ (event_list.event_id==event) & (event_list.obs_id==count) ]
-        if len(event_time) != 1:
-            print('ERROR: cannot find event %s (COUNT=%d) in EVF file' % (event, count))
-            return False
-        event_time = event_time.time.squeeze()
+        if evf_file is not None:
+            event_time = event_list[ (event_list.event_id==event) & (event_list.obs_id==count) ]
+            if len(event_time) != 1:
+                print('ERROR: cannot find event %s (COUNT=%d) in EVF file' % (event, count))
+                return False
+                event_time = event_time.time.squeeze()
         sq_time = event_time + sequence.time
 
         f.write('H4%s\n' % (datetime.strftime(sq_time,ccsds_b_fmt)))
@@ -528,7 +540,7 @@ def generate_pdor(itl_file, evf_file, pdor_file, comments=True):
 
         f.write('\n')
 
-    return
+    return pdor_file
 
 
 

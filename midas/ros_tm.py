@@ -217,7 +217,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
         fscans = pd.DataFrame(columns=fscans.to_dict().keys()).append(fscans)
 
     if cantilever is not None:
-        fscans = fscans[ fscans.cant_num==cantilever ]
+        fscans = fscans[ fscans.tip_num==cantilever ]
 
     if len(fscans)==0:
         print('ERROR: no frequency scans available (for selected cantilever)')
@@ -3330,7 +3330,7 @@ class tm:
         freq_scan_fmt = ">H2B2I2HI6H7H"
         freq_scan_size = struct.calcsize(freq_scan_fmt)
         freq_scan_names = collections.namedtuple("freq_scan_names", "sid sw_minor sw_major start_time freq_start \
-            freq_step max_amp freq_at_max num_scans fscan_cycle cant_num cant_block exc_lvl ac_gain fscan_type \
+            freq_step max_amp freq_at_max num_scans fscan_cycle tip_num cant_block exc_lvl ac_gain fscan_type \
             spare2 spare3 spare4 spare5 spare6 spare7")
 
         freq_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=131)
@@ -3351,7 +3351,7 @@ class tm:
             if (cantilever >=1) and (cantilever <= 16):
                 block = 0 if cantilever <= 8 else 1
                 cant = (cantilever-1) % 8
-                fscans = fscans[ (fscans.cant_num==cant) & (fscans.cant_block==block)]
+                fscans = fscans[ (fscans.tip_num==cant) & (fscans.cant_block==block)]
                 if len(fscans)==0:
                     print('WARNING: no frequency scans found for cantilever %i' % (cantilever))
                     return False
@@ -3407,7 +3407,7 @@ class tm:
                 'max_amp': single_scan.max_amp.max()*(20./65535.),
                 'max_freq': single_scan.freq_at_max.max() * 0.0006984, # 00021065027,
                 'num_scans': first_pkt.num_scans,
-                'cant_num': first_pkt.cant_num+1 + first_pkt.cant_block*8,
+                'tip_num': first_pkt.tip_num+1 + first_pkt.cant_block*8,
                 'cant_block': first_pkt.cant_block,
                 'excitation': first_pkt.exc_lvl,
                 'gain': first_pkt.ac_gain,
@@ -3428,7 +3428,7 @@ class tm:
 
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \
-                    (scan['info']['cant_block'], scan['info']['cant_num'], \
+                    (scan['info']['cant_block'], scan['info']['tip_num'], \
                     scan['info']['gain'], scan['info']['excitation'], \
                     scan['info']['max_amp'], scan['info']['max_freq']) )
 
@@ -3554,7 +3554,7 @@ class tm:
         for idx, image in images.iterrows():
             lines = lines[ (lines.obt<image.start_time) | (lines.obt>image.end_time) ]
 
-        cant_usage = pd.DataFrame(columns=['cant_num', 'num_images', 'num_lines', 'num_points'])
+        cant_usage = pd.DataFrame(columns=['tip_num', 'num_images', 'num_lines', 'num_points'])
 
         if cantilever is None:
             cantilever=range(1,17)
@@ -3576,7 +3576,7 @@ class tm:
             num_points += lines.query('tip_num==%i' % cant).num_steps.sum()
 
             cant_usage = cant_usage.append(
-                {'cant_num': cant,
+                {'tip_num': cant,
                 'num_images': len(images.query('channel=="ZS" & tip_num==%i' % cant)),
                 'num_lines':  len(lines.query('tip_num==%i' % cant)),
                 'num_points': num_points }, ignore_index=True)

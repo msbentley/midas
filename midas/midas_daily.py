@@ -30,7 +30,7 @@ def run_daily():
     print('\n\nMIDAS daily start: %s' % (datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
     # Check for new completed observations and extract BCR and PNG images
-    obs_filenames = dds_utils.get_new_observations(tlm_dir, mtpstp_dir=False, max_retry=10, retry_delay=5)
+    obs_filenames = dds_utils.get_new_observations(tlm_dir, mtpstp_dir=False, get_aux=True, max_retry=10, retry_delay=5)
 
     for obs_file in obs_filenames:
 

@@ -563,10 +563,7 @@ def write_obs_file(obs_list):
     return
 
 
-
-
-
-def get_new_observations(outputdir=data_path, mtpstp_dir=True, max_retry=10, retry_delay=5):
+def get_new_observations(outputdir=data_path, mtpstp_dir=True, get_aux=True, max_retry=10, retry_delay=5):
     """Based on the current date and time, searches the event list for recently
     finished observations and retrieves data from the DDS.
 
@@ -609,9 +606,8 @@ def get_new_observations(outputdir=data_path, mtpstp_dir=True, max_retry=10, ret
 
     for idx,obs in new_obs.iterrows():
 
-        # Build and submit DDS requests for the observation times, all APIDs
-        filelist, aplist = request_data_by_apid(obs.start.isoformat(), obs.end.isoformat())
-        time.sleep(dds_wait_time) # wait n minutes before accessing the data via SFTP
+        start = obs.start.isoformat()
+        end = obs.end.isoformat()
 
         # Data go into subdirectories of the data root, e.g. ./MTP003/STP004/
         if mtpstp_dir:
@@ -623,9 +619,22 @@ def get_new_observations(outputdir=data_path, mtpstp_dir=True, max_retry=10, ret
         # TLM__MD_Mnnn_Smmm_zzzzzzzzzzzzzzzzzzzz_COUNT_cc.DAT
         # TLM__MD_M004_S005_TARGET_EXPOSE________COUNT_01.DAT
 
-        padded_name = obs.observation+(20-len(obs.observation))*'_'
+        padded_name = obs.observation + (20-len(obs.observation)) * '_'
         obs_filename = 'TLM__MD_M%03d_S%03d_%s_COUNT_%02d.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
+        aux_filename = 'TLM__MD_M%03d_S%03d_%s_COUNT_%02d_AUX.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
+
         obs_filenames.append(os.path.join(stp_dir,obs_filename))
+
+        # Build and submit DDS requests for the observation times, all APIDs
+        filelist, aplist = request_data_by_apid(start, end)
+
+        if get_aux:
+            aux_pkt = { 'type': 3, 'subtype': 25, 'apid':84, 'sid':102 }
+            aux_file = get_single_pkt(start, end, apid=aux_pkt['apid'], sid=aux_pkt['sid'], pkt_type=aux_pkt['type'], pkt_subtype=aux_pkt['subtype'],
+                outputfile=aux_filename, outputpath=stp_dir, delfiles=True, max_retry=max_retry, retry_delay=retry_delay)
+
+        time.sleep(dds_wait_time) # wait n minutes before accessing the data via SFTP
+
 
         # Retrieve the files from the server - delete them at the remote and local side
         # Files are also combined into a single TM

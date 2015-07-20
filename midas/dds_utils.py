@@ -621,7 +621,7 @@ def get_new_observations(outputdir=data_path, mtpstp_dir=True, get_aux=True, max
 
         padded_name = obs.observation + (20-len(obs.observation)) * '_'
         obs_filename = 'TLM__MD_M%03d_S%03d_%s_COUNT_%02d.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
-        aux_filename = 'TLM__MD_M%03d_S%03d_%s_COUNT_%02d_AUX.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
+        aux_filename = 'TLM__SC_M%03d_S%03d_%s_COUNT_%02d.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
 
         obs_filenames.append(os.path.join(stp_dir,obs_filename))
 

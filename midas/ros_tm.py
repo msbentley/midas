@@ -964,18 +964,29 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
 
 def open_gwy(images, path=common.gwy_path):
     """Accepts one or more images and loads the corresponding files into Gwyddion. If
-    path= is not set, the default image path is used."""
+    path= is not set, the default image path is used. If images is a string, this is
+    assumed to be a scan file name."""
 
     import subprocess
 
     if type(images) == pd.Series:
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
 
-    gwyfiles = images.scan_file.unique().tolist()
+    if type(images) == pd.DataFrame:
+        gwyfiles = images.scan_file.unique().tolist()
+
+    if type(images) == str:
+        gwyfiles = [images]
+
+    if type(images) == list:
+        gwyfiles = images
+
     gwyfiles = [os.path.join(path,gwy+'.gwy') for gwy in gwyfiles]
     command_string = ['gwyddion', '--remote-new'] + gwyfiles
 
-    subprocess.Popen(command_string)
+    subprocess.call(command_string)
+
+    return
 
 
 def save_bcr(images, outputdir='.', write_meta=False):

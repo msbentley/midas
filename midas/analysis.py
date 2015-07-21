@@ -30,36 +30,38 @@ def read_grain_cat(grain_cat_file=grain_cat_file):
 
 
 
-def find_overlap(images, scanfile, calc_overlap=False, same_tip=True):
-    """Accepts an image dataframe (from ros_tm.get_images()) and an image name and
-    returns a list of overlapping images.
+def find_overlap(calc_overlap=False, same_tip=True, query=None):
+    """Loads all image metadata and loops through all images looking for overlaps.
 
     If same_tip=True then matches are only returned for images taken with the same tip.
     If calc_overlap=True a modified dataframe is returned with the overlap in square microns."""
 
-    src_image = images[ (images.scan_file==scanfile) & (images.channel=='ZS') ]
+    images = ros_tm.load_images(data=False)
+    images = images[ images.channel=='ZS' ]
+    if query is not None:
+        images = images.query(query)
 
-    if len(src_image)==0:
-        print('ERROR: could not find (topography) image %s' % scanfile)
-        return None
-    elif len(src_image)>1:
-        print('ERROR: more than one match for image %s' % scanfile)
-        return None
+    left = []; right = []
 
-    src_image = src_image.squeeze()
+    for idx, image in images.iterrows():
 
-    matches = images[ images.scan_file!=src_image.scan_file ]
-    matches = matches[ matches.wheel_pos==src_image.wheel_pos ]
+        matches = images[ (images.scan_file != image.scan_file) & (images.wheel_pos == image.wheel_pos) ]
 
-    if same_tip:
-        matches = images[ images.tip_num==src_image.tip_num ]
+        if same_tip:
+            matches = matches[ matches.tip_num == image.tip_num ]
 
-    h_overlaps = (matches.x_orig_um <= src_image.x_orig_um+src_image.xlen_um) & (matches.x_orig_um+matches.xlen_um >= src_image.x_orig_um)
-    v_overlaps = (matches.y_orig_um <= src_image.y_orig_um+src_image.ylen_um) & (matches.y_orig_um+matches.ylen_um >= src_image.y_orig_um)
+        h_overlaps = (matches.x_orig_um <= image.x_orig_um + image.xlen_um) & (matches.x_orig_um + matches.xlen_um >= image.x_orig_um)
+        v_overlaps = (matches.y_orig_um <= image.y_orig_um + image.ylen_um) & (matches.y_orig_um + matches.ylen_um >= image.y_orig_um)
 
-    matches = matches[ h_overlaps & v_overlaps ]
+        matched = matches[ h_overlaps & v_overlaps ].scan_file.tolist()
 
-    return matches
+        right.extend( matched )
+        left.extend([image.scan_file] * len(matched))
+
+    over = pd.DataFrame(zip(left, right), columns=['left', 'right'])
+    over = over.groupby('left').first().reset_index()
+
+    return over
 
 
 def find_followup(same_tip=True, image_index=None, sourcepath=os.path.expanduser('~/Copy/midas/data/tlm')):
@@ -125,7 +127,7 @@ def find_followup(same_tip=True, image_index=None, sourcepath=os.path.expanduser
         else:
             print('INFO: %i subsequent images found containing the position of particle %i' % (len(matches), pcle))
             matches['particle'] = pcle
-            followup = followup.append(matches)
+            followup = followup.append(matches, ignore_index=True)
 
     followup.particle = followup.particle.astype(int)
 

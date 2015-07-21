@@ -23,11 +23,12 @@ from midas import common, ros_tm
 debug = False
 
 # Date format example:  28-September-2014_10:00:00
-dateformat = "%d-%B-%Y_%H:%M:%S"
+dateformat = "%d-%b-%Y_%H:%M:%S"
 timeformat = "%H:%M:%S"
 
 # Set of valid observation names
-valid_obs_names = [ 'TARGET_SCAN', 'TARGET_EXPOSE', 'MIDAS__SCI__MTP003', 'MD_TARGET_SCAN', 'MIDAS__SCI', 'TARGET_EXPOSE_SCAN', 'DUMMY']
+valid_obs_names = [ 'TARGET_SCAN', 'TARGET_EXPOSE', 'MIDAS__SCI__MTP003', 'MD_TARGET_SCAN', 'MIDAS__SCI',
+    'TARGET_EXPOSE_SCAN', 'DUMMY','TARGET_EXPOSE_SCAN_SO', 'TARGET_EXPOSE_SCAN_EO']
 valid_event_types = [ 'SO', 'EO' ]
 
 # Set of valid facet status types (in status file)

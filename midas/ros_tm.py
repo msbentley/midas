@@ -984,7 +984,7 @@ def open_gwy(images, path=common.gwy_path):
     gwyfiles = [os.path.join(path,gwy+'.gwy') for gwy in gwyfiles]
     command_string = ['gwyddion', '--remote-new'] + gwyfiles
 
-    subprocess.call(command_string)
+    subprocess.Popen(command_string)
 
     return
 

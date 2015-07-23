@@ -18,6 +18,8 @@ import pandas as pd
 import numpy as np
 import logging, os, sys
 from datetime import datetime, timedelta
+from dateutil import parser
+
 from midas import common, ros_tm
 
 debug = False
@@ -72,7 +74,8 @@ other_templates = {
     'TECH_CMD': 'ITLS_MD_TECH_CMD.itl',
     'LIN_ABS': 'ITLS_MD_LINEAR_ABS.itl',
     'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl',
-    'COMMENT': 'ITLS_MD_COMMENT.itl' }
+    'COMMENT': 'ITLS_MD_COMMENT.itl',
+    'WHEEL': 'ITLS_MD_WHEEL_MOVE.itl' }
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
 
@@ -124,8 +127,7 @@ def date_doy(date=False):
     if no argument is specified"""
 
     if date:
-        import dateutil.parser
-        date = dateutil.parser.parse(date)
+        date = parser.parse(date)
         return date.timetuple().tm_yday
     else:
         return datetime.now().timetuple().tm_yday
@@ -166,8 +168,6 @@ def date_to_obs(date):
     observation this corresponds to"""
 
     import dds_utils
-    from dateutil import parser
-    from datetime import datetime
 
     if type(date) != datetime:
         date = parser.parse(date)
@@ -255,7 +255,6 @@ def which_stp(date, ltp=6, case='p'):
     or as a string in any sensible date/time format."""
 
     if type(date)!=datetime and type(date)!=pd.Timestamp:
-        from dateutil import parser
         date = parser.parse(date)
 
     cycles = get_cycles(ltp=ltp, case=case)
@@ -415,7 +414,8 @@ def generate_pdor(itl_file, pdor_file=None, evf_file=None, comments=True):
 
     if evf_file is None:
         for header in itl.header:
-            if header.key == 'Start_time': itl_start = datetime.strptime(header.val,dateformat)
+            # if header.key == 'Start_time': itl_start = datetime.strptime(header.val,dateformat)
+            if header.key == 'Start_time': itl_start = parser.parse(header.val.replace('_', ' '))
     else:
         evf_start, evf_end, event_list = read_evf(evf_file)
         event_list = pd.DataFrame(event_list)
@@ -603,10 +603,12 @@ def read_evf(filename):
         if len(line.split()) == 2: # start or stop time
             if line.split()[0] == 'Start_time:':
                 mtp_start = line.split()[1]
-                mtp_start = datetime.strptime(mtp_start,dateformat)
+                # mtp_start = datetime.strptime(mtp_start,dateformat)
+                mtp_date = parser.parse(mtp_start.replace('_',' '))
             elif line.split()[0] == 'End_time:':
                 mtp_end = line.split()[1]
-                mtp_end = datetime.strptime(mtp_end,dateformat)
+                # mtp_end = datetime.strptime(mtp_end,dateformat)
+                mtp_end = parser.parse(mtp_end.replace('_',' '))
             else:
                 logging.error('invalid syntax in EVF file %s' % (filename))
                 return(None)
@@ -616,7 +618,7 @@ def read_evf(filename):
             event = {}
 
             # Time follows the format defined at the top of this module
-            event['time'] = datetime.strptime(line.split()[0],dateformat)
+            event['time'] = parser.parse(line.split()[0].replace('_', ' '))
 
             # Event label follows the following definition:
             # 123456789012345678901234567890123
@@ -633,7 +635,7 @@ def read_evf(filename):
 
             event['event_id'] = label
 
-            event['obs_type'] = label[3:24].strip('_') # free form name in the ICD
+            event['obs_type'] = label[3:-3].strip('_') # free form name in the ICD
 
             if event['obs_type'] not in valid_obs_names:
                 logging.error( 'observation type %s not valid for MIDAS' % (event['obs_type']))
@@ -669,8 +671,9 @@ def read_itlm(filename):
 
     for header in itl.header:
         if header.key == 'Version': itl_ver = header.val
-        if header.key == 'Start_time': itl_start = datetime.strptime(header.val,dateformat)
-        if header.key == 'End_time': itl_end = datetime.strptime(header.val,dateformat)
+        if header.key == 'Start_time': itl_start = parser.parse(header.val.replace('_', ' '))
+        if header.key == 'End_time': itl_end = parser.parse(header.val.replace('_', ' '))
+
 
     seq_list = []
 
@@ -678,7 +681,7 @@ def read_itlm(filename):
 
         seq = {}
 
-        seq['obs_type'] = entry.label[3:24].strip('_') # free form name in the ICD
+        seq['obs_type'] = entry.label[3:-3].strip('_') # free form name in the ICD
         if seq['obs_type'] not in valid_obs_names:
             logging.error('event %s not valid for MIDAS' % (seq['obs_type']))
             return None
@@ -1142,6 +1145,9 @@ class ptrm:
                 end = blocks[i+1].find('startTime').text
                 # print 'Block type %s' % (block_types[i])
 
+            start = start.strip()
+            end = end.strip()
+
             if start[-1] != 'Z': start += 'Z'
             isofmt = isofmt1 if '.' in start.split(':')[-1] else isofmt2
             start_time.append(datetime.strptime(start,isofmt))
@@ -1499,7 +1505,6 @@ class itl:
         """Insert a pause until the abs_time (if it's in the future!), update time pointers"""
 
         if type(abs_time) not in [pd.Timestamp, datetime]:
-            from dateutil import parser
             abs_time = parser.parse(abs_time)
         if abs_time < self.abs_time:
             print('ERROR: specified time (%s) is before current time (%s)!' % (abs_time, self.abs_time))
@@ -1683,6 +1688,7 @@ class itl:
 
         return
 
+
     def expose(self, facet, duration=None):
 
         proc = {}
@@ -1723,6 +1729,40 @@ class itl:
         self.generate({'template': 'LINEAR_MAX', 'params': {}}, timedelta(minutes=5))
         return
 
+
+    def wheel_move(self, segment, pwidth=147):
+
+        proc = {}
+        proc['template'] = 'WHEEL'
+
+        if ((segment<0) or (segment>1023)):
+            print('ERROR: invalid segment number')
+            return None
+
+        # eng = 21 + raw*42
+        # RAW 4 = 189 us FS - 3 mins
+        # RAW 3 = 147 us FM - 3 mins
+        # RAW 2 = 105 us - 6 mins
+        # RAW 1 = 63 us - 15 mins?
+
+        if ((pwidth - 21) % 42) != 0:
+            print('ERROR: pulse width cannot be converted to raw value')
+            return None
+
+        duration = {
+            63:  15*60,
+            105:  6*60,
+            147:  3*60,
+            189:  3*60 }
+
+        proc['params'] = {
+            'segment': segment,
+            'pwidth' : pwidth,
+            'tout': duration[pwidth] }
+
+        self.generate(proc, duration=timedelta(seconds=duration[pwidth]))
+
+
     def xyz_move(self, x_dac=0, y_dac=0, z_dac=0, scan_mode='DYN', fsynth=False, zout=False):
         """Run SQ AMDF035B to manually set the XYZ stage to a given position"""
 
@@ -1745,6 +1785,11 @@ class itl:
             'scan_mode': scan_type.index(scan_mode),
             'fsynth_onoff': 'ON*' if fsynth else 'OFF*',
             'zout_onoff': 'ON*' if zout else 'OFF*' }
+
+        self.generate(proc)
+
+        return
+
 
     def instrument_setup(self, fscan_phase=False, last_z_lf=False, zero_lf=False, calc_retract=False,
         line_tx=True, ctrl_full=False, ctrl_retract=False, anti_creep=True, auto_exp=False,
@@ -1855,7 +1900,7 @@ class itl:
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
-        contact=False, threshold=False):
+        contact=False, threshold=False, segment=None):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1945,6 +1990,14 @@ class itl:
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = {}
 
+        if segment is None:
+            segment = facet*16
+        else:
+            seg_facet = common.seg_to_facet(segment)
+            if seg_facet != facet:
+                print('ERROR: selected segment and facet do not agree!')
+                return False
+
         # Linear and wheel move params
         linear_posn = self.tip_centre(cantilever) if not tip_offset else self.tip_position(cantilever,tip_offset)
         wheel_move_params = { \
@@ -1952,7 +2005,7 @@ class itl:
                 # to always approach from the same direction, so first make a linear move 0.5 voltages "below"
                 # the desired position
                 'linear_posn_pre': linear_posn-0.5,
-                'segment': facet*16 }
+                'segment': segment }
 
         setup_params = { \
 
@@ -2090,11 +2143,20 @@ class itl:
 
         return
 
-    def tip_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=4, ystep=4,
+    def tip_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=False, ystep=False,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
         fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2,
         z_settle=50, xy_settle=50, contact=False, threshold=False):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
+
+        # set default steps according to open or closed loop mode
+        if not xstep:
+            xstep = 4
+        if not  ystep:
+            if openloop:
+                ystep = 4
+            else:
+                ystep = 11
 
         self.scan(cantilever=cantilever, facet=3, channels=channels, openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
@@ -2293,10 +2355,13 @@ class itl:
 
         return
 
+# cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
+#    xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
+##    ac_gain=False, exc_lvl=False,
 
-    def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
-        xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
-        xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, set_start=False):
+    def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH', 'ST'], openloop=True, xpixels=256, ypixels=256,
+        xstep=15, ystep=15, xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
+        xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, op_amp=False, set_start=False, xy_settle=50., z_settle=50, set_pt=False):
         """Generates a series of identical tiled scans of a single target following an approach.
 
         The number of x and y tiles is given, all other parameters are as per scan().
@@ -2332,8 +2397,8 @@ class itl:
                 self.scan(cantilever=cantilever, facet=facet, channels=channels, openloop=openloop,
                 xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, xorigin=xorig, yorigin=yorig,
                 xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, tip_offset=tip_offset, fadj=fadj,
-                safety_factor=safety_factor, zstep=zstep, at_surface=surface, exc_lvl=exc_lvl,
-                ac_gain=ac_gain, set_start=set_start)
+                safety_factor=safety_factor, zstep=zstep, at_surface=surface, exc_lvl=exc_lvl, set_pt=set_pt,
+                ac_gain=ac_gain, set_start=set_start, xy_settle=xy_settle, z_settle=z_settle, op_amp=op_amp)
 
         return
 
@@ -2426,7 +2491,8 @@ class itl:
     def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
-        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False):
+        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False,
+        segment=None):
 
         import scanning
         proc = {}
@@ -2501,12 +2567,20 @@ class itl:
 
         linear_posn = self.tip_centre(cantilever) if not tip_offset else self.tip_position(cantilever,tip_offset)
 
+        if segment is None:
+            segment = facet*16
+        else:
+            seg_facet = common.seg_to_facet(segment)
+            if seg_facet != facet:
+                print('ERROR: selected segment and facet do not agree!')
+                return False
+
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = { \
 
             'linear_posn': linear_posn,
             'linear_posn_pre': linear_posn-0.5,
-            'segment': facet*16,
+            'segment': segment,
 
             # Cantilever dependent fscan parameters
             'cant_num': fscan_params['cant_num'],
@@ -2731,11 +2805,10 @@ def next_pass(time=False):
 
     Times should be specified in UTC, and returned dump times are in CET"""
 
-    import dateutil.parser
     import pytz
 
     # if time is not False, parse it as a date string
-    time = dateutil.parser.parse(time) if time else datetime.utcnow()
+    time = parser.parse(time) if time else datetime.utcnow()
 
     # load the FECS EVF file
     fecs = load_fecs()

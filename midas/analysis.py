@@ -11,6 +11,7 @@ import os
 import pandas as pd
 from midas import common, ros_tm
 import matplotlib.pyplot as plt
+import numpy as np
 
 grain_cat_file = 'grain_cat.csv'
 grain_cat_file = os.path.join(common.config_path, grain_cat_file)
@@ -30,20 +31,37 @@ def read_grain_cat(grain_cat_file=grain_cat_file):
 
 
 
-def find_overlap(calc_overlap=False, same_tip=True, query=None):
+def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
     """Loads all image metadata and loops through all images looking for overlaps.
 
+    image can be a scan_file name, or None to search all images.
+
     If same_tip=True then matches are only returned for images taken with the same tip.
-    If calc_overlap=True a modified dataframe is returned with the overlap in square microns."""
+
+    If calc_overlap=True a modified dataframe is returned with the overlap in square microns.
+
+    query= can be used to run addition queries on the image dataframe"""
 
     images = ros_tm.load_images(data=False)
     images = images[ images.channel=='ZS' ]
+
+    if image is not None:
+        if type(image)==str:
+            image = [image]
+        target = images[images.scan_file.isin(image)]
+    else:
+        target = images
+
     if query is not None:
         images = images.query(query)
 
-    left = []; right = []
+    if len(images)==0:
+        print('ERROR: no images match these criteria')
+        return None
 
-    for idx, image in images.iterrows():
+    left_idx = []; right_idx=[]
+
+    for idx, image in target.iterrows():
 
         matches = images[ (images.scan_file != image.scan_file) & (images.wheel_pos == image.wheel_pos) ]
 
@@ -53,13 +71,34 @@ def find_overlap(calc_overlap=False, same_tip=True, query=None):
         h_overlaps = (matches.x_orig_um <= image.x_orig_um + image.xlen_um) & (matches.x_orig_um + matches.xlen_um >= image.x_orig_um)
         v_overlaps = (matches.y_orig_um <= image.y_orig_um + image.ylen_um) & (matches.y_orig_um + matches.ylen_um >= image.y_orig_um)
 
-        matched = matches[ h_overlaps & v_overlaps ].scan_file.tolist()
+        matched = matches[ h_overlaps & v_overlaps ]
 
-        right.extend( matched )
-        left.extend([image.scan_file] * len(matched))
+        right_idx.extend( matched.index )
+        left_idx.extend( [image.name] * len(matched) )
 
-    over = pd.DataFrame(zip(left, right), columns=['left', 'right'])
+    # over = pd.DataFrame(zip(left_idx, right_idx), columns=['left', 'right'])
+    over = pd.DataFrame(zip(images.scan_file.ix[left_idx], images.scan_file.ix[right_idx]), columns=['left', 'right'])
     over = over.groupby('left').first().reset_index()
+
+    if calc_overlap:
+
+        h_overlap = []; v_overlap  = []
+
+        images['x_ext_um'] = images.x_orig_um + images.xlen_um
+        images['y_ext_um'] = images.y_orig_um + images.ylen_um
+
+        left_images = images.ix[left_idx].reset_index()
+        right_images = images.ix[right_idx].reset_index()
+
+        for idx in range(len(over)):
+
+            h_overlap.append(abs(min(right_images.x_ext_um.iloc[idx], left_images.x_ext_um.iloc[idx]) - max(right_images.x_orig_um.iloc[idx], left_images.x_orig_um.iloc[idx])))
+            v_overlap.append(abs(min(right_images.y_ext_um.iloc[idx], left_images.y_ext_um.iloc[idx]) - max(right_images.y_orig_um.iloc[idx], left_images.y_orig_um.iloc[idx])))
+
+        over['area'] = np.array(h_overlap) * np.array(v_overlap)
+        over['perc_left'] = over.area / (left_images.xlen_um * left_images.ylen_um)
+        over['perc_right'] = over.area / (right_images.xlen_um * right_images.ylen_um)
+        over.sort('perc_left', inplace=True)
 
     return over
 

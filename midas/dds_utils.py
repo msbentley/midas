@@ -704,7 +704,7 @@ def get_fdyn_files(directory=fdyn_path):
 
     ssh.close()
 
-    print('INFO: file %s retrieved and removed from the server' % (f))
+    print('INFO: %d FDyn files retrieved and removed from the server' % len(retrieved))
 
     return retrieved
 

@@ -9,7 +9,7 @@ import pandas as pd
 import os
 from midas import common, planning
 
-dateformat = '%d-%B-%Y_%H:%M:%S'
+# dateformat = '%d-%B-%Y_%H:%M:%S'
 
 def parse_itl(filename, header=True):
 
@@ -127,7 +127,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
         ng_exec = os.path.join(os.path.expanduser('~/Dropbox/bin'), 'epsng')
         # command_string = [ng_exec, 'exec', '-disable-plugins', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir]
         command_string = ['epsng', 'exec', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir, '-tt', 'abs',
-            '-obs', obspath, 'DEF_ROS_TOP___________V001.def' ]
+            '-obs', obspath, 'DEF_ROS_TOP___________V001.def','-obseventdefs' ]
     else:
         os.environ["EPS_DATA"] = os.path.expanduser('~/Dropbox/EPS/DATA')
         os.environ["EPS_CFG_DATA"] = os.path.expanduser('~/Dropbox/EPS/DATA')

@@ -44,6 +44,7 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
 
     images = ros_tm.load_images(data=False)
     images = images[ images.channel=='ZS' ]
+    images = images[ (images.x_step>0) & (images.y_step>0) ]
 
     if image is not None:
         if type(image)==str:
@@ -59,7 +60,8 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
         print('ERROR: no images match these criteria')
         return None
 
-    left_idx = []; right_idx=[]
+    cols = ['left', 'right']
+    over = pd.DataFrame(columns=cols)
 
     for idx, image in target.iterrows():
 
@@ -73,12 +75,11 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
 
         matched = matches[ h_overlaps & v_overlaps ]
 
-        right_idx.extend( matched.index )
-        left_idx.extend( [image.name] * len(matched) )
+        latest = pd.DataFrame( { 'right':matched.index, 'left':[image.name] * len(matched) }  )
 
-    # over = pd.DataFrame(zip(left_idx, right_idx), columns=['left', 'right'])
-    over = pd.DataFrame(zip(images.scan_file.ix[left_idx], images.scan_file.ix[right_idx]), columns=['left', 'right'])
-    over = over.groupby('left').first().reset_index()
+        dedupe = pd.concat( [over, latest.rename( columns={'left': 'right', 'right': 'left'} ) ], ignore_index=True )
+        idx = dedupe[dedupe.duplicated()].index
+        over = pd.concat( [over, latest], ignore_index = True ).drop(idx)
 
     if calc_overlap:
 
@@ -87,8 +88,8 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
         images['x_ext_um'] = images.x_orig_um + images.xlen_um
         images['y_ext_um'] = images.y_orig_um + images.ylen_um
 
-        left_images = images.ix[left_idx].reset_index()
-        right_images = images.ix[right_idx].reset_index()
+        left_images = images.ix[over.left].reset_index()
+        right_images = images.ix[over.right].reset_index()
 
         for idx in range(len(over)):
 
@@ -98,7 +99,12 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
         over['area'] = np.array(h_overlap) * np.array(v_overlap)
         over['perc_left'] = over.area / (left_images.xlen_um * left_images.ylen_um)
         over['perc_right'] = over.area / (right_images.xlen_um * right_images.ylen_um)
-        over.sort('perc_left', inplace=True)
+        over['tip_left'] = left_images.tip_num
+        over['tip_right'] = right_images.tip_num
+        over.sort('area', inplace=True)
+
+    over['left'] = over.left.apply( lambda l: images.scan_file.ix[l] )
+    over['right'] = over.right.apply( lambda r: images.scan_file.ix[r] )
 
     return over
 

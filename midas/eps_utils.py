@@ -357,7 +357,7 @@ def plot_eps_output(power,data, start=False, end=False, observations=False):
 
     return
 
-def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instrument='MIDAS', return_tcs=False):
+def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instrument='MIDAS', return_tcs=False, inc_time=False):
     """Reads the EPS generated actions.out file and counts the number of telecommands
     generated for the given instrument. If start= and end= are specified TCs are
     only counted for this period"""
@@ -385,6 +385,7 @@ def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instru
             return None
 
     tcs = []
+    times = []
 
     for line in open(actions_file).readlines():
         if re.search(instrument, line):
@@ -402,9 +403,13 @@ def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instru
                     continue
 
             tcs.append(tc_sq)
+            times.append(time)
 
     if return_tcs:
-        return tcs
+        if inc_time:
+            return pd.Series(tcs, index=times, name='telecommands')
+        else:
+            return tcs
     else:
         return len(tcs)
 

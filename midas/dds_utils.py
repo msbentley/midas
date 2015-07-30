@@ -455,7 +455,7 @@ def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
     end_time = datetime.utcnow().isoformat()
 
     # filenames, aplist = request_data_by_apid(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
-    filename = request_data(start_time, end_time, apid=1966, sid=0, pkt_type=190, pkt_subtype=40, socks=socks, template_file=single_template):
+    filename = request_data(start_time, end_time, apid=1966, sid=0, pkt_type=190, pkt_subtype=40, socks=socks, template_file=single_template)
 
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP

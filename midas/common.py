@@ -22,6 +22,7 @@ config_path = os.path.expanduser('~/Dropbox/work/midas/operations/config/') if o
 tlm_path = os.path.expanduser('~/Copy/midas/data/tlm') if os.getenv("TLM_PATH") is None else os.getenv("TLM_PATH")
 gwy_path = os.path.expanduser('~/Copy/midas/data/images/gwy') if os.getenv("GWY_PATH") is None else os.getenv("GWY_PATH")
 kernel_path = os.path.expanduser('~/Copy/midas/spice') if os.getenv("SPICE_PATH") is None else os.getenv("SPICE_PATH")
+s2k_path = os.path.join(ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL') if os.getenv("S2K_PATH") is None else os.getenv("S2K_PATH")
 
 
 # Instrument acronyms

@@ -30,7 +30,6 @@ sun_mjt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0)
 dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0, tzinfo=pytz.UTC)
 
 # Configuration file paths
-s2k_path = os.path.join(common.ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL')
 gwy_settings_file = os.path.join(common.config_path, 'gwy-settings.gwy')
 
 debug = False
@@ -64,11 +63,11 @@ def printtable(df):
 
 def obt_to_datetime(obt):
         # isofmt = "%Y-%m-%dT%H%M%SZ"
-    time = obt_epoch + timedelta(seconds=obt)
+    time = obt_epoch + timedelta(seconds=int(obt))
     return time
 
 def obt_to_iso(obt):
-    time = obt_epoch + timedelta(seconds=obt)
+    time = obt_epoch + timedelta(seconds=int(obt))
     return datetime.strftime(time,isofmt)
 
 def lorentzian(x, offset, amp, cen, wid):
@@ -449,6 +448,8 @@ def plot_ctrl_data(ctrldata, interactive=True, fix_scale=False):
             if event.key=='end':
                 callback.selected = numpoints-1
                 callback.update()
+            if event.key=='c':
+                callback.runcal(event)
 
         # buttons are linked to a parent axis, and scale to fit
         button_width  = 0.05
@@ -1122,6 +1123,32 @@ def do_polysub(image, order=3):
     return image
 
 
+def show_grid(images, cols=2):
+    """Plots multiple images in a grid with a given column width"""
+
+    import matplotlib.gridspec as gridspec
+
+    num_images = len(images)
+    rows = num_images / cols
+    if num_images % cols != 0:
+        rows += 1
+
+    gs = gridspec.GridSpec(rows, cols)
+    fig = plt.figure()
+    grid = 0
+
+    for idx, image in images.iterrows():
+
+        ax = plt.subplot(gs[grid])
+        show(image, fig=fig, ax=ax)
+        grid += 1
+
+    return
+
+
+
+
+
 def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, shade=False, show_fscans=False):
     """Accepts one or more images from get_images() and plots them in 2D.
 
@@ -1555,7 +1582,7 @@ class tm:
             f.close()
 
             # using numpy instead of pandas here for speed
-            picfile = os.path.join(s2k_path, 'pic.dat')
+            picfile = os.path.join(common.s2k_path, 'pic.dat')
             pic = np.loadtxt(picfile,dtype=np.int32)
 
             # Using the byte offsets, unpack each packet header
@@ -3900,7 +3927,7 @@ def read_ccf(filename=False):
     """Reads the SCOS-2000 ccf.dat file"""
 
     if not filename:
-        filename = os.path.join(s2k_path, 'ccf.dat')
+        filename = os.path.join(common.s2k_path, 'ccf.dat')
 
     cols = ('name', 'description', 'type', 'subtype', 'apid')
     ccf=pd.read_table(filename,header=None,names=cols,usecols=[0,1,6,7,8])
@@ -3911,7 +3938,7 @@ def read_csf(filename=False):
     """Load the command sequence file (CSF)"""
 
     # Get the description of each sequence from the command sequence file (csf.dat)
-    csf_file = os.path.join(s2k_path, 'csf.dat')
+    csf_file = os.path.join(common.s2k_path, 'csf.dat')
     cols = ('sequence', 'description', 'csf_plan')
     csf = pd.read_table(csf_file,header=None,names=cols,usecols=[0,1,7],na_filter=False)
 
@@ -3921,7 +3948,7 @@ def read_csf(filename=False):
 def read_csp(midas=False):
     """Load the command sequence parameters (CSP) file"""
 
-    csp_file = os.path.join(s2k_path, 'csp.dat')
+    csp_file = os.path.join(common.s2k_path, 'csp.dat')
     cols = ('sequence', 'param', 'param_num','param_descrip','ptc','pfc','format', \
         'radix', 'param_type', 'val_type', 'default', 'cal_type', 'range_set', \
         'numeric_cal', 'text_cal', 'eng_unit')
@@ -3935,7 +3962,7 @@ def read_csp(midas=False):
 def read_css(midas=False):
     """Load the command sequence definition (CSS) file"""
 
-    css_file = os.path.join(s2k_path, 'css.dat')
+    css_file = os.path.join(common.s2k_path, 'css.dat')
     cols = ('sequence', 'description', 'entry', 'type', 'name', 'num_params', 'reltype','reltime','extime')
 
     css = pd.read_table(css_file,header=None,names=cols,usecols=[0,1,2,3,4,5,7,8,9],na_filter=True,index_col=False)
@@ -3948,7 +3975,7 @@ def read_css(midas=False):
 def read_sdf(midas=False):
     """Load the command sequence element parameters (SDF) file"""
 
-    sdf_file = os.path.join(s2k_path, 'sdf.dat')
+    sdf_file = os.path.join(common.s2k_path, 'sdf.dat')
     cols = ('sequence', 'entry', 'el_name', 'param', 'val_type', 'value')
 
     sdf = pd.read_table(sdf_file,header=None,names=cols,usecols=[0,1,2,4,6,7],na_filter=True,index_col=False)
@@ -3967,7 +3994,7 @@ def read_pid(filename=False):
     is given the global S2K path is searched for the PID file."""
 
     if not filename:
-        filename = os.path.join(s2k_path, 'pid.dat')
+        filename = os.path.join(common.s2k_path, 'pid.dat')
 
     # cols = ('type','subtype','apid','sid','p2val','spid','description','unit','tpsd','dfh_size','time','inter','valid')
     cols = ('type','subtype','apid','sid','spid','description')
@@ -3983,7 +4010,7 @@ def read_pid(filename=False):
 def read_pcf(filename=False):
 
     if not filename:
-        filename = os.path.join(s2k_path, 'pcf.dat')
+        filename = os.path.join(common.s2k_path, 'pcf.dat')
 
     cols = ('param_name', 'description', 'unit', 'ptc', 'pfc', 'width', 'cal_cat', 'cal_id','group')
     pcf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,3,4,5,6,9,11,16], na_filter=True )
@@ -3996,7 +4023,7 @@ def read_pcf(filename=False):
 def read_plf(filename=False):
 
     if not filename:
-        filename = os.path.join(s2k_path, 'plf.dat')
+        filename = os.path.join(common.s2k_path, 'plf.dat')
 
     cols = ('param_name','spid','byte_offset','bit_offset')
     plf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2,3])
@@ -4009,7 +4036,7 @@ def read_caf(filename=False):
     """Read the CAF (numerical calibration curve) file"""
 
     if not filename:
-        filename = os.path.join(s2k_path, 'caf.dat')
+        filename = os.path.join(common.s2k_path, 'caf.dat')
 
     cols = ('cal_id','cal_descrip','eng_fmt','raw_fmt','radix')
     caf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2,3,4])
@@ -4023,7 +4050,7 @@ def read_pic(filename=False):
     """Read the PIC (packet identification criteria) table"""
 
     if not filename:
-        filename = os.path.join(s2k_path, 'pic.dat')
+        filename = os.path.join(common.s2k_path, 'pic.dat')
 
     cols = ('pkt_type','pkt_subtype','sid_offset','sid_width')
     pic = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2,3])
@@ -4038,7 +4065,7 @@ def read_cap(filename=False):
     """Read the CAP (numerical calibration curve definition) file"""
 
     if not filename:
-        filename = os.path.join(s2k_path, 'cap.dat')
+        filename = os.path.join(common.s2k_path, 'cap.dat')
 
     cols = ('cal_id','raw_val','eng_val')
     cap = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2])
@@ -4050,7 +4077,7 @@ def read_mcf(filename=False):
     """Read the MCF (polynomical calibration curve defintion) file"""
 
     if not filename:
-        filename = os.path.join(s2k_path, 'mcf.dat')
+        filename = os.path.join(common.s2k_path, 'mcf.dat')
 
     cols = ('cal_id','cal_descrip','a0','a1','a2','a3','a4')
     mcf = pd.read_table(filename,header=None,names=cols)
@@ -4063,7 +4090,7 @@ def read_txf(filename=False):
     """Read the TXF (textual calibration) file"""
 
     if not filename:
-        filename = os.path.join(s2k_path, 'txf.dat')
+        filename = os.path.join(common.s2k_path, 'txf.dat')
 
     cols = ('txf_id','txf_descr','raw_fmt')
     txf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2])
@@ -4077,7 +4104,7 @@ def read_txp(filename=False):
     import os
 
     if not filename:
-        filename = os.path.join(s2k_path, 'txp.dat')
+        filename = os.path.join(common.s2k_path, 'txp.dat')
 
     cols = ('txp_id','from','to','alt')
     txp = pd.read_table(filename,header=None,names=cols)

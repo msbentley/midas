@@ -444,15 +444,23 @@ def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
 
     from datetime import datetime
 
+    # type                                            190
+    # subtype                                          40
+    # apid                                           1966
+    # sid                                               0
+    # spid                                            140
+    # description    Time Correlator Coefficients Packets
+
     start_time = parser.parse('2 March 2004  07:17').isoformat() # Rosetta launch date
     end_time = datetime.utcnow().isoformat()
 
-    filenames, aplist = request_data_by_apid(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
+    # filenames, aplist = request_data_by_apid(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
+    filename = request_data(start_time, end_time, apid=1966, sid=0, pkt_type=190, pkt_subtype=40, socks=socks, template_file=single_template):
 
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
-    filelist = get_files('TLM__MD_TIMECORR.DAT', outputpath=outputpath, apid=aplist, outputfile=False, max_retry=max_retry, retry_delay=retry_delay)
+    filelist = get_files(filename, outputpath=outputpath, apid=aplist, outputfile='TLM__MD_TIMECORR.DAT', max_retry=max_retry, retry_delay=retry_delay)
 
     return filelist
 

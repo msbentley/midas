@@ -750,7 +750,7 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
         columns=['sequence', 'reltime', 'event', 'cnt'] )
 
     # Get the description of each sequence from the command sequence file (csf.dat)
-    csf_file = os.path.join(ros_tm.s2k_path, 'csf.dat')
+    csf_file = os.path.join(common.s2k_path, 'csf.dat')
     cols = ('sequence', 'description')
     csf = pd.read_table(csf_file,header=None,names=cols,usecols=[0,1],na_filter=False)
     csf = csf[csf.sequence.str.startswith('AMD')] # filter by MIDAS sequences

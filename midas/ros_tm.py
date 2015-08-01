@@ -1870,7 +1870,7 @@ class tm:
 
         pkt_data = []
 
-        if type(self.pkts) is None:
+        if self.pkts is None:
             print('WARNING: tm object not initialised, no packet list present')
             return None
 

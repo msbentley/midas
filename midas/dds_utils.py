@@ -105,8 +105,12 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
         print('ERROR: start and end times must be given as a Timestamp!')
         return False
 
-    start_time = start_time.isoformat()
-    end_time = end_time.isoformat()
+    # start_time = start_time.isoformat()
+    # end_time = end_time.isoformat()
+
+    start_time = start_time.strftime(isofmt)
+    end_time = end_time.strftime(isofmt)
+
 
     request = 'MD_TLM_%i_%s--%s' % (apid, start_time, end_time)
     request = request.replace(":","")
@@ -318,7 +322,7 @@ def request_data_by_apid_since(start_time, apid=False, socks=False):
 
     from datetime import datetime
 
-    end_time = datetime.now().isoformat()
+    end_time = datetime.now().strftime(isofmt)
     filenames, aplist = request_data_by_apid(start_time, end_time, apid, socks=socks)
 
 
@@ -349,6 +353,7 @@ def get_files(filenames, outputpath, apid=False, outputfile=False, delfiles=True
 
     If delfiles=True the individual source files are locally deleted."""
 
+    import shutil
 
     # retrieve data from the SFTP server, skipping missing or zero byte files
     retrieved = retrieve_data(filenames, outputpath, max_retry=max_retry, retry_delay=retry_delay)
@@ -364,12 +369,16 @@ def get_files(filenames, outputpath, apid=False, outputfile=False, delfiles=True
             apid=[apid]
 
     if outputfile:
-        tm = ros_tm.tm()
-        for localfile in retrieved:
-            tm.get_pkts(localfile, apid=apid[filenames.index(os.path.basename(localfile))], append=True)
 
-        tm.write_pkts(outputfile, outputpath=outputpath, strip_dds=strip_dds)
-        print('INFO: combined TM written to file %s' % (outputfile))
+        if len(retrieved)==1: #simple copy
+            shutil.copy(retrieved[0], os.path.join(outputpath, outputfile))
+        else:
+            tm = ros_tm.tm()
+            for localfile in retrieved:
+                tm.get_pkts(localfile, apid=apid[filenames.index(os.path.basename(localfile))], append=True)
+
+            tm.write_pkts(outputfile, outputpath=outputpath, strip_dds=strip_dds)
+            print('INFO: combined TM written to file %s' % (outputfile))
 
     if delfiles and outputfile: [os.remove(localfile) for localfile in retrieved]
 
@@ -440,7 +449,7 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
     return retrieved
 
 
-def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
+def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=5):
 
     from datetime import datetime
 
@@ -456,8 +465,8 @@ def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=2):
     pkt_type = 190
     subtype = 40
 
-    start_time = parser.parse('2 March 2004  07:17').isoformat() # Rosetta launch date
-    end_time = datetime.utcnow().isoformat()
+    start_time = parser.parse('2 March 2004  07:17').strftime(isofmt) # Rosetta launch date
+    end_time = datetime.utcnow().strftime(isofmt)
 
     # filenames, aplist = request_data_by_apid(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
     filename = request_data(start_time, end_time, apid=apid, sid=sid, pkt_type=pkt_type, pkt_subtype=subtype, socks=socks, template_file=single_template)

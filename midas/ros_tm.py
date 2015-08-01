@@ -1870,10 +1870,14 @@ class tm:
 
         pkt_data = []
 
+        if type(self.pkts) is None:
+            print('WARNING: tm object not initialised, no packet list present')
+            return None
+
         num_pkts = len(self.pkts)
         if num_pkts == 0:
             print('WARNING: no packets found')
-            return pkt_data
+            return None
 
         pkts = self.pkts.sort('obt')
 
@@ -2558,7 +2562,7 @@ class tm:
         return
 
 
-    def plot_temps(self, cssc=False, start=False, end=False, label='scan'):
+    def plot_temps(self, start=False, end=False, cssc=False, label='scan'):
         """Plot the temperatures from all MIDAS sensors for the given TM packages.
         If start= and end= are set to date/time strings the data will be limited
         to those times, otherwise all data are plotted."""
@@ -2604,7 +2608,7 @@ class tm:
     def plot_cantilever(self, start=False, end=False, label='scan'):
         """Plot the cantilever AC and DC values"""
 
-        cant_params = ['NMDA0102', 'NMDA0103']
+        cant_params = ['NMDA0102', 'NMDA0103', 'NMDA0104']
         self.plot_params(cant_params, label_events=label, start=start, end=end)
 
 
@@ -2788,7 +2792,13 @@ class tm:
             # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
             if expand_params:
                 line_type['info'] = line_type['info']._asdict()
-                frame = hk2[hk2.obt>pkt.obt].index[0]
+                frame = hk2[hk2.obt>pkt.obt].index
+                if len(frame)==0:
+                    print('WARNING: no HK2 frame found after line scan at %s' % pkt.obt)
+                    in_image = True # hack to put NaNs in the table if no HK available
+                    # continue
+                else:
+                    frame = frame[0]
                 line_type['info']['op_pt'] = np.nan if in_image else self.get_param('NMDA0181', frame=frame)[1]
                 line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
                 line_type['info']['exc_lvl'] = np.nan if in_image else self.get_param('NMDA0147', frame=frame)[1]

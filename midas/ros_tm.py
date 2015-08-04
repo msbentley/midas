@@ -2869,35 +2869,38 @@ class tm:
             print('WARNING: no control data packets found')
             return False
 
-        if expand_params:
-            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
-
         # M.S.Bentley 23/09/2014 - using df to collect ctrl data meta info
 
         ctrl_data = []
 
         for idx,pkt in ctrl_data_pkts.iterrows():
             ctrl_data.append(ctrl_data_names(*struct.unpack(ctrl_data_fmt,pkt['data'][0:ctrl_data_size])))
+
         ctrl_data = pd.DataFrame(ctrl_data,columns=ctrl_data_names._fields,index=ctrl_data_pkts.index)
-        ctrl_data['obt'] = ctrl_data_pkts.obt
 
         # Convert data as necessary in the df
-        ctrl_data.block_addr = ctrl_data.block_addr.apply( lambda block: block >> 1 )
+        ctrl_data['obt'] = ctrl_data_pkts.obt
+        ctrl_data['block_addr'] = ctrl_data.block_addr.apply( lambda block: block >> 1 )
         ctrl_data['z_retract'] = ctrl_data.block_addr.apply( lambda block: bool(block & 1) )
         ctrl_data['sw_ver'] = ctrl_data.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
         ctrl_data['sw_ver'] = ctrl_data['sw_ver'].str.cat(ctrl_data['sw_minor'].values.astype(str),sep='.')
         ctrl_data['lin_pos'] = ctrl_data.lin_pos.apply( lambda pos: pos*20./65535.)
-        ctrl_data.tip_num += 1
+        ctrl_data['tip_num'] += 1
         ctrl_data['scan_dir'] = ctrl_data.scan_mode.apply( lambda fast: 'X' if (fast >> 12 & 1)==0 else 'Y')
         ctrl_data['x_dir'] = ctrl_data.scan_mode.apply( lambda xdir: 'H_L' if (xdir >> 8 & 1) else 'L_H')
         ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
-
         ctrl_data['hires'] = ctrl_data.sw_flags.apply( lambda flags: bool(flags >> 1 & 1))
         ctrl_data['in_image'] = ctrl_data.sw_flags.apply( lambda flag: bool(flag & 1))
 
-        ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode', 'sw_flags', 'spare'], inplace=True, axis=1)
+        ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode', 'spare'], inplace=True, axis=1)
+
+        if info_only:
+            return ctrl_data
 
         control = []
+
+        if expand_params:
+            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
         # Now extract actual data
         for idx,pkt in ctrl_data_pkts.iterrows():
@@ -2916,27 +2919,34 @@ class tm:
             if not rawdata:
 
                 point_data['ac'] = point_data['ac'] * (20./65535.)
-
-                # point_data['dc'][point_data['dc'] > 32878] = point_data['dc'][point_data['dc'] > 32878] - 65535
                 point_data['dc'] = point_data['dc'] * (20./65535.)
-
                 point_data['phase'] = point_data['phase'] * (360./65535.)
-
                 point_data['zpos'] = point_data['zpos'] - point_data['zpos'].min()
                 point_data['zpos'] = point_data['zpos'] * common.zcal * 2.0
 
             # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
             if expand_params:
+
+                sw_ver = int("".join(ctrl_data.ix[idx].sw_ver.split('.'))) # numeric version of the OBSW version
                 frame = hk2[hk2.obt>pkt.obt].index[0]
-                point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
-                point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
-                point_data['exc_lvl'] = self.get_param('NMDA0147', frame=frame)[1]
-                point_data['ac_gain'] = self.get_param('NMDA0118', frame=frame)[1]
+
+                if sw_ver < 664:
+                    point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
+                    point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
+                    point_data['exc_lvl'] = self.get_param('NMDA0147', frame=frame)[1]
+                    point_data['ac_gain'] = self.get_param('NMDA0118', frame=frame)[1]
+
+                else: # ctrl_data['hires'] = ctrl_data.sw_flags.apply( lambda flags: bool(flags >> 1 & 1))
+                    # Software flags:
+                    # Bits  11-8: Excitation level (since version 6.6.4)
+                    # Bits   7-4: AC gain level (since version 6.6.4)
+                    point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
+                    point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
+
+                    point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 8 & 0b111
+                    point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >> 4 & 0b111
 
             control.append(point_data)
-
-        if info_only:
-            return ctrl_data
 
         ctrl_data['ac'] = [data['ac'] for data in control]
         ctrl_data['dc'] = [data['dc'] for data in control]

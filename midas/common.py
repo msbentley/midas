@@ -183,6 +183,13 @@ ctrl_channels = ['ac','dc','phase','zpos']
 ctrl_names = ['Cantilever AC', 'Cantilever DC', 'Phase', 'Z position']
 ctrl_units = ['V','V','deg','none']
 
+# 0 = window detection
+# 1 = threshold detection
+# 2 = pi-controller - UNUSED
+# other value = window
+
+scan_algo = ['WINDOW', 'THRESH', 'P-CTRL']
+
 def get_channel(channels):
     """Accepts a list of data channel codes and returns the corresponding setting
     needed to record these channels"""

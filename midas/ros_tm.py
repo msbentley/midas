@@ -51,16 +51,6 @@ midas_apids = [1073, 1076, 1079, 1081, 1083, 1084]
 
 #------------- Helper functions
 
-def printtable(df):
-    """Accepts a pd.DataFrame() prints a pretty-printed table, rendered with PrettyTable"""
-
-    from prettytable import PrettyTable
-    table = PrettyTable(list(df.columns))
-    for row in df.itertuples():
-            table.add_row(row[1:])
-    print(table)
-    return
-
 def obt_to_datetime(obt):
         # isofmt = "%Y-%m-%dT%H%M%SZ"
     time = obt_epoch + timedelta(seconds=int(obt))
@@ -2194,7 +2184,7 @@ class tm:
         uhoh = events[events.severity!='PROGRESS']
         if (len(uhoh)>0) & verbose:
             print('WARNING: non-nominal events detected:\n')
-            printtable(uhoh[['obt','event']])
+            common.printtable(uhoh[['obt','event']])
 
         return events
 

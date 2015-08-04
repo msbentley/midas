@@ -273,3 +273,18 @@ def diam_to_mass(diam_um, fluffy=True):
     mass = vol * density
 
     return mass
+
+
+def printtable(df, float_fmt=None):
+    """Accepts a pd.DataFrame() prints a pretty-printed table, rendered with PrettyTable"""
+
+    from prettytable import PrettyTable
+    table = PrettyTable(list(df.columns))
+
+    if float_fmt is not None:
+        table.float_format = float_fmt
+
+    for row in df.itertuples():
+            table.add_row(row[1:])
+    print(table)
+    return

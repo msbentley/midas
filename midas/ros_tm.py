@@ -2768,7 +2768,7 @@ class tm:
         line_scan_size = struct.calcsize(line_scan_fmt)
         line_scan_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_pos \
             wheel_pos tip_num x_orig y_orig step_size num_steps scan_mode_dir line_cnt sw_flags \
-            spare1 spare2 spare3")
+            mode_params spare1 spare2")
 
         line_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=132)
 
@@ -2796,7 +2796,6 @@ class tm:
                 if len(frame)==0:
                     print('WARNING: no HK2 frame found after line scan at %s' % pkt.obt)
                     in_image = True # hack to put NaNs in the table if no HK available
-                    # continue
                 else:
                     frame = frame[0]
                 line_type['info']['op_pt'] = np.nan if in_image else self.get_param('NMDA0181', frame=frame)[1]
@@ -2838,6 +2837,8 @@ class tm:
         lines['tip_num'] += 1
         lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
         lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str),sep='.')
+        lines['sw_ver_num'] = lines.sw_ver.apply( lambda ver: "".join(ver.split('.')) )
+
         lines['lin_pos'] = lines.lin_pos.apply( lambda pos: pos*20./65535.)
 
         lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
@@ -2846,8 +2847,12 @@ class tm:
         lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
         lines['target'] = lines.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
 
-        # lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
-        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'spare1', 'spare2', 'spare3'], inplace=True, axis=1)
+        lines['x_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 4 & 1) )
+        lines['y_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 5 & 1) )
+        lines['z_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 6 & 1) )
+        lines['scan_algo'] = lines.mode_params.apply(lambda mode: common.scan_algo[mode & 0b1111] )
+
+        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'sw_ver_num', 'spare1', 'spare2'], inplace=True, axis=1)
 
         print('INFO: %i line scans extracted' % (len(lines)))
 
@@ -3025,7 +3030,7 @@ class tm:
         image_header_size = struct.calcsize(image_header_fmt)
         image_header_names = collections.namedtuple("img_header_names", "sid sw_minor sw_major start_time end_time \
             channel lin_pos wheel_pos tip_num x_orig y_orig x_step y_step xsteps_dir ysteps_dir scan_type \
-            dset_id scan_mode status sw_flags line_err_cnt scn_err_cnt z_ret mag_ret dc_mag_1 dc_mag_2 dc_mag_3 spare1 \
+            dset_id scan_mode status sw_flags line_err_cnt scn_err_cnt z_ret mag_ret res_amp set_pt set_win fadj \
             dblock_start num_pkts checksum")
 
         image_header = []; filename = []
@@ -3176,7 +3181,6 @@ class tm:
         info.start_time = pd.to_datetime(info.start_time.apply( lambda obt: np.nan if obt==0 else obt_to_datetime(obt) ))
         info.end_time = pd.to_datetime(info.end_time.apply( lambda obt: np.nan if obt==0 else obt_to_datetime(obt) ))
         info['duration'] = info.end_time-info.start_time
-        #info['filename'] = pd.Series([image['filename'] for image in image_temp])
         info['filename'] = pd.Series([name for name in filename])
         info['lin_pos'] = info.lin_pos.apply( lambda pos: pos*20./65535.)
 
@@ -3199,7 +3203,7 @@ class tm:
         info['z_closed'] = info.scan_mode.apply( lambda mode: bool(mode >> 6 & 1) )
         info['y_closed'] = info.scan_mode.apply( lambda mode: bool(mode >> 5 & 1) )
         info['x_closed'] = info.scan_mode.apply( lambda mode: bool(mode >> 4 & 1) )
-        info['scan_algo'] = info.scan_mode.apply( lambda mode: mode & 0b1111 )
+        info['scan_algo'] = info.scan_mode.apply(lambda mode: common.scan_algo[mode & 0b1111] )
         info['target'] = info.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
         info['target_type'] = info.target.apply( lambda tgt: common.target_type(tgt) )
         info['tip_num'] = info.tip_num+1
@@ -3221,6 +3225,10 @@ class tm:
         info['linefeed_zero'] = info.sw_flags.apply( lambda flag: bool( flag >> 2 & 0b1 ) )
         info['linefeed_last_min'] = info.sw_flags.apply( lambda flag: bool( flag >> 1 & 0b1 ) )
         info['fscan_phase'] = info.sw_flags.apply( lambda flag: bool( flag & 0b1 ) )
+
+        info['res_amp'] = info.res_amp * 20./65535.
+        info['set_pt'] = info.set_pt * 20./65535.
+        info['fadj'] = info.fadj * 20./65535.
 
         sw_flags_names = ['auto_expose', 'anti_creep', 'ctrl_retract', 'ctrl_image', 'line_in_img',
             'linefeed_zero', 'linefeed_last_min', 'fscan_phase']
@@ -3247,7 +3255,7 @@ class tm:
             # NMDA0181 (OpPntPercentAmpl)
             # NMDA0271 (SettleTimeXY), # NMDA0270 (SettleTimeZ)
 
-            expanded_names = ['res_amp','set_pt', 'set_pt_per', 'fadj', 'work_pt', 'work_pt_per', 'xy_settle', 'z_settle']
+            expanded_names = ['work_pt', 'set_pt_per', 'work_pt_per', 'xy_settle', 'z_settle']
 
             # Create new columns
             info = pd.concat( [info, pd.DataFrame(columns=expanded_names)], axis=1 )
@@ -3265,22 +3273,26 @@ class tm:
 
                 indices = info[info.start_time==time].index
 
-                info['res_amp'].loc[indices] = self.get_param('NMDA0306', frame=frame)[1]
-                info['set_pt'].loc[indices] = self.get_param('NMDA0245', frame=frame)[1]
+                sw_ver = int("".join(info[info.start_time==time].sw_ver.iloc[0].split('.'))) # numeric version of the OBSW version
+
+                if sw_ver < 664:
+
+                    info['res_amp'].loc[indices] = self.get_param('NMDA0306', frame=frame)[1]
+                    info['set_pt'].loc[indices] = self.get_param('NMDA0245', frame=frame)[1]
+                    info['fadj'].loc[indices] = self.get_param('NMDA0347', frame=frame)[1]
+
                 info['set_pt_per'].loc[indices] = self.get_param('NMDA0244', frame=frame)[1]
-                info['fadj'].loc[indices] = self.get_param('NMDA0347', frame=frame)[1]
                 info['work_pt_per'].loc[indices] = self.get_param('NMDA0181', frame=frame)[1]
                 info['work_pt'].loc[indices] = info['res_amp'] * abs(info['work_pt_per'].loc[indices].iloc[0]) / 100.
                 info['xy_settle'].loc[indices] = self.get_param('NMDA0271', frame=frame)[1]
                 info['z_settle'].loc[indices] = self.get_param('NMDA0270', frame=frame)[1]
-
 
         # Convert all data types to numeric forms
         info = info.convert_objects(convert_numeric=True)
 
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um','z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
-            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy']
+            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj']
 
         if sw_flags: return_data.extend(sw_flags_names)
         if expand_params: return_data.extend(expanded_names)

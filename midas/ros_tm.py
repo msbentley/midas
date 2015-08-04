@@ -252,13 +252,13 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
                         scan.res_freq, scan.half_width),label='Lorentzian fit')
 
     if len(fscans)==1 and title:
-        ax.set_title('Ex/Gn: %i/%i, Freq start/step: %3.2f/%3.2f, Peak amp %3.2f V @ %3.2f Hz' % \
-            (scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
-            fontsize=12 )
+        fig.suptitle('Cantilever: %i, Ex/Gn: %i/%i, Freq start/step: %3.2f/%3.2f, Peak amp %3.2f V @ %3.2f Hz' % \
+            (scan.tip_num, scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
+            fontsize=11 )
 
         if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())) and not scan.is_phase:
             # Also drawn lines showing the working point and set point
-            ax.axhline(scan.res_amp,color='b')
+            ax.axhline(scan.res_amp,color='r')
             ax.axhline(scan.work_pt,color='r')
             ax.axhline(scan.set_pt,color='g')
             ax.axhline(scan.fadj,color='g', ls='--')
@@ -3379,7 +3379,7 @@ class tm:
         freq_scan_size = struct.calcsize(freq_scan_fmt)
         freq_scan_names = collections.namedtuple("freq_scan_names", "sid sw_minor sw_major start_time freq_start \
             freq_step max_amp freq_at_max num_scans fscan_cycle tip_num cant_block exc_lvl ac_gain fscan_type \
-            spare2 spare3 spare4 spare5 spare6 spare7")
+            work_pt res_amp fadj spare5 spare6 spare7")
 
         freq_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=131)
 
@@ -3425,6 +3425,7 @@ class tm:
                 continue
             else:
                 first_pkt = single_scan[single_scan.fscan_cycle==1].iloc[0]
+                last_pkt = single_scan.iloc[-1]
 
             num_scans = first_pkt.num_scans
 
@@ -3439,8 +3440,14 @@ class tm:
 
             # Look at HK2 data to retrieve the resonance amplitude, working point, frequency
             # adjust point and set-point derived from this scan...
+
+            # frequency scans can last up to ~3 minutes, so taking the first HK data
+            # after the start is often wrong! Using nun_scans to calculate the predicted
+            # duration and finding first HK packet after that
+
             if get_thresh:
-                frame = hk2[hk2.obt>start_time].index
+                duration = common.fscan_duration(num_scans)
+                frame = hk2[hk2.obt>(start_time+duration)].index
                 if len(frame)==0:
                     print('WARNING: no HK2 frame found after frequency scan at %s' % start)
                     continue
@@ -3459,7 +3466,8 @@ class tm:
                 'cant_block': first_pkt.cant_block,
                 'excitation': first_pkt.exc_lvl,
                 'gain': first_pkt.ac_gain,
-                'is_phase': True if first_pkt.fscan_type else False }
+                'is_phase': True if (first_pkt.fscan_type & 1) else False,
+                'above_thresh': False if (last_pkt.fscan_type >> 1 & 1) else True } # threshold scan flag (0=ok, 1=not found) }
 
             if scan['info']['is_phase']:
                 do_fit = False
@@ -3469,10 +3477,19 @@ class tm:
 
             if get_thresh:
 
-                scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]
-                scan['info']['set_pt'] = self.get_param('NMDA0245', frame=frame)[1]
-                scan['info']['fadj'] = self.get_param('NMDA0347', frame=frame)[1]
-                scan['info']['work_pt'] = scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.
+                # Recent versions of the OBSW return some of these parameters in the header - use them if possible!
+
+                sw_ver = int("".join(scan['info']['sw_ver'].split('.'))) # numeric version of the OBSW version
+                if sw_ver < 664:
+                    scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
+                    scan['info']['set_pt'] = self.get_param('NMDA0245', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
+                    scan['info']['fadj'] = self.get_param('NMDA0347', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
+                    scan['info']['work_pt'] = (scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.)  if scan['info']['above_thresh'] else np.NaN
+                else: # (20./65535.)
+                    scan['info']['res_amp'] = first_pkt.res_amp * (20./65535.) if scan['info']['above_thresh'] else np.NaN
+                    scan['info']['set_pt'] = self.get_param('NMDA0245', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
+                    scan['info']['fadj'] = first_pkt.fadj * (20./65535.) if scan['info']['above_thresh'] else np.NaN
+                    scan['info']['work_pt'] = first_pkt.work_pt * (20./65535.) if scan['info']['above_thresh'] else np.NaN
 
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \

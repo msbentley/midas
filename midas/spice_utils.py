@@ -169,12 +169,12 @@ def mtp_kernels(mtp, case='P'):
     return {'rorl': rorl, 'corl': corl, 'ratm': ratm, 'catt': catt}
 
 
-def operational_kernels():
+def operational_kernels(no_ck=False):
     """Gets the latest operational kernel"""
 
     # Example filenames
     # 012345678901234567890123456789
-    # RATT_DV_086_01_01____00146.BC
+    # RATT_DV_086_01_01____00146.BCload_k
     # CATT_DV_086_01_______00146.BC
     # CORB_DV_086_01_______00146.BSP
     # RORB_DV_086_01_______00146.BSP
@@ -205,10 +205,13 @@ def operational_kernels():
     catt = sorted(catt, key=lambda x: ( int(os.path.basename(x)[8:11]), int(os.path.basename(x)[23:26])) )[-1]
     sclk = sorted(sclk, key=lambda x: ( int(os.path.basename(x)[4:10])))[-1]
 
-    return { 'rorb': rorb, 'corb': corb, 'ratt': ratt, 'catt': catt, 'sclk': sclk }
+    if no_ck:
+        return { 'rorb': rorb, 'corb': corb, 'sclk': sclk }
+    else:
+        return { 'rorb': rorb, 'corb': corb, 'ratt': ratt, 'catt': catt, 'sclk': sclk }
 
 
-def get_geometry(start, end, timestep=3660., kernels=None):
+def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
     """Accepts a start and end date/time (either a string or a datetime object)
     and an optional timestep. Loads operational kernels, calculates all
     geometric data and returns a time-indexed dataframe"""
@@ -216,21 +219,30 @@ def get_geometry(start, end, timestep=3660., kernels=None):
     import pandas as pd
 
     if kernels is None:
-        load_kernels(operational_kernels().values(), load_defaults=True)
+        load_kernels(operational_kernels(no_ck=no_ck).values(), load_defaults=True)
     else:
         load_kernels(kernels, load_defaults=True)
 
     ets, times = get_timesteps(start, end, timestep=timestep)
 
     cometdist = comet_sun_au(ets)
-    lat, lon = latlon(ets)
-    phase = phase_angle(ets)
-    sun_angle = nadir_sun(ets)
     distance, speed = trajectory(ets, speed=True)
-    offpointing = off_nadir(ets)
 
-    geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
-        columns=['cometdist','sc_dist','speed','latitude','longitude','offnadir','phase','sun_angle'])
+    if not no_ck:
+
+        phase = phase_angle(ets)
+        sun_angle = nadir_sun(ets)
+        offpointing = off_nadir(ets)
+        lat, lon = latlon(ets)
+
+        geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
+            columns=['cometdist','sc_dist','speed','latitude','longitude','offnadir','phase','sun_angle'])
+
+    else:
+
+        geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed]), index=times,
+            columns=['cometdist','sc_dist','speed' ])
+
     return geom
 
 

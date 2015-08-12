@@ -604,7 +604,7 @@ def read_evf(filename):
             if line.split()[0] == 'Start_time:':
                 mtp_start = line.split()[1]
                 # mtp_start = datetime.strptime(mtp_start,dateformat)
-                mtp_date = parser.parse(mtp_start.replace('_',' '))
+                mtp_start = parser.parse(mtp_start.replace('_',' '))
             elif line.split()[0] == 'End_time:':
                 mtp_end = line.split()[1]
                 # mtp_end = datetime.strptime(mtp_end,dateformat)
@@ -1900,7 +1900,7 @@ class itl:
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
-        contact=False, threshold=False, segment=None, dc_set=False):
+        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=0.):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -1935,6 +1935,15 @@ class itl:
 
         if safety_factor < 1.0:
             print('WARNING: safety factor is < 1 - be sure you want to do this! ')
+
+        #  This is an analogue value in the range +5V (minimum; Z piezo fully retracted) to -5V (maximum; Z piezo fully elongated)
+        # defining the Z piezo start position to be set after an successful approach.
+        # A value of 0.0 V (default) centers the Z piezo after an successful approach.
+        # Because of measurement errors of the analogue signals, the maximum and minimum values (+5V, -5V) must not be used (approach does probably not converge)
+
+        if not (-4.9 < zapp_pos < 4.9):
+            print('ERROR: Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
+            return False
 
         z_settle = int(z_settle)
         xy_settle = int(xy_settle)
@@ -2066,7 +2075,8 @@ class itl:
             'x_low_high': 'L_H' if xlh else 'H_L',
             'y_low_high': 'L_H' if ylh else 'H_L',
             'freq_adj': fadj,
-            'channel': dtype }
+            'channel': dtype,
+            'zapp_pos': zapp_pos } # actually in the approach sequence
 
         zrec_params = { \
             'scan_data_rate': "%3.2f" % (data_rate) }
@@ -2124,7 +2134,7 @@ class itl:
     def xy_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
         xlh=True, ylh=True, mainscan_x=True, at_surface=False, set_start=True, fadj_numscans=2,
         ac_gain=False, exc_lvl=False, set_pt=False, op_amp=False, fadj=85.0, z_settle=50, xy_settle=50,
-        contact=False, threshold=False, dc_set=False):
+        contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         self.scan(cantilever=cantilever, facet=2, channels=channels, openloop=openloop, \
@@ -2132,26 +2142,26 @@ class itl:
             xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep,
             ac_gain=ac_gain, exc_lvl=exc_lvl, set_start=set_start, z_settle=z_settle, xy_settle=xy_settle,
             op_amp=op_amp, fadj=fadj,  set_pt=set_pt, fadj_numscans=fadj_numscans, contact=contact, threshold=threshold,
-            dc_set=dc_set)
+            dc_set=dc_set, zapp_pos=zapp_pos)
 
         return
 
 
     def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
-        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False):
+        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         self.scan(cantilever=cantilever, facet=1, channels=channels, openloop=openloop, \
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep, \
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, contact=contact, threshold=threshold,
-            dc_set=dc_set)
+            dc_set=dc_set, zapp_pos=zapp_pos)
 
         return
 
     def tip_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=False, ystep=False,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
         fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2,
-        z_settle=50, xy_settle=50, contact=False, threshold=False, dc_set=False):
+        z_settle=50, xy_settle=50, contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         # set default steps according to open or closed loop mode
@@ -2168,7 +2178,7 @@ class itl:
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
             op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
             set_start=set_start, fadj_numscans=fadj_numscans, z_settle=z_settle, xy_settle=xy_settle,
-            contact=contact, threshold=threshold, dc_set=dc_set)
+            contact=contact, threshold=threshold, dc_set=dc_set, zapp_pos=zapp_pos)
 
         return
 
@@ -2497,7 +2507,7 @@ class itl:
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
         at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False,
-        segment=None, dc_set=False):
+        segment=None, dc_set=False, zapp_pos=0.0):
 
         import scanning
         proc = {}
@@ -2529,6 +2539,10 @@ class itl:
 
         if (fadj<0.) or (fadj>100.):
             print('ERROR: frequency adjust must be between 0 and 100%')
+            return False
+
+        if not (-4.9 < zapp_pos < 4.9):
+            print('ERROR: Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
             return False
 
         # Return parameters for selected cantilever
@@ -2616,6 +2630,7 @@ class itl:
             'x_low_high': 'L_H' if xlh else 'H_L',
             'y_low_high': 'L_H' if ylh else 'H_L',
             'z_ret': zretract,
+            'zapp_pos': zapp_pos,
             'freq_adj': fadj,
             'fadj_numscans': fadj_numscans,
             'channel': dtype,
@@ -2697,7 +2712,7 @@ class itl:
         fstep_coarse = [0.2, 0.2, 0.2, 1.0,     0.5, 1.0, 2.0, 2.0, \
                         1.5, 0.3, 0.3, 1.5,     0.3, 0.3, 0.3, 0.3]
 
-        fstep_fine = [fstep * 0.1 for fstep in fstep_coarse] 
+        fstep_fine = [fstep * 0.1 for fstep in fstep_coarse]
 
         # frequency step for the fine tuning - determine from FWHM TODO!!
         # fstep_fine = [0.03, 0.03, 0.03, 0.03, 0.1, 0.1, 0.5, 0.1, \

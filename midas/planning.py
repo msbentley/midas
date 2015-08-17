@@ -132,11 +132,16 @@ def date_doy(date=False):
     else:
         return datetime.now().timetuple().tm_yday
 
-def doy_date(doy):
-    """Returns the date corresponding to a given DOY - the current year is assumed"""
+def doy_date(doy, year=None):
+    """Returns the date corresponding to a given DOY - the current year is assumed if
+    year=None otherwise the specified year is used."""
 
     from datetime import date
-    first_day = date(date.today().year, 1, 1)
+
+    if year is None:
+        year = date.today().year
+
+    first_day = date(year, 1, 1)
     date = first_day + timedelta(days=doy-1)
 
     return date

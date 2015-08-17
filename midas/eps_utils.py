@@ -99,7 +99,7 @@ def parse_itl(filename, header=True):
     # M.S.Bentley 28/08/2014 - not all ITL files (especially those used by MAPPS) have a header, so making
     # it an option (set by header=True)
     if header:
-        itlparse = header + timeline + pp.StringEnd()
+        itlparse = header + pp.Optional(timeline) + pp.StringEnd()
     else:
         itlparse = timeline + pp.StringEnd()
     itlparse.ignore(comment)

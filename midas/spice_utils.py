@@ -7,7 +7,7 @@ python - mainly using PySPICE and calling cspice executables
 from midas import common
 import os, dateutil
 import numpy as np
-import SpiceyPy as spice
+import spiceypy as spice
 
 debug = True
 km_to_au = (1/149598000.)

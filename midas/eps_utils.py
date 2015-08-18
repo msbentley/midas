@@ -87,7 +87,8 @@ def parse_itl(filename, header=True):
 
     # Optional Z record data
     zrec_param = pp.CaselessLiteral('POWER_PROFILE') ^ pp.CaselessLiteral('DATA_RATE_PROFILE')
-    zrec = pp.OneOrMore(pp.Group(zrec_param('name') + pp.Suppress('=') + relTime('time') + num('value') + pp.Optional(paramUnitType)('unit')))
+    zrec_detail = relTime('time') + num('value') + pp.Optional(paramUnitType)('unit')
+    zrec = pp.OneOrMore(pp.Group(zrec_param('name') + pp.Suppress('=') + pp.OneOrMore(zrec_detail)))
 
     sequence = alphanumunder('name') + pp.Optional(pp.Suppress('(') + seqParams('params') + pp.Optional(zrec('zrec')) + pp.Suppress(')'))
 

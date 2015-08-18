@@ -255,18 +255,20 @@ def target_type(target):
         return 'CAL'
 
 
-def mass_to_diam(mass_kg, fluffy=True):
+def mass_to_diam(mass_kg, fluffy=True, density=None):
     """Accepts a mass in kg and returns the corresponding spherical grain
     diameter using either a compact or fluffy density"""
 
-    density = fulle_data.density_fluffy if fluffy else fulle_data.density_compact
+    if density is None:
+        density = fulle_data.density_fluffy if fluffy else fulle_data.density_compact
 
     return ((3.*mass_kg)/(4*math.pi*density))**(1./3.)*2.e6
 
 
-def diam_to_mass(diam_um, fluffy=True):
+def diam_to_mass(diam_um, fluffy=True, density=None):
 
-    density = fulle_data.density_fluffy if fluffy else fulle_data.density_compact
+    if density is None:
+        density = fulle_data.density_fluffy if fluffy else fulle_data.density_compact
 
     radius = diam_um/2.e6
     vol = (4./3.)*math.pi*radius**3.

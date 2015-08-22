@@ -742,6 +742,11 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
     evf_start, evf_end, event_list = read_evf(evf_file)
 
     if event_list is None:
+        print('WARNING: no events found in EVF file')
+        return None
+
+    if len(itl.timeline) == 0:
+        print('WARNING: no timeline entries found in ITL file')
         return None
 
     event_list = pd.DataFrame(event_list)

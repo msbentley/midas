@@ -426,8 +426,13 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
                 ssh.sftp.remove(filename)
                 continue
 
-            ssh.sftp.get(filename, os.path.join(localpath,filename))
-            ssh.sftp.remove(filename)
+            try:
+                ssh.sftp.get(filename, os.path.join(localpath,filename))
+                ssh.sftp.remove(filename)
+            except Exception as e:
+                print('ERROR: error getting/deleting file %s' % filename)
+                print('ERROR: exception: %s' % e)
+                continue
             remaining.remove(filename)
             retrieved.append( os.path.join(localpath,filename) )
             print('INFO: file %s retrieved and removed from the server' % (filename))
@@ -693,7 +698,7 @@ class sftp():
 
         except Exception as e:
             print e
-            return -1
+            return False
 
     def close(self):
         self.sftp.close()
@@ -720,8 +725,15 @@ def get_fdyn_files(directory=fdyn_path):
     ros_files = [f for f in files if f.split('.')[-1]=='ROS']
 
     for f in ros_files:
-        ssh.sftp.get(f, os.path.join(directory,f))
-        ssh.sftp.remove(f)
+
+        try:
+            ssh.sftp.get(f, os.path.join(directory,f))
+            ssh.sftp.remove(f)
+        except Exception as e:
+            print('ERROR: could not retrieve file %s' % f)
+            print('ERROR: %s' % e)
+            continue
+
         retrieved.append(f)
 
     ssh.close()
@@ -763,8 +775,14 @@ def get_sgs_files(directory=obs_list_path):
         if not os.path.exists(mtpdir):
             os.makedirs(mtpdir)
             print('INFO: creating new directory %s' % mtpdir)
-        ssh.sftp.get(f, os.path.join(mtpdir,f))
-        ssh.sftp.remove(f)
+        try:
+            ssh.sftp.get(f, os.path.join(mtpdir,f))
+            ssh.sftp.remove(f)
+        except Exception as e:
+            print('ERROR: could not retrieve file %s' % f)
+            print('ERROR: %s' % e)
+            continue
+
         retrieved.append(f)
 
     ssh.close()

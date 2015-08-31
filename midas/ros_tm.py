@@ -3747,6 +3747,14 @@ class tm:
 
 #----- end of TM class
 
+
+def load_exposures(exp_file=os.path.join(common.tlm_path, 'exposures.msg')):
+    """Loads a msgpack file containing all exposures. If exp_file is not given, the
+    default file and path are used"""
+
+    return pd.read_msgpack(exp_file)
+
+
 def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_file=os.path.join(common.tlm_path,'tlm_packet_index.hd5')):
     """Builds an HDF5 (pandas/PyTables) table of the packet index (tm.pkts). This can be used for
     on-disk queries to retrieve a selection of packets as input to ros_tm.tm()."""

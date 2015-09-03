@@ -346,3 +346,55 @@ def plot_lap(lap):
     plt.show()
 
     return
+
+
+
+
+def extract_masks(gwy_file, channel=None):
+    """Looks for mask channels within the Gwyddion file and returns these
+    masks as a list of numpy arrays. If channel= is given a string, only
+    channels with names containing this string are returned."""
+
+    import gwy, re
+
+    C = gwy.gwy_file_load(gwy_file,gwy.RUN_NONINTERACTIVE)
+    keys = zip(C.keys(),C.keys_by_name())
+
+    # Use regex to locate all channels
+    masks = []
+    for key in C.keys_by_name():
+        m = re.match(r'^/(?P<i>\d+)/mask$', key)
+        if not m: continue
+        masks.append(int(m.group('i')))
+    masks = sorted(masks)
+    if len(masks)==0:
+        print('WARNING: No masks found in Gwyddion file %s' % gwy_file)
+        return None
+
+    # If requested, find only those channels contaning substring "channel"
+    #
+    if channel is not None:
+        matching = []
+        for mask in masks:
+            name = C.get_value_by_name('/%d/data/title' % mask)
+            if channel in name:
+                matching.append(channel)
+
+        if len(matching)==0:
+            print('WARNING: No masks in channels matching "%s" found' % (channel))
+            return None
+
+    else:
+        matching = masks
+
+    # Now get the mask data for each (requested) channel
+    mask_data = []
+    for idx in range(len(matching)):
+
+        datafield = C.get_value_by_name('/%d/mask' % masks[idx])
+        data = np.array(datafield.get_data(), dtype=np.bool).reshape(datafield.get_yres(), datafield.get_xres())
+        mask_data.append(data)
+
+    print('INFO: %d masks extracted from Gwyddion file %s' % (len(mask_data), gwy_file))
+
+    return mask_data

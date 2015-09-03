@@ -78,10 +78,10 @@ def kernel_interval():
     returns the limits"""
 
     numspk = spice.ktotal('SPK')
-    spks = [spice.kdata(idx, 'SPK')[0] for idx in range(numspk)]
+    spks = [spice.kdata(idx, 'SPK', 30, 4, 30)[0] for idx in range(numspk)]
 
     numck = spice.ktotal('CK')
-    cks = [spice.kdata(idx, 'CK')[0] for idx in range(numck)]
+    cks = [spice.kdata(idx, 'CK', 30, 4, 30)[0] for idx in range(numck)]
 
     spk_start, spk_end = spk_interval(spks)
     ck_start, ck_end = ck_interval(cks)
@@ -102,7 +102,7 @@ def load_default_kernels(kernel_path=kernel_path):
                 'sclk/ros_triv.tsc',
                 # 'sclk/ROS_141113_STEP.TSC',
                 'fk/ROS_CHURYUMOV_V01.TF',
-                # 'fk/ROS_AUX_V1.TF',
+                # 'fk/ROS_AUX.TF',
                 'fk/ROS_CGS_AUX_V01.TF',
                 'spk/DE405.BSP',
                 'spk/NEW_NORCIA.BSP'
@@ -127,7 +127,7 @@ def unload_kernels():
 
     nkern = spice.ktotal('all')
     kernlist = []
-    [kernlist.append(spice.kdata(idx, 'all')) for idx in range(nkern)]
+    [kernlist.append(spice.kdata(idx, 'all', 30, 4, 30)) for idx in range(nkern)]
     [spice.unload(kern[0]) for kern in kernlist]
 
 

@@ -9,7 +9,7 @@ import numpy.random as random
 import math, os, sys
 import numpy as np
 import fulle_data as data
-import spice
+import spiceypy as spice
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatch
 from flyby_flux import *

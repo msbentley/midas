@@ -424,3 +424,45 @@ def extract_masks(gwy_file, channel=None):
           (len(mask_data), gwy_file))
 
     return mask_data
+
+
+
+def get_gwy_data(gwy_file, chan_name=None):
+    """Returns data from a Gwyddion file with channel matching channel=, or
+    the first channel if channel=None."""
+
+    import gwy, re
+
+    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
+    keys = zip(C.keys(), C.keys_by_name())
+
+    channels = []
+    for key in C.keys_by_name():
+        m = re.match(r'^/(?P<i>\d+)/data$', key)
+        if not m:
+            continue
+        channels.append(int(m.group('i')))
+    channels = sorted(channels)
+    if len(channels) == 0:
+        print('WARNING: No data channels found in Gwyddion file %s' % gwy_file)
+        return None
+
+    if chan_name is None:
+        print('INFO: No channel specified, using %s' % C.get_value_by_name('/%d/data/title' % channels[0]))
+        selected = channels[0]
+    else:
+        selected = None
+        for channel in channels:
+            name = C.get_value_by_name('/%d/data/title' % channel)
+            if name==chan_name:
+                selected = channel
+                break
+        if selected is None:
+            print('WARNING: channel not found!')
+            return None
+
+    datafield = C.get_value_by_name('/%d/data' % selected)
+    data = np.array(datafield.get_data(), dtype=np.float32).reshape(
+        datafield.get_yres(), datafield.get_xres())
+
+    return data

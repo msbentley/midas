@@ -90,6 +90,7 @@ lin_centre_pos_fs = [6.655, 5.775, 4.895, 4.015, 3.135, 2.255, 1.375, 0.495, \
 # Geometric data
 facet_area = 2.4e-3*1.2e-3 # m (1.2 x 2.4 mm facet area)
 funnel_angle = 30.0 # degrees, full cone angle
+wheel_radius = 30.0 # mm
 
 # Cal curves for raw data -> engineering values
 #
@@ -242,6 +243,23 @@ def facet_to_seg(facet):
         return False
 
     return facet*16
+
+
+def seg_off_to_pos(offset):
+    """Accepts a segment offset from the central position and calculates
+    the shift in target Y position that this corresponds to (in microns)"""
+
+    import math
+
+    if (offset<-7) or (offset>7):
+        print('ERROR: segment offset must be in the range -7 to +7!')
+        return None
+
+    angle_per_seg = 360./1024.
+    angle = offset * angle_per_seg
+    distance = wheel_radius * math.tan(math.radians(angle)) * 1000.
+
+    return distance
 
 
 def target_type(target):

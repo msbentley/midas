@@ -1294,7 +1294,6 @@ def locate_scans(images):
         centre_seg = common.facet_to_seg(scan.target)
         seg_offset = centre_seg - scan.wheel_pos
         y_offset += common.seg_off_to_pos(seg_offset)
-        print('Offset: %3.2f' % y_offset)
         y_orig_um.append(y_offset)
 
     images['x_orig_um'] = x_orig_um

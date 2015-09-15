@@ -1267,7 +1267,7 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
 
 
 
-def locate_scans(images, facet=None, segment=None, tip=None, show=False):
+def locate_scans(images, facet=None, segment=None, tip=None):
     """Accepts a list of scans returned by get_images() and plots the positions of the scans
     as annotated rectangles. If images only contains one facet/segment, that is used.
 
@@ -1290,10 +1290,6 @@ def locate_scans(images, facet=None, segment=None, tip=None, show=False):
     if len(images)==0:
         print('ERROR: no matching images for the given facet and segment')
         return None
-
-    title = ''
-    if len(images.tip_num.unique())==1:
-        title = title.join('Tip %i, ' % images.tip_num.unique()[0] )
 
     x_orig_um = []; y_orig_um = []
 
@@ -1321,37 +1317,42 @@ def locate_scans(images, facet=None, segment=None, tip=None, show=False):
     images['x_orig_um'] = x_orig_um
     images['y_orig_um'] = y_orig_um
 
-    if not show:
-        return images
-    else:
+    return images
 
-        if len(images.wheel_pos.unique())>1:
-            print('ERROR: more than one segment specified - filter images or use keyword segment=')
-            return None
+def show_locs(images):
+"""Plot the location of a series of images"""
 
-        from matplotlib.patches import Rectangle
+    if len(images.wheel_pos.unique())>1:
+        print('ERROR: more than one segment specified - filter images or use keyword segment=')
+        return None
 
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
-        ax.invert_yaxis()
+    from matplotlib.patches import Rectangle
 
-        # Plot open and closed loop scans in different colours
-        opencolor='red'
-        closedcolor='blue'
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.invert_yaxis()
 
-        title += ('Target %i (%s), segment %i' % (images.target.unique()[0], images.target_type.unique()[0], images.wheel_pos.unique()[0]))
-        ax.set_title(title)
-        ax.set_xlabel('Offset from wheel centre (microns)')
-        ax.set_ylabel('Offset from segment centre (microns)')
+    # Plot open and closed loop scans in different colours
+    opencolor='red'
+    closedcolor='blue'
 
-        for idx, scan in images.iterrows():
-            edgecolor=closedcolor if scan.y_closed else opencolor
-            ax.add_patch(Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor))
+    title = ''
+    if len(images.tip_num.unique())==1:
+        title = title.join('Tip %i, ' % images.tip_num.unique()[0] )
 
-        # Make sure we plpot fix a fixed aspect ratio!
-        ax.autoscale(enable=True)
-        ax.set_aspect('equal')
-        plt.show()
+    title += ('Target %i (%s), segment %i' % (images.target.unique()[0], images.target_type.unique()[0], images.wheel_pos.unique()[0]))
+    ax.set_title(title)
+    ax.set_xlabel('Offset from wheel centre (microns)')
+    ax.set_ylabel('Offset from segment centre (microns)')
+
+    for idx, scan in images.iterrows():
+        edgecolor=closedcolor if scan.y_closed else opencolor
+        ax.add_patch(Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor))
+
+    # Make sure we plpot fix a fixed aspect ratio!
+    ax.autoscale(enable=True)
+    ax.set_aspect('equal')
+    plt.show()
 
     return
 
@@ -3622,7 +3623,7 @@ class tm:
         lines = self.get_line_scans(info_only=True)
 
         events = self.get_events(info=False, verbose=False)
-        events - events[ events.sid.isin([42611, 42655])]
+        events = events[ events.sid.isin([42611, 42655])]
 
         lines = lines[ ~lines.in_image ]
         lines = lines[ ~lines.anti_creep ]

@@ -1267,29 +1267,9 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
 
 
 
-def locate_scans(images, facet=None, segment=None, tip=None):
-    """Accepts a list of scans returned by get_images() and plots the positions of the scans
-    as annotated rectangles. If images only contains one facet/segment, that is used.
-
-    If facet= is set and there is only one segment available, this
-    is used - otherwise segment= must be set also. tip= can be used to
-    filter scans by a given tip.
-
-    The origin of each scan, relative to the wheel/target centre, are also
-    added to the images DataFrame and returned."""
-
-    if tip is not None:
-        images = images[ images.tip_num == tip ]
-
-    if segment is not None:
-        images = images[ images.wheel_pos==segment ]
-
-    if facet is not None:
-        images = images[ images.target==facet ]
-
-    if len(images)==0:
-        print('ERROR: no matching images for the given facet and segment')
-        return None
+def locate_scans(images):
+    """Accepts a list of scans returned by get_images() and calculates the origin of each scan,
+    relative to the wheel/target centre. These are added to the images DataFrame and returned."""
 
     x_orig_um = []; y_orig_um = []
 
@@ -1311,19 +1291,38 @@ def locate_scans(images, facet=None, segment=None, tip=None):
         x_orig_um.append(left)
 
         # Y position in this stripe is simple related to the offset from the Y origin
-        bottom = y_offset
-        y_orig_um.append(bottom)
+        centre_seg = common.facet_to_seg(scan.target)
+        seg_offset = centre_seg - scan.wheel_pos
+        y_offset += common.seg_off_to_pos(seg_offset)
+        print('Offset: %3.2f' % y_offset)
+        y_orig_um.append(y_offset)
 
     images['x_orig_um'] = x_orig_um
     images['y_orig_um'] = y_orig_um
 
     return images
 
-def show_locs(images):
-"""Plot the location of a series of images"""
+def show_locs(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False):
+    """Plot the location of a series of images"""
 
-    if len(images.wheel_pos.unique())>1:
-        print('ERROR: more than one segment specified - filter images or use keyword segment=')
+    # filter out dummy scans
+    images = images[ ~images.dummy ]
+
+    if tip is not None:
+        images = images[ images.tip_num == tip ]
+
+    if segment is not None:
+        images = images[ images.wheel_pos==segment ]
+
+    if facet is not None:
+        images = images[ images.target==facet ]
+
+    if len(images.target.unique())>1:
+        print('ERROR: more than one target specified - filter images or use keyword segment=')
+        return None
+
+    if len(images)==0:
+        print('ERROR: no matching images for the given facet and segment')
         return None
 
     from matplotlib.patches import Rectangle
@@ -1340,7 +1339,7 @@ def show_locs(images):
     if len(images.tip_num.unique())==1:
         title = title.join('Tip %i, ' % images.tip_num.unique()[0] )
 
-    title += ('Target %i (%s), segment %i' % (images.target.unique()[0], images.target_type.unique()[0], images.wheel_pos.unique()[0]))
+    title += ('Target %i (%s)' % (images.target.unique()[0], images.target_type.unique()[0] ))
     ax.set_title(title)
     ax.set_xlabel('Offset from wheel centre (microns)')
     ax.set_ylabel('Offset from segment centre (microns)')
@@ -1349,9 +1348,21 @@ def show_locs(images):
         edgecolor=closedcolor if scan.y_closed else opencolor
         ax.add_patch(Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor))
 
+    if show_stripes:
+        for seg_off in range(-7,8):
+            offset = common.seg_off_to_pos(seg_off)
+            ax.axhspan(offset-50., offset+50., facecolor='g', alpha=0.2)
+
     # Make sure we plpot fix a fixed aspect ratio!
     ax.autoscale(enable=True)
     ax.set_aspect('equal')
+
+    if zoom_out:
+        ax.set_xlim(-700.,700.)
+        ax.set_ylim(-1400., 1400.)
+    else:
+        ax.set_xlim(images.x_orig_um.min()-50.,images.x_orig_um.max()+images[images.x_orig_um==images.x_orig_um.max()].xlen_um.max()+50.)
+        ax.set_ylim(images.y_orig_um.min()-50.,images.y_orig_um.max()+images[images.y_orig_um==images.y_orig_um.max()].ylen_um.max()+50.)
     plt.show()
 
     return

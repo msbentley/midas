@@ -1940,7 +1940,7 @@ class itl:
             return False
 
         if (xpixels * ypixels * len(channels)) > common.memory_size:
-            print('ERROR: memory capacity for a single image exceeded - reduce number of pixels of channels')
+            print('ERROR: memory capacity for a single image exceeded - reduce number of pixels or channels')
             return False
 
         if safety_factor < 1.0:
@@ -2386,7 +2386,8 @@ class itl:
 
     def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH', 'ST'], openloop=True, xpixels=256, ypixels=256,
         xstep=15, ystep=15, xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
-        xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, op_amp=False, set_start=False, xy_settle=50., z_settle=50, set_pt=False):
+        xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, op_amp=False, set_start=False, xy_settle=50., z_settle=50, set_pt=False,
+        contact=False, dc_set=False, threshold=False, segment=None, zapp_pos=0.):
         """Generates a series of identical tiled scans of a single target following an approach.
 
         The number of x and y tiles is given, all other parameters are as per scan().
@@ -2423,7 +2424,8 @@ class itl:
                 xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, xorigin=xorig, yorigin=yorig,
                 xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, tip_offset=tip_offset, fadj=fadj,
                 safety_factor=safety_factor, zstep=zstep, at_surface=surface, exc_lvl=exc_lvl, set_pt=set_pt,
-                ac_gain=ac_gain, set_start=set_start, xy_settle=xy_settle, z_settle=z_settle, op_amp=op_amp)
+                ac_gain=ac_gain, set_start=set_start, xy_settle=xy_settle, z_settle=z_settle, op_amp=op_amp,
+                contact=contact, dc_set=dc_set)
 
         return
 

@@ -1301,7 +1301,7 @@ def locate_scans(images):
 
     return images
 
-def show_locs(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False):
+def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False):
     """Plot the location of a series of images"""
 
     # filter out dummy scans

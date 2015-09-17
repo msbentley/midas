@@ -252,7 +252,7 @@ def read_output(directory='.', ng=True):
             'GIADA', 'LANDER', 'MIDAS', 'MIRO', 'NAVCAM', 'OSIRIS', 'ROSINA', 'RPC', 'SREM', \
             'RSI', 'VIRTIS', 'SSMM', 'SGS']
 
-        power = pd.read_table(powerfile,header=None,skiprows=27,names=cols,skipinitialspace=True, delimiter=' ', engine='python')
+        power = pd.read_table(powerfile,header=None,skiprows=26,names=cols,skipinitialspace=True, delimiter=' ', engine='python')
 
     else:
         cols = ['time', 'Total', 'SSMM', 'HK_SSMM', 'HGA', 'MIDAS', 'ALICE', 'MIRO', \
@@ -279,7 +279,7 @@ def read_output(directory='.', ng=True):
 
     if ng:
         cols = ['time', 'upload', 'mem_accum', 'ssmm', 'ground']
-        data = pd.read_table(datafile,header=None,skiprows=28,skipinitialspace=True, delimiter=' ',names=cols,usecols=[0,27,30,75,76], engine='python')
+        data = pd.read_table(datafile,header=None,skiprows=27,skipinitialspace=True, delimiter=' ',names=cols,usecols=[0,27,30,75,76], engine='python')
     else:
         cols = ['time','memory','accum','upload','download']
         data = pd.read_table(datafile,header=None,skiprows=28,skipinitialspace=True, delimiter=' ',names=cols,usecols=[0,13,14,33,34])
@@ -324,6 +324,8 @@ def plot_eps_output(power,data, start=False, end=False, observations=False):
     if not end: end = ax.get_xlim()[1]
 
     ax.set_xlim(start,end)
+
+    ax_right.set_ylim(0, (data.mem_accum-data.mem_accum.loc[start]).max())
 
     # ax.relim()
     # ax_right.relim()

@@ -48,7 +48,7 @@ def run_daily():
         images = tm.get_images(expand_params=True) # extract images
 
         # try to remove dummy scans
-        dummy = images[ (images.x_orig==0) & (images.z_ret==0) & (images.lin_pos==0) ]
+        dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
         images.drop(dummy.index, inplace=True)
         images = images[ ~images.dummy ]
 
@@ -89,7 +89,7 @@ def run_daily():
             tm.pkts = tm.pkts.query( 'apid==1084 | (apid==1076 & sid==2)')
 
         images = tm.get_images(info_only=True, expand_params=True)
-        dummy = images[ (images.x_orig==0) & (images.z_ret==0) & (images.lin_pos==0) ]
+        dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
         images.drop(dummy.index, inplace=True)
         images = images[ ~images.dummy ]
 
@@ -249,7 +249,7 @@ def image_pickle(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir,
     for f in tm_files:
         tm=ros_tm.tm(f)
         images = tm.get_images(info_only=False, expand_params=True)
-        dummy = images[ (images.x_orig==0) & (images.z_ret==0) & (images.lin_pos==0) ]
+        dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
         images.drop(dummy.index, inplace=True)
         images = images[ ~images.dummy ]
 
@@ -306,6 +306,9 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
             for f in tm_files:
                 tm=ros_tm.tm(f)
                 images = tm.get_images(info_only=False, expand_params=True)
+                dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+                images.drop(dummy.index, inplace=True)
+                images = images[ ~images.dummy ]
 
                 # Save BCR and GWY files
                 if type(images)!=bool:

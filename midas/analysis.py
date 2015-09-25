@@ -426,6 +426,26 @@ def extract_masks(gwy_file, channel=None):
     return mask_data
 
 
+def gwy_list_chans(gwy_file):
+    """Lists the channels in a Gwyddion file"""
+
+
+    import gwy, re
+
+    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
+    keys = zip(C.keys(), C.keys_by_name())
+
+    channels = {}
+    for key in C.keys_by_name():
+        m = re.match(r'^/(?P<i>\d+)/data$', key)
+        if not m:
+            continue
+        channel = int(m.group('i'))
+        channels.update({channel: C.get_value_by_name('/%d/data/title' % channel) })
+
+    return channels
+
+
 
 def get_gwy_data(gwy_file, chan_name=None):
     """Returns data from a Gwyddion file with channel matching channel=, or
@@ -462,7 +482,12 @@ def get_gwy_data(gwy_file, chan_name=None):
             return None
 
     datafield = C.get_value_by_name('/%d/data' % selected)
+
+    unit = datafield.get_si_unit_xy()
+    xlen = datafield.get_xreal()
+    ylen = datafield.get_yreal()
+
     data = np.array(datafield.get_data(), dtype=np.float32).reshape(
         datafield.get_yres(), datafield.get_xres())
 
-    return data
+    return xlen, ylen, data

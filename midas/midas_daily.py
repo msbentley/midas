@@ -69,8 +69,8 @@ def run_daily():
         del(tm)
 
         # Adding new data from these files into the HK archive
-        print('\n\nAdding new data to the HK archive\n')
-        archive.append(tlm_files=obs_fname, tlm_path=obs_path, on_disk=True)
+        # print('\n\nAdding new data to the HK archive\n')
+        # archive.append(tlm_files=obs_fname, tlm_path=obs_path, on_disk=True)
 
 
     if new_data:
@@ -312,7 +312,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
 
                 # Save BCR and GWY files
                 if type(images)!=bool:
-                    ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
+                    # ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
                     ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
 
     if what=='all' or what=='meta':
@@ -338,7 +338,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
         images.rename(columns={'filename':'tlm_file'}, inplace=True)
         images.to_excel(os.path.join(image_dir,'all_images.xls'), sheet_name='MIDAS images')
         images.to_csv(os.path.join(image_dir,'all_images.csv'))
-        image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.h5', append=False)
+        # image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, out_file='all_images_data.h5', append=False)
 
 
     if what=='exposures' or what=='all':

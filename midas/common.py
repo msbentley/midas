@@ -218,8 +218,8 @@ def seg_to_facet(seg):
     """Accepts a wheel segment (0-1023) and returns the corresponding facet (0-63)"""
 
     if seg<0 or seg>1023:
-        print('ERROR: segment must be between 0 and 1023')
-        return False
+        print('ERROR: segment must be between 0 and 1023 - defaulting to zero')
+        return 0
 
     target = (seg+8) // 16
     if target==64: target = 0

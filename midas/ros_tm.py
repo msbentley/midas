@@ -1292,7 +1292,12 @@ def locate_scans(images):
 
         # Y position in this stripe is simple related to the offset from the Y origin
         centre_seg = common.facet_to_seg(scan.target)
-        seg_offset = centre_seg - scan.wheel_pos
+
+        if (scan.target==0) and (scan.wheel_pos>1016):
+            seg_offset = -1*(seg_offset+1024)
+        else:
+            seg_offset = centre_seg - scan.wheel_pos
+
         y_offset += common.seg_off_to_pos(seg_offset)
         y_orig_um.append(y_offset)
 

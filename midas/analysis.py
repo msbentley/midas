@@ -491,3 +491,26 @@ def get_gwy_data(gwy_file, chan_name=None):
         datafield.get_yres(), datafield.get_xres())
 
     return xlen, ylen, data
+
+
+def read_grain_stats(basename, path='.'):
+
+    import glob
+    files = glob.glob(os.path.join(path, basename+'*'))
+
+    if len(files)==0:
+        print('ERROR: no files matching pattern: %s' % basename)
+        return None
+
+    with open(files[0], 'r') as f:
+        header = f.readline()
+        cols = header.split()[1:]
+
+    grain_stats = pd.DataFrame([], columns=cols)
+
+    for grainfile in files:
+        grain_stats = grain_stats.append(pd.read_table(grainfile, header=None, skiprows=1, names=cols))
+
+    grain_stats.sort('A_px', inplace=True)
+
+    return grain_stats

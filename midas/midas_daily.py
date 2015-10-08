@@ -1,5 +1,4 @@
-#!/usr/bin/python
-"""midas_daily.py - run daily data retrieval and extraction tasks"""
+5"""midas_daily.py - run daily data retrieval and extraction tasks"""
 
 import os, sys, subprocess, tempfile, time
 import pandas as pd
@@ -48,9 +47,10 @@ def run_daily():
         images = tm.get_images(expand_params=True) # extract images
 
         # try to remove dummy scans
-        dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
-        images.drop(dummy.index, inplace=True)
-        images = images[ ~images.dummy ]
+        if images is not None:
+            dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+            images.drop(dummy.index, inplace=True)
+            images = images[ ~images.dummy ]
 
         if images is not None:
             ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
@@ -89,9 +89,10 @@ def run_daily():
             tm.pkts = tm.pkts.query( 'apid==1084 | (apid==1076 & sid==2)')
 
         images = tm.get_images(info_only=True, expand_params=True)
-        dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
-        images.drop(dummy.index, inplace=True)
-        images = images[ ~images.dummy ]
+        if images is not None:
+            dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+            images.drop(dummy.index, inplace=True)
+            images = images[ ~images.dummy ]
 
         # Tidy up the metadata a little
 
@@ -249,11 +250,12 @@ def image_pickle(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir,
     for f in tm_files:
         tm=ros_tm.tm(f)
         images = tm.get_images(info_only=False, expand_params=True)
-        dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
-        images.drop(dummy.index, inplace=True)
-        images = images[ ~images.dummy ]
+        if len(images)>0:
 
         if images is not None:
+            dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+            images.drop(dummy.index, inplace=True)
+            images = images[ ~images.dummy ]
             pkl.dump(images, file=pkl_f, protocol=pkl.HIGHEST_PROTOCOL)
 
     pkl_f.close()
@@ -306,9 +308,10 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
             for f in tm_files:
                 tm=ros_tm.tm(f)
                 images = tm.get_images(info_only=False, expand_params=True)
-                dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
-                images.drop(dummy.index, inplace=True)
-                images = images[ ~images.dummy ]
+                if images is not None:
+                    dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+                    images.drop(dummy.index, inplace=True)
+                    images = images[ ~images.dummy ]
 
                 # Save BCR and GWY files
                 if type(images)!=bool:

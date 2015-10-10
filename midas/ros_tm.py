@@ -3311,6 +3311,12 @@ class tm:
         if len(images)<num_images:
             print('WARNING: duplicate images or image headers detected and removed!')
 
+        # Remove dummy scans
+        if len(images)>0:
+            dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+            images.drop(dummy.index, inplace=True)
+            images = images[ ~images.dummy ]
+
         # Add the origin of the scan, in microns, from the wheel centre
         images = locate_scans(images)
 

@@ -1,4 +1,4 @@
-5"""midas_daily.py - run daily data retrieval and extraction tasks"""
+"""midas_daily.py - run daily data retrieval and extraction tasks"""
 
 import os, sys, subprocess, tempfile, time
 import pandas as pd

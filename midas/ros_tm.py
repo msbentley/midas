@@ -2565,7 +2565,7 @@ class tm:
 
         plt.draw()
 
-        return
+        return plot_fig
 
 
     def plot_temps(self, start=False, end=False, cssc=False, label='scan'):
@@ -2583,16 +2583,19 @@ class tm:
         if cssc:
             temp_params.extend(['NMDA0006','NMDA0007']) # CSSC X ref temp, CSSC Y ref temp
 
-        self.plot_params(temp_params, label_events=label, start=start, end=end)
-        return
+        fig = self.plot_params(temp_params, label_events=label, start=start, end=end)
+
+        return fig
 
 
     def plot_hv(self, start=False, end=False, label='scan'):
         """Plot piezo high voltages (HV)s"""
 
         hv_params = ['NMDA0110', 'NMDA0111', 'NMDA0115']
-        self.plot_params(hv_params, label_events=label, start=start, end=end)
 
+        fig = self.plot_params(hv_params, label_events=label, start=start, end=end)
+
+        return fig
 
 
     def plot_volts(self, cssc=False, start=False, end=False, label='scan'):
@@ -2615,8 +2618,10 @@ class tm:
         """Plot the cantilever AC and DC values"""
 
         cant_params = ['NMDA0102', 'NMDA0103', 'NMDA0104']
-        self.plot_params(cant_params, label_events=label, start=start, end=end)
 
+        fig = self.plot_params(cant_params, label_events=label, start=start, end=end)
+
+        return fig
 
 
     def list_params(self, spid=None):

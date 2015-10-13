@@ -446,6 +446,59 @@ def gwy_list_chans(gwy_file):
     return channels
 
 
+def add_gyw_mask(gwy_file, mask, chan_name):
+    """Creates a duplicate of channel chan_name, removes any mask present
+    and adds creates a new mask with the passed boolean array if the
+    dimensions match"""
+
+    import gwy, gwyutils, re
+
+    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
+    keys = zip(C.keys(), C.keys_by_name())
+
+    channels = []
+    for key in C.keys_by_name():
+        m = re.match(r'^/(?P<i>\d+)/data$', key)
+        if not m:
+            continue
+        channels.append(int(m.group('i')))
+    channels = sorted(channels)
+    if len(channels) == 0:
+        print('WARNING: No data channels found in Gwyddion file %s' % gwy_file)
+        return None
+
+    selected = None
+
+    for channel in channels:
+        name = C.get_value_by_name('/%d/data/title' % channel)
+        if name==chan_name:
+            selected = channel
+            break
+    if selected is None:
+        print('WARNING: channel %s not found!' % chan_name)
+        return None
+
+    datafield = C.get_value_by_name('/%d/data' % selected)
+
+    xpix = datafield.get_xres()
+    ypix = datafield.get_yres()
+
+    if mask.shape != (xpix, ypix):
+        print('ERROR: mask shape (%d,%d) does not match image shape (%d,%d)' % (mask.shape[0], mask.shape[1], xpix, ypix))
+
+    new_idx = max(channels) + 1
+
+    mask_chan = datafield.duplicate()
+    m = gwyutils.data_field_data_as_array(mask_chan)
+    m[:] = mask.copy()
+    C.set_object_by_name('/%i/data' % (new_idx), datafield)
+    C.set_object_by_name('/%i/mask' % (new_idx), mask_chan)
+    C.set_string_by_name('/%i/data/title' % (new_idx),'masked_channel')
+
+    gwy.gwy_file_save(C, os.path.splitext(gwy_file)[0]+'_new.gwy', gwy.RUN_NONINTERACTIVE)
+
+    return
+
 
 def get_gwy_data(gwy_file, chan_name=None):
     """Returns data from a Gwyddion file with channel matching channel=, or

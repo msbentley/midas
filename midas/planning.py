@@ -3084,6 +3084,14 @@ def upload_fs(localfile, directory='fs_commanding', serverfile=None):
 
     return
 
+def read_geom(geom_file):
+    """Reads an ASCII geometry file from ROS_SGS and returns as a DataFrame"""
+
+    geom = pd.read_table(geom_file, comment='#', header=None, parse_dates=0, index_col=0)
+
+    return geom
+
+
 
 if __name__ == "__main__":
 

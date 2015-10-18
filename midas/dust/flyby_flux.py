@@ -693,7 +693,7 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
         ax3.add_collection(circles)
 
         # return the particle coordinates as a set of tuples (x,y,d) for BCR generation etc.
-        particles.append(zip(x,y,np.ones_like(x)*diameter[bin]))
+        particles.extend(zip(x,y,np.ones_like(x)*diameter[bin]))
 
 	ax3.autoscale_view()
     ax3.legend()
@@ -825,6 +825,7 @@ def generate_scan(particles, width, height, xpixels, ypixels, xstep='', ystep=''
     bcrdata['yoffset'] = 0.0
     bcrdata['scanspeed'] = 0.0
     bcrdata['bit2nm'] = common.zcal
+    bcrdata['zunit'] = 'nm'
     if filename == '':
         bcrdata['filename'] = 'tempfile.bcr'
     else:

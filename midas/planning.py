@@ -2148,6 +2148,15 @@ class itl:
         contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
+        # set default steps according to open or closed loop mode
+        if not xstep:
+            xstep = 15
+        if not ystep:
+            if openloop:
+                ystep = 15
+            else:
+                ystep = 41
+
         self.scan(cantilever=cantilever, facet=2, channels=channels, openloop=openloop, \
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, at_surface=at_surface, safety_factor=4.0, \
             xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep,
@@ -3087,7 +3096,23 @@ def upload_fs(localfile, directory='fs_commanding', serverfile=None):
 def read_geom(geom_file):
     """Reads an ASCII geometry file from ROS_SGS and returns as a DataFrame"""
 
-    geom = pd.read_table(geom_file, comment='#', header=None, parse_dates=0, index_col=0)
+    # dictionary of filenames and corresponding column titles
+    geom_files = {
+        'distance.dat': ['distance_km'],
+        'local_time.dat': ['local_time', 'local_elapsed_s'],
+        'lon_lat.dat': ['lon_deg', 'lat_deg'],
+        'offnadir.dat': ['off-nadir_deg'],
+        'phase.dat': ['phase_deg'],
+        'velocity.dat': ['velocity_ms'] }
+
+    if geom_file not in geom_files.keys():
+        print('ERROR: geometry file %s not recognised' % geom_file )
+        return None
+
+    cols = ['time']
+    cols.extend(geom_files[geom_file])
+
+    geom = pd.read_table(geom_file, comment='#', header=None, parse_dates=0, index_col=0, names=cols)
 
     return geom
 

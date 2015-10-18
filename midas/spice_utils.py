@@ -125,11 +125,18 @@ def load_kernels(kernels, kernel_path=kernel_path, load_defaults=True):
 def unload_kernels():
     """Looks up all currently loaded kernels and unloads them"""
 
-    nkern = spice.ktotal('all')
-    kernlist = []
-    [kernlist.append(spice.kdata(idx, 'all', 30, 4, 30)) for idx in range(nkern)]
+    kernlist = list_kernels()
     [spice.unload(kern[0]) for kern in kernlist]
 
+
+def list_kernels():
+    """Looks up all currently loaded kernels and returns a list"""
+
+    nkern = spice.ktotal('all')
+    kernlist = []
+    [kernlist.append(spice.kdata(idx, 'all', 80, 4, 80)) for idx in range(nkern)]
+
+    return kernlist
 
 
 def mtp_kernels(mtp, case='P'):
@@ -175,7 +182,7 @@ def operational_kernels(no_ck=False):
 
     # Example filenames
     # 012345678901234567890123456789
-    # RATT_DV_086_01_01____00146.BCload_k
+    # RATT_DV_086_01_01____00146.BC
     # CATT_DV_086_01_______00146.BC
     # CORB_DV_086_01_______00146.BSP
     # RORB_DV_086_01_______00146.BSP
@@ -207,10 +214,17 @@ def operational_kernels(no_ck=False):
     sclk = sorted(sclk, key=lambda x: ( int(os.path.basename(x)[4:10])))[-1]
 
     if no_ck:
-        return { 'rorb': rorb, 'corb': corb, 'sclk': sclk }
+        return {
+            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01_______00216.BSP'),
+            'corb_old': os.path.join(spk_path, 'CORB_DV_145_01_______00216.BSP'),
+            'rorb': rorb, 'corb': corb, 'sclk': sclk }
     else:
-        return { 'rorb': rorb, 'corb': corb, 'ratt': ratt, 'catt': catt, 'sclk': sclk }
-
+        return {
+            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01_______00216.BSP'),
+            'corb_old': os.path.join(spk_path, 'CORB_DV_145_01_______00216.BSP'),
+            'ratt_old': os.path.join(ck_path, 'RATT_DV_145_01_01____00216.BC'),
+            'catt_old': os.path.join(ck_path, 'CATT_DV_145_01_______00216.BC'),
+            'rorb': rorb, 'corb': corb, 'ratt': ratt, 'catt': catt, 'sclk': sclk }
 
 def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
     """Accepts a start and end date/time (either a string or a datetime object)
@@ -220,6 +234,13 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
     import pandas as pd
 
     if kernels is None:
+        kernels = operational_kernels(no_ck=no_ck)
+        # If old (pre 2015) kernels are present in the list, load them first
+        old_list = ['ratt_old', 'catt_old', 'rorb_old', 'corb_old']
+        for old_kern in old_list:
+            if old_kern in kernels.keys():
+                load_kernels(kernels[old_kern])
+                kernels.pop(old_kern)
         load_kernels(operational_kernels(no_ck=no_ck).values(), load_defaults=True)
     else:
         load_kernels(kernels, load_defaults=True)
@@ -247,14 +268,24 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
     return geom
 
 
-def get_geometry_at_times(times):
+def get_geometry_at_times(times, kernels=None):
     """Accepts a list of times. Loads operational kernels, calculates all
     geometric data and returns a time-indexed dataframe"""
 
     import pandas as pd
 
-    load_kernels(operational_kernels(), load_defaults=True)
-
+    if kernels is None:
+        kernels = operational_kernels(no_ck=no_ck)
+        # If old (pre 2015) kernels are present in the list, load them first
+        old_list = ['ratt_old', 'catt_old', 'rorb_old', 'corb_old']
+        for old_kern in old_list:
+            if old_kern in kernels.keys():
+                load_kernels(kernels[old_kern])
+                kernels.pop(old_kern)
+        load_kernels(operational_kernels(no_ck=no_ck).values(), load_defaults=True)
+    else:
+        load_kernels(kernels, load_defaults=True)
+        
     # all(isinstance(x,int) for x in times)
 
     ets = [spice.str2et(tm.isoformat()) for tm in times]

@@ -1947,6 +1947,13 @@ class itl:
         if safety_factor < 1.0:
             print('WARNING: safety factor is < 1 - be sure you want to do this! ')
 
+        if openloop:
+            if xstep != ystep:
+                print('WARNING: X and Y steps are different (%d and %d) but we are in open loop' % (xstep, ystep))
+        else:
+            if xstep == ystep:
+                print('WARNING: X and Y steps are equal, but we are in hybrid mode!')
+
         #  This is an analogue value in the range +5V (minimum; Z piezo fully retracted) to -5V (maximum; Z piezo fully elongated)
         # defining the Z piezo start position to be set after an successful approach.
         # A value of 0.0 V (default) centers the Z piezo after an successful approach.

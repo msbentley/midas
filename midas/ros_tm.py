@@ -1213,6 +1213,12 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
             ystop = image.y_orig + image.ysteps * image.y_step
             plot1 = axis.imshow(data, origin='upper', interpolation='nearest', extent=[xstart,xstop,ystop,ystart], cmap=cmap)
 
+            # Check for hybrid mode and set aspect ratio correctly if using DAC units
+            if image.y_closed and ~image.x_closed:
+                axis.set_adjustable('box')
+                axis.set_aspect(common.xycal['closed']/common.xycal['open'])
+            plt.setp(axis.get_xticklabels(), rotation=45)
+
         elif units == 'pix':
             plot1 = axis.imshow(data, origin='upper', interpolation='nearest', cmap=cmap)
             axis.set_xlabel('X (pixels)')
@@ -1262,6 +1268,8 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
                     axis.arrow(xstop+arrow_delta*2, line, -arrow_delta, 0, head_width=4, head_length=arrow_delta, fc='k', ec='k', clip_on=False)
             else:
                 print('INFO: no frequency re-tunes occured during the image at OBT %s' % image.start_time)
+
+    plt.show()
 
     return figure, axis
 

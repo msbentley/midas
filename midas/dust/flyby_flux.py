@@ -568,7 +568,7 @@ def generate_facet(scan_width, scan_height, diameter, count):
     return particles
 
 
-def view_facet(scan_width, scan_height, diameter, count, description, show_counts, filename='', particles=False, xpixels=0, ypixels=0):
+def view_facet(scan_width, scan_height, diameter, count, description, show_counts, filename='', particles=None, xpixels=0, ypixels=0, format='png', fontsize=16, cmap=None):
     """Display the facet coverage, generated either from a histogram, or previously defined
     particle positions..."""
 
@@ -584,19 +584,12 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
         print('ERROR: number of diameter bins and counts must be equal and greater than zero!')
         return 0, plotfile
 
+
+    if particles is not None:
+        diameter = np.unique(particles[:,2])
+
     num_sizes = len(diameter)
 
-    # if not particles:
-    #
-    #     # Generate the random particle distribution and add to a list of tuples (x,y,d)
-    #     particles = []
-    #     for bin in range(len(diameter)):
-    #         pcles = [ (rand()*scan_width,rand()*scan_height,diameter[bin]) for num in range(count[bin])]
-    #         particles.append( pcles )
-    # else: # particle positions defined by previous call
-    #     if len(particles) != len(diameter):
-    #         print('Mismatch between histogram and particle coordinate data!')
-    #         return False
 
     # Size the plot window to the aspect ratio of the figure
     # keep the existing longest side and reduce the other
@@ -617,10 +610,14 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
     fig3 = plt.figure(figsize=new_size)
     ax3 = fig3.add_subplot(111)
     ax3.set_aspect('equal', adjustable='box-forced')
-    ax3.set_xlabel('X (microns)')
-    ax3.set_ylabel('Y (microns)')
+    ax3.set_xlabel('X (microns)', fontsize=fontsize)
+    ax3.set_ylabel('Y (microns)', fontsize=fontsize)
     ax3.set_xlim(0,scan_width)
     ax3.set_ylim(0,scan_height)
+
+    ax3.tick_params(axis='x', labelsize=fontsize)
+    ax3.tick_params(axis='y', labelsize=fontsize)
+
 
     # rescale the plot to leave room for the legend to the right
     box3 = ax3.get_position()
@@ -661,8 +658,12 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
         ax3.grid(True)
 
     # make a colour index with the correct number of colors, spanning the colourmap
-    colours = cm.get_cmap('gist_rainbow')
-    colour_list = [colours(1.*i/num_sizes) for i in range(num_sizes)]
+    if cmap is None:
+        colours = cm.get_cmap('gist_rainbow')
+    else:
+        colours = cm.get_cmap(cmap)
+
+    colour_list = [colours(1.*i/num_sizes) for i in range(num_sizes+2)]
 
     # label each class accordingly
     diam_label = ["%3.2f" % (diameter[diam]) for diam in range(len(diameter))]
@@ -671,39 +672,65 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
     too_many = False
     import matplotlib.collections as mcoll
 
-    particles = []
-    for bin in range(len(diameter)): # use range(len(diameter))[::-1] to draw large particles first (reverse order)
+    if particles is None:
 
-        if count[bin] > max_circles:
-            counter = max_circles
-            too_many = True
-        else:
-            counter = count[bin]
+        particles = []
+        for bin in range(len(diameter)): # use range(len(diameter))[::-1] to draw large particles first (reverse order)
 
-        x = random.random(counter)*scan_width
-        y = random.random(counter)*scan_height
+            if count[bin] > max_circles:
+                counter = max_circles
+                too_many = True
+            else:
+                counter = count[bin]
 
-        y0 = ax3.transData.transform([(0,0),(0,1)])[0][1]
-        y1 = ax3.transData.transform([(0,0),(0,1)])[1][1]
-        scale = abs(y1-y0)
-        radius = diameter[bin]/2. * scale
+            x = random.random(counter)*scan_width
+            y = random.random(counter)*scan_height
 
-        sizes = np.ones(counter) * np.pi*radius**2.
-        circles = mcoll.CircleCollection(sizes, offsets=zip(x,y), transOffset=ax3.transData, edgecolor=colour_list[bin], facecolor=colour_list[bin])
-        ax3.add_collection(circles)
+            y0 = ax3.transData.transform([(0,0),(0,1)])[0][1]
+            y1 = ax3.transData.transform([(0,0),(0,1)])[1][1]
+            scale = abs(y1-y0)
+            radius = diameter[bin]/2. * scale
 
-        # return the particle coordinates as a set of tuples (x,y,d) for BCR generation etc.
-        particles.extend(zip(x,y,np.ones_like(x)*diameter[bin]))
+            sizes = np.ones(counter) * np.pi*radius**2.
+            circles = mcoll.CircleCollection(sizes, offsets=zip(x,y), transOffset=ax3.transData, edgecolor=colour_list[bin+1], facecolor=colour_list[bin+1])
+            ax3.add_collection(circles)
+
+            # return the particle coordinates as a set of tuples (x,y,d) for BCR generation etc.
+            particles.extend(zip(x,y,np.ones_like(x)*diameter[bin]))
+
+    else: # use the provided list of x,y,d tuples to populate the plot
+
+        diams = np.unique(particles[:,2])
+
+        bin = 0
+
+        for diam in diams:
+            pcles = np.where(particles[:,2]==diam)[0]
+            x = particles[pcles,0]
+            y = particles[pcles,1]
+
+            y0 = ax3.transData.transform([(0,0),(0,1)])[0][1]
+            y1 = ax3.transData.transform([(0,0),(0,1)])[1][1]
+            scale = abs(y1-y0)
+            radius = diam/2. * scale
+
+            counter = len(pcles)
+
+            sizes = np.ones(counter) * np.pi*radius**2.
+            circles = mcoll.CircleCollection(sizes, offsets=zip(x,y), transOffset=ax3.transData, edgecolor=colour_list[bin+1], facecolor=colour_list[bin+1])
+            ax3.add_collection(circles)
+            bin += 1
 
 	ax3.autoscale_view()
     ax3.legend()
 
     # Create a legend for each colour/size bin - optionally include counts
     # using proxy artist rather than collection
-    artists = [mpatch.Circle((0,0),fc=colour_list[bin], ec=colour_list[bin]) for bin in range(num_sizes)] # one representative patch from each bin
+    artists = [mpatch.Circle((0,0),fc=colour_list[bin+1], ec=colour_list[bin+1]) for bin in range(num_sizes)] # one representative patch from each bin
     if show_counts:
         diam_label_counts = [diam_label[bin] + ' [' + str(count[bin]) + ']' for bin in range(num_sizes)]
-        fig3.legend(artists,diam_label_counts,title=u'Diam (µm) [Counts]',loc='right')
+        legend = fig3.legend(artists,diam_label_counts,title=u'Diam (µm) [Counts]',loc='right', fontsize=fontsize)
+        legend.get_title().set_fontsize(fontsize)
     else:
         fig3.legend(artists,diam_label,title=u'Diam (µm)',loc='right')
 
@@ -716,12 +743,14 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
     fig3.suptitle(description[0] + '\n' + description[1])
 
     if filename !='':
-        plotfile = filename+'_facet.png'
+        plotfile = filename+'_facet.' + format
         plt.savefig(plotfile)
         plt.clf()
         plt.close()
 
-    return particles, plotfile
+    plt.show()
+
+    return np.array(particles), plotfile, fig3
 
 
 def generate_scan(particles, width, height, xpixels, ypixels, xstep='', ystep='', filename=''):

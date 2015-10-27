@@ -404,7 +404,7 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
     retrieved = []
     remaining = list(filelist)
 
-    retry = 0 # first attempt
+    retry = 1 # first attempt
 
     while (retry < max_retry) and (len(remaining) > 0):
 
@@ -439,10 +439,10 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
 
         if len(remaining)==0: break
 
-        retry += 1
-
         print('INFO: %i files remaining, waiting %i minutes to retry (attempt %i/%i)' %
             (len(remaining), retry_delay, retry+1, max_retry))
+
+        retry += 1
 
         time.sleep(retry_delay*60)
 

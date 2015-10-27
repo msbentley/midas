@@ -2011,6 +2011,7 @@ class itl:
         # Add additional data rate if control data packets are enabled
         if ctrl_data:
             data_bytes += (32 * 32 * 2096)
+            print('INFO: Control data in image requested - InstrumentSetup must be sent as well!')
 
         data_rate = (data_bytes*8/duration_s)
 
@@ -2449,7 +2450,7 @@ class itl:
 
     def feature(self, trend=True, median=True, count_pix=True, pix_gt=True, pix_lt=False, check_height=True,
             set_zoom=False, zoom_max=False, check_shape=False,
-            height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=-0.0031):
+            height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=100.0):
 
         proc = {}
         proc['template'] = 'FEATURE'
@@ -2500,9 +2501,9 @@ class itl:
             pix_area = 50.0
 
         # SetFvectZfactorPar (%) - <zoom_factor>
-        # if 0.0 >= zoom >= 200.0:
-        #     print('WARNING: zoom factor must be between 0 and 200%')
-        #     zoom = 50.0
+        if 5.0 >= zoom >= 5105.0:
+            print('WARNING: zoom factor must be between 5% and 5105%')
+            zoom = 100.0
 
         proc['params'] = {
             # Feature vector parameters

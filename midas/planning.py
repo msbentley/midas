@@ -1947,12 +1947,13 @@ class itl:
         if safety_factor < 1.0:
             print('WARNING: safety factor is < 1 - be sure you want to do this! ')
 
-        if openloop:
-            if xstep != ystep:
-                print('WARNING: X and Y steps are different (%d and %d) but we are in open loop' % (xstep, ystep))
-        else:
-            if xstep == ystep:
-                print('WARNING: X and Y steps are equal, but we are in hybrid mode!')
+        if not auto:
+            if openloop:
+                if xstep != ystep:
+                    print('WARNING: X and Y steps are different (%d and %d) but we are in open loop' % (xstep, ystep))
+            else:
+                if xstep == ystep:
+                    print('WARNING: X and Y steps are equal, but we are in hybrid mode!')
 
         #  This is an analogue value in the range +5V (minimum; Z piezo fully retracted) to -5V (maximum; Z piezo fully elongated)
         # defining the Z piezo start position to be set after an successful approach.
@@ -2150,16 +2151,16 @@ class itl:
 
         return
 
-    def xy_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, \
+    def xy_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None, \
         xlh=True, ylh=True, mainscan_x=True, at_surface=False, set_start=True, fadj_numscans=2,
         ac_gain=False, exc_lvl=False, set_pt=False, op_amp=False, fadj=85.0, z_settle=50, xy_settle=50,
         contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         # set default steps according to open or closed loop mode
-        if not xstep:
+        if xstep is None:
             xstep = 15
-        if not ystep:
+        if ystep is None:
             if openloop:
                 ystep = 15
             else:

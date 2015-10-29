@@ -72,6 +72,7 @@ other_templates = {
     'LINEAR_MAX': 'ITLS_MD_LINEAR_MAX.itl',
     'LINEAR_MIN': 'ITLS_MD_LINEAR_MIN.itl',
     'TECH_CMD': 'ITLS_MD_TECH_CMD.itl',
+    'SET_SW_VAL': 'ITLS_MD_SET_SW_PARAM.itl',
     'LIN_ABS': 'ITLS_MD_LINEAR_ABS.itl',
     'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl',
     'COMMENT': 'ITLS_MD_COMMENT.itl',
@@ -1631,6 +1632,37 @@ class itl:
 
         return
 
+
+    def set_sw_param(self, param, val):
+        """Sets an onboard software value by parameter address and value"""
+
+        proc = {}
+        proc['template'] = 'SET_SW_VAL'
+        duration = timedelta(minutes=1)
+
+        proc['params'] = {
+            'sw_param': param,
+            'sw_val': int(val) }
+
+        self.generate(proc, duration)
+
+        return
+
+
+    def set_auto_retract(self, xopen, xclosed, yopen, yclosed):
+        """Updates the software parameters corresponding to the auto-retract"""
+
+        # X open loop : factor=23.25 (default); can be set by means of SET_SW_PARAM(0xA65A, factor*16)
+        # X closed loop : factor=8.5 (default); can be set by means of SET_SW_PARAM(0xA65C, factor*16)
+        # Y open loop : factor=23.25 (default); can be set by means of SET_SW_PARAM(0xA65E, factor*16)
+        # Y closed loop : factor=8.5 (default); can be set by means of SET_SW_PARAM(0xA660, factor*16)
+
+        self.set_sw_param(0xA65A, xopen*10.)
+        self.set_sw_param(0xA65C, xclosed*10.)
+        self.set_sw_param(0xA65E, yopen*10.)
+        self.set_sw_param(0xA660, yclosed*10.)
+
+        return
 
 
 

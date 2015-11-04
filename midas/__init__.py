@@ -5,6 +5,7 @@ __init__.py
 
 """
 
-__all__ = ['common', 'ros_tm', 'dds_utils', 'planning', 'eps_utils', 'spice_utils', 'followup', 'archive', 'analysis']
+__all__ = ['common', 'ros_tm', 'dds_utils', 'planning', 'eps_utils', 'spice_utils', 'followup', 'archive',
+	'analysis', 'bcrutils', 'gwy_utils', 'plotutils', 'scanning']
 
 from midas import *

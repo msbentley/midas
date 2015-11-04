@@ -102,6 +102,7 @@ def run_daily():
 
         # Update the list of exposures
         print('\n\nINFO: updating table of exposures\n')
+        del(tm)
         tm = ros_tm.tm()
         for f in tm_files:
             tm.get_pkts(f, append=True)

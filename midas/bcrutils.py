@@ -591,3 +591,32 @@ if __name__ == "__main__":
     # plot3d(levelled)
     plt.draw()
     plt.show()
+
+
+def resize(bcr_in, zoom_factor, bcr_out):
+    """Resizes (resamples) a BCR file via factor zoom="""
+
+    from scipy.ndimage.interpolation import zoom
+    from scipy import ndimage
+
+    # Read om the BCR and convert the data to a float array
+    bcr = read(bcr_in)
+    data = np.reshape(bcr['data'], (bcr['ypixels'], bcr['xpixels']))
+    data = np.array(data, dtype=np.float64)
+
+    print('INFO: original image size %dx%d' % (bcr['xpixels'], bcr['ypixels']))
+
+    # Resample via ndimage.interpolation - order = 0 = nearest neighbour
+    newdata = zoom(data, zoom=zoom_factor, order=0)
+
+    # Update the data, number of pixels and filename
+    bcr['data'] = newdata.ravel()
+    bcr['xpixels'] = newdata.shape[1]
+    bcr['ypixels'] = newdata.shape[0]
+    bcr['filename'] = bcr_out
+
+    write(bcr)
+
+    print('INFO: resampled (zoom factor %3.2f) image size %dx%d' % (zoom_factor, bcr['xpixels'], bcr['ypixels']))
+
+    return

@@ -415,7 +415,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
 
     for chan_id, chan_name in channels.items():
 
-        mask = gwy_utils.extract_masks(gwyfile, chan_name)[0]
+        mask = gwy_utils.extract_masks(gwyfile, chan_name)
         xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name)
 
         locs = np.where(mask)
@@ -429,19 +429,52 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
             'pcle': pcle,
             'id': chan_id,
             'name': chan_name,
-            'min_z': data.min()*1.e6,
-            'max_z': data.max()*1.e6,
-            'a_pix': pcle.mask.sum(),
-            'a_pcle': pcle.mask.sum() * pix_area,
-            'r_eq': np.sqrt(pcle.mask.sum() * pix_area / np.pi),
+            'tot_min_z': data.min()*1.e6,
+            'tot_max_z': data.max()*1.e6,
+            'a_pix': pcle.count(),
+            'a_pcle': pcle.count() * pix_area,
+            'r_eq': np.sqrt(pcle.count() * pix_area / np.pi),
+            'z_min': pcle.min(),
+            'z_max': pcle.max(),
+            'z_mean': pcle.mean(),
+            # 'z_med': np.ma.median(pcle),
             'pdata': pcle
             }
         pcle_data.append(subpcle)
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
     pcle_data.sort('id', inplace=True)
-    pcle_data['z_diff'] = pcle_data.max_z - pcle_data.min_z
+    pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
+    pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
-    pcle_data = pcle_data[ ['id', 'name', 'min_z', 'max_z', 'z_diff', 'a_pix', 'a_pcle', 'r_eq', 'pdata'] ] 
+    pcle_data = pcle_data[ ['id', 'name', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
+        'z_min', 'z_max', 'z_mean', 'z_diff', 'pdata'] ]
 
     return pcle_data
+
+
+
+def plot_subpcles(pcle_data, num_cols=3, savefile=None):
+    """Simple overview plot of all sub-particle data"""
+
+    from matplotlib import gridspec
+
+    # Display all of the sub-particles
+    num_rows = (len(pcle_data) / num_cols) + 1
+    gs = gridspec.GridSpec(num_rows, num_cols)
+    fig = plt.figure(figsize=(17,3*25))
+    grid = 0
+    for idx, pcle in pcle_data.iterrows():
+        ax = plt.subplot(gs[grid])
+        ax.set_axis_off()
+        ax.imshow(pcle['pdata'], interpolation='nearest', cmap=cm.afmhot_r)
+        grid += 1
+
+    for axis in fig.axes:
+        axis.get_yaxis().set_visible(False)
+        axis.get_xaxis().set_visible(False)
+
+    if savefile is not None:
+        fig.savefig(savefile)
+
+    return

@@ -11,6 +11,8 @@ import os
 import pandas as pd
 from midas import common, ros_tm
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import numpy.ma as ma
 import numpy as np
 
 grain_cat_file = 'grain_cat.csv'
@@ -370,186 +372,11 @@ def plot_lap(lap):
 
     return
 
-
-def extract_masks(gwy_file, channel=None):
-    """Looks for mask channels within the Gwyddion file and returns these
-    masks as a list of numpy arrays. If channel= is given a string, only
-    channels with names containing this string are returned."""
-
-    import gwy
-    import re
-
-    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
-    keys = zip(C.keys(), C.keys_by_name())
-
-    # Use regex to locate all channels
-    masks = []
-    for key in C.keys_by_name():
-        m = re.match(r'^/(?P<i>\d+)/mask$', key)
-        if not m:
-            continue
-        masks.append(int(m.group('i')))
-    masks = sorted(masks)
-    if len(masks) == 0:
-        print('WARNING: No masks found in Gwyddion file %s' % gwy_file)
-        return None
-
-    # If requested, find only those channels contaning substring "channel"
-    #
-    if channel is not None:
-        matching = []
-        for mask in masks:
-            name = C.get_value_by_name('/%d/data/title' % mask)
-            if channel in name:
-                matching.append(channel)
-
-        if len(matching) == 0:
-            print('WARNING: No masks in channels matching "%s" found' %
-                  (channel))
-            return None
-
-    else:
-        matching = masks
-
-    # Now get the mask data for each (requested) channel
-    mask_data = []
-    for idx in range(len(matching)):
-
-        datafield = C.get_value_by_name('/%d/mask' % masks[idx])
-        data = np.array(datafield.get_data(), dtype=np.bool).reshape(
-            datafield.get_yres(), datafield.get_xres())
-        mask_data.append(data)
-
-    print('INFO: %d masks extracted from Gwyddion file %s' %
-          (len(mask_data), gwy_file))
-
-    return mask_data
-
-
-def gwy_list_chans(gwy_file):
-    """Lists the channels in a Gwyddion file"""
-
-
-    import gwy, re
-
-    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
-    keys = zip(C.keys(), C.keys_by_name())
-
-    channels = {}
-    for key in C.keys_by_name():
-        m = re.match(r'^/(?P<i>\d+)/data$', key)
-        if not m:
-            continue
-        channel = int(m.group('i'))
-        channels.update({channel: C.get_value_by_name('/%d/data/title' % channel) })
-
-    return channels
-
-
-def add_gyw_mask(gwy_file, mask, chan_name):
-    """Creates a duplicate of channel chan_name, removes any mask present
-    and adds creates a new mask with the passed boolean array if the
-    dimensions match"""
-
-    import gwy, gwyutils, re
-
-    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
-    keys = zip(C.keys(), C.keys_by_name())
-
-    channels = []
-    for key in C.keys_by_name():
-        m = re.match(r'^/(?P<i>\d+)/data$', key)
-        if not m:
-            continue
-        channels.append(int(m.group('i')))
-    channels = sorted(channels)
-    if len(channels) == 0:
-        print('WARNING: No data channels found in Gwyddion file %s' % gwy_file)
-        return None
-
-    selected = None
-
-    for channel in channels:
-        name = C.get_value_by_name('/%d/data/title' % channel)
-        if name==chan_name:
-            selected = channel
-            break
-    if selected is None:
-        print('WARNING: channel %s not found!' % chan_name)
-        return None
-
-    datafield = C.get_value_by_name('/%d/data' % selected)
-
-    xpix = datafield.get_xres()
-    ypix = datafield.get_yres()
-
-    if mask.shape != (xpix, ypix):
-        print('ERROR: mask shape (%d,%d) does not match image shape (%d,%d)' % (mask.shape[0], mask.shape[1], xpix, ypix))
-
-    new_idx = max(channels) + 1
-
-    mask_chan = datafield.duplicate()
-    m = gwyutils.data_field_data_as_array(mask_chan)
-    m[:] = mask.copy()
-    C.set_object_by_name('/%i/data' % (new_idx), datafield)
-    C.set_object_by_name('/%i/mask' % (new_idx), mask_chan)
-    C.set_string_by_name('/%i/data/title' % (new_idx),'masked_channel')
-
-    gwy.gwy_file_save(C, os.path.splitext(gwy_file)[0]+'_new.gwy', gwy.RUN_NONINTERACTIVE)
-
-    return
-
-
-def get_gwy_data(gwy_file, chan_name=None):
-    """Returns data from a Gwyddion file with channel matching channel=, or
-    the first channel if channel=None."""
-
-    import gwy, re
-
-    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
-    keys = zip(C.keys(), C.keys_by_name())
-
-    channels = []
-    for key in C.keys_by_name():
-        m = re.match(r'^/(?P<i>\d+)/data$', key)
-        if not m:
-            continue
-        channels.append(int(m.group('i')))
-    channels = sorted(channels)
-    if len(channels) == 0:
-        print('WARNING: No data channels found in Gwyddion file %s' % gwy_file)
-        return None
-
-    if chan_name is None:
-        print('INFO: No channel specified, using %s' % C.get_value_by_name('/%d/data/title' % channels[0]))
-        selected = channels[0]
-    else:
-        selected = None
-        for channel in channels:
-            name = C.get_value_by_name('/%d/data/title' % channel)
-            if name==chan_name:
-                selected = channel
-                break
-        if selected is None:
-            print('WARNING: channel not found!')
-            return None
-
-    datafield = C.get_value_by_name('/%d/data' % selected)
-
-    unit = datafield.get_si_unit_xy()
-    xlen = datafield.get_xreal()
-    ylen = datafield.get_yreal()
-
-    data = np.array(datafield.get_data(), dtype=np.float32).reshape(
-        datafield.get_yres(), datafield.get_xres())
-
-    return xlen, ylen, data
-
-
 def read_grain_stats(basename, path='.'):
 
     import glob
-    files = glob.glob(os.path.join(path, basename+'*'))
+    files = sorted(glob.glob(os.path.join(path, basename+'*')))
+
 
     if len(files)==0:
         print('ERROR: no files matching pattern: %s' % basename)
@@ -564,6 +391,57 @@ def read_grain_stats(basename, path='.'):
     for grainfile in files:
         grain_stats = grain_stats.append(pd.read_table(grainfile, header=None, skiprows=1, names=cols))
 
-    grain_stats.sort('A_px', inplace=True)
+    # grain_stats.sort('A_px', inplace=True)
 
     return grain_stats
+
+
+def get_subpcles(gwyfile, chan='sub_particle_'):
+    """Reads channel data corresponding to chan= (or all, if None) and
+    containing a mask."""
+
+    from midas import gwy_utils
+
+    # Get all masked channels matching the sub-particle filter
+    channels = gwy_utils.list_chans(gwyfile, chan, masked=True)
+
+    # Get meta-data from the first channel of the GWY file
+    meta = gwy_utils.get_meta(gwyfile)
+
+    # Calculate the pixel area (simply x_step*y_step)
+    pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
+
+    pcle_data = []
+
+    for chan_id, chan_name in channels.items():
+
+        mask = gwy_utils.extract_masks(gwyfile, chan_name)[0]
+        xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name)
+
+        locs = np.where(mask)
+        left, right = locs[1].min(), locs[1].max()
+        up, down = locs[0].min(), locs[0].max()
+        pcle = ma.masked_array(data, mask=~mask)
+        pcle = pcle[up:down+1,left:right+1]
+
+        subpcle = {
+
+            'pcle': pcle,
+            'id': chan_id,
+            'name': chan_name,
+            'min_z': data.min()*1.e6,
+            'max_z': data.max()*1.e6,
+            'a_pix': pcle.mask.sum(),
+            'a_pcle': pcle.mask.sum() * pix_area,
+            'r_eq': np.sqrt(pcle.mask.sum() * pix_area / np.pi),
+            'pdata': pcle
+            }
+        pcle_data.append(subpcle)
+
+    pcle_data = pd.DataFrame.from_records(pcle_data)
+    pcle_data.sort('id', inplace=True)
+    pcle_data['z_diff'] = pcle_data.max_z - pcle_data.min_z
+
+    pcle_data = pcle_data[ ['id', 'name', 'min_z', 'max_z', 'z_diff', 'a_pix', 'a_pcle', 'r_eq', 'pdata'] ] 
+
+    return pcle_data

@@ -61,6 +61,9 @@ def extract_masks(gwy_file, channel=None):
         print('INFO: %d masks extracted from Gwyddion file %s' %
           (len(mask_data), gwy_file))
 
+    if len(mask_data)==1:
+        mask_data = mask_data[0]
+
     return mask_data
 
 
@@ -168,7 +171,7 @@ def get_data(gwy_file, chan_name=None):
     channels = sorted(channels)
     if len(channels) == 0:
         print('WARNING: No data channels found in Gwyddion file %s' % gwy_file)
-        return None
+        return None, None, None
 
     if chan_name is None:
         print('INFO: No channel specified, using %s' % C.get_value_by_name('/%d/data/title' % channels[0]))
@@ -182,7 +185,7 @@ def get_data(gwy_file, chan_name=None):
                 break
         if selected is None:
             print('WARNING: channel not found!')
-            return None
+            return None, None, None
 
     datafield = C.get_value_by_name('/%d/data' % selected)
 
@@ -198,7 +201,8 @@ def get_data(gwy_file, chan_name=None):
 
 
 def get_meta(gwyfile):
-    """Returns all meta-data from a Gwyddion file"""
+    """Returns all meta-data from a Gwyddion file. Note that all returned data
+    will be in strings, and the user must ensure correct type conversion!"""
 
     C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
 
@@ -211,3 +215,41 @@ def get_meta(gwyfile):
         metadata.update({ key: meta.get_value_by_name(key) })
 
     return pd.Series(metadata) #.convert_objects(convert_numeric=True, convert_dates=True)
+
+
+def gwy_to_bcr(gwyfile, channel, bcrfile=None):
+    """Converts a given channel in a Gywddion .gwy file to a BCR. If
+    bcrfile=None, the Gwyddion filename will be used and the extension
+    changed."""
+
+    import bcrutils, common
+
+    # Read a given channel from GWY file
+    xlen, ylen, data = get_data(gwyfile, chan_name=channel)
+
+    if data is None:
+        print('ERROR: no valid data found for channel %s in GWY file %s' % (
+            channel, gwyfile) )
+        return None
+
+    bcrdata = {}
+    bcrdata['filename'] = bcr if bcrfile is not None else gwyfile.replace('.gwy', '.bcr')
+
+    bcrdata['xpixels'] = data.shape[1]
+    bcrdata['ypixels'] = data.shape[0]
+
+    bcrdata['xlength'] = xlen
+    bcrdata['ylength'] = ylen
+
+    bcrdata['bit2nm'] = common.zcal
+
+    bcrdata['data'] = np.array(data*1.e9/common.zcal, dtype=np.int32).ravel()
+    
+    bcrutils.write(bcrdata)
+
+    return bcrdata
+
+
+    # Set minimal data to default values if not present
+    if not 'xlength' in bcrdata: bcrdata['xlength'] = bcrdata['xpixels']
+    if not 'ylength' in bcrdata: bcrdata['ylength'] = bcrdata['ypixels']

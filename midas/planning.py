@@ -2186,7 +2186,7 @@ class itl:
     def xy_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None, \
         xlh=True, ylh=True, mainscan_x=True, at_surface=False, set_start=True, fadj_numscans=2,
         ac_gain=False, exc_lvl=False, set_pt=False, op_amp=False, fadj=85.0, z_settle=50, xy_settle=50,
-        contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
+        contact=False, threshold=False, dc_set=False, zapp_pos=0.0, safety_factor=4.0):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         # set default steps according to open or closed loop mode
@@ -2199,7 +2199,7 @@ class itl:
                 ystep = 41
 
         self.scan(cantilever=cantilever, facet=2, channels=channels, openloop=openloop, \
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, at_surface=at_surface, safety_factor=4.0, \
+            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, at_surface=at_surface, safety_factor=safety_factor, \
             xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep,
             ac_gain=ac_gain, exc_lvl=exc_lvl, set_start=set_start, z_settle=z_settle, xy_settle=xy_settle,
             op_amp=op_amp, fadj=fadj,  set_pt=set_pt, fadj_numscans=fadj_numscans, contact=contact, threshold=threshold,

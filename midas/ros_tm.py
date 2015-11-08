@@ -1026,21 +1026,74 @@ def save_png(images, outputdir='.'):
     [bcrutils.plot2d(bcr,writefile=True) for bcr in bcrs]
 
 
-# def show_images(images, planesub=False, realunits=True):
-#     """Accepts a list of images returned by get_images(), converts to BCR
-#     on the fly, performs and plane subtraction and displays with bcrutils"""
-#
-#     import bcrutils
-#     bcrs=to_bcr(images)
-#     if not bcrs: return False
-#     if type(bcrs) != list: bcrs=[bcrs]
-#     if planesub:
-#         bcrs = [bcrutils.planesub(bcr) for bcr in bcrs]
-#     [bcrutils.plot2d(bcr, realunits=realunits) for bcr in bcrs]
+def img_crop(image, (xmin, xmax), (ymin, ymax)):
+    """Accepts an image and performs a crop specified in pixels as a
+    tuple with form (xmin, xmax), (ymin, ymax)"""
+
+    newimage = image.copy()
+
+    if (xmin<0) or (xmin>xmax) or (xmin>image.xsteps):
+        print('ERROR: xmin value out of range')
+        return None
+
+    if (xmax<xmin) or (xmax>image.xsteps):
+        print('ERROR: xmax value out of range')
+        return None
+
+    if (ymin<0) or (ymin>ymax) or (ymin>image.ysteps):
+        print('ERROR: ymin value out of range')
+        return None
+
+    if (ymax<ymin) or (ymax>image.ysteps):
+        print('ERROR: ymax value out of range')
+        return None
+
+    newimage['data'] = newimage['data'][ymin:ymax,xmin:xmax]
+
+    newimage['xsteps'] = newimage['data'].shape[1]
+    newimage['ysteps'] = newimage['data'].shape[0]
+
+    xcal = common.xycal['closed'] if image.x_closed else common.xycal['open']
+    ycal = common.xycal['closed'] if image.y_closed else common.xycal['open']
+
+    newimage['xlen_um'] = newimage['xsteps'] * newimage['x_step'] * xcal / 1.e3
+    newimage['ylen_um'] = newimage['ysteps'] * newimage['y_step'] * ycal / 1.e3
+
+    return newimage
+
+
+def img_scale(image, scale_factor):
+    """Scales an image by a given scale factor"""
+
+    from scipy.ndimage.interpolation import zoom
+
+    newimage = image.copy()
+    data = np.array(image['data'], dtype=np.float64)
+
+    print('INFO: original image size %dx%d' % (data.shape[1], data.shape[0]))
+
+    # Resample via ndimage.interpolation - order = 0 = nearest neighbour
+    newdata = zoom(data, zoom=scale_factor, mode='nearest', order=0)
+    newimage['data'] = np.array(newdata, dtype=np.int64)
+
+    newimage['xsteps'] = newimage['data'].shape[1]
+    newimage['ysteps'] = newimage['data'].shape[0]
+
+    newimage['x_step'] = image['x_step'] * 1./ scale_factor
+    newimage['y_step'] = image['y_step'] * 1./ scale_factor
+
+    newimage['x_step_nm'] = image['x_step_nm'] * 1./ scale_factor
+    newimage['y_step_nm'] = image['y_step_nm'] * 1./ scale_factor
+
+
+    print('INFO: resampled (zoom factor %3.2f) image size %dx%d' % (scale_factor, newdata.shape[1], newdata.shape[0]))
+
+    return newimage
 
 
 
-def do_planesub(image):
+
+def img_planesub(image):
     """Accepts an image and performs a best-fit plane subtraction"""
 
     data = image['data']
@@ -1074,7 +1127,7 @@ def do_planesub(image):
     return image
 
 
-def do_polysub(image, order=3):
+def img_polysub(image, order=3):
     """Accepts an image and performs a polynomial plane subtraction of order n"""
 
     import itertools
@@ -1180,9 +1233,9 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
     for idx, image in images.iterrows():
 
         if planesub=='plane':
-            image = do_planesub(image)
+            image = img_planesub(image)
         elif planesub=='poly':
-            image = do_polysub(image)
+            image = img_polysub(image)
 
         chan_idx = common.data_channels.index(image.channel)
         unit = common.units[chan_idx]

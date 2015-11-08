@@ -233,7 +233,7 @@ def gwy_to_bcr(gwyfile, channel, bcrfile=None):
         return None
 
     bcrdata = {}
-    bcrdata['filename'] = bcr if bcrfile is not None else gwyfile.replace('.gwy', '.bcr')
+    bcrdata['filename'] = bcrfile if bcrfile is not None else gwyfile.replace('.gwy', '.bcr')
 
     bcrdata['xpixels'] = data.shape[1]
     bcrdata['ypixels'] = data.shape[0]
@@ -244,7 +244,7 @@ def gwy_to_bcr(gwyfile, channel, bcrfile=None):
     bcrdata['bit2nm'] = common.zcal
 
     bcrdata['data'] = np.array(data*1.e9/common.zcal, dtype=np.int32).ravel()
-    
+
     bcrutils.write(bcrdata)
 
     return bcrdata

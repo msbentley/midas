@@ -401,6 +401,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     containing a mask."""
 
     from midas import gwy_utils
+    from skimage import measure
 
     # Get all masked channels matching the sub-particle filter
     channels = gwy_utils.list_chans(gwyfile, chan, masked=True)
@@ -410,6 +411,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
 
     # Calculate the pixel area (simply x_step*y_step)
     pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
+    pix_len = np.sqrt(pix_area) #  in the case of non-uniform steps!
 
     pcle_data = []
 
@@ -424,6 +426,13 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
         pcle = ma.masked_array(data, mask=~mask)
         pcle = pcle[up:down+1,left:right+1]
 
+        labmask = measure.label(mask)
+        regions = measure.regionprops(labmask)
+        region = regions[0]
+
+        if pcle.count() != int(region.area):
+            print('WARNING: region count does not match mask count')
+
         subpcle = {
 
             'pcle': pcle,
@@ -437,7 +446,10 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
             'z_min': pcle.min(),
             'z_max': pcle.max(),
             'z_mean': pcle.mean(),
-            # 'z_med': np.ma.median(pcle),
+            'major': region.major_axis_length * pix_len,
+            'minor': region.minor_axis_length * pix_len,
+            'eccen': region.eccentricity,
+            'orient': np.degrees(region.orientation),
             'pdata': pcle
             }
         pcle_data.append(subpcle)
@@ -448,7 +460,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
     pcle_data = pcle_data[ ['id', 'name', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
-        'z_min', 'z_max', 'z_mean', 'z_diff', 'pdata'] ]
+        'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'orient', 'pdata'] ]
 
     return pcle_data
 
@@ -476,5 +488,7 @@ def plot_subpcles(pcle_data, num_cols=3, savefile=None):
 
     if savefile is not None:
         fig.savefig(savefile)
+
+    plt.show()
 
     return

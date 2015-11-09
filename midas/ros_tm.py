@@ -674,7 +674,7 @@ def to_bcr(images, outputdir='.'):
         print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')
         return False
 
-    images = images.sort( ['filename', 'start_time'] )
+    images = images.sort_values( by=['filename', 'start_time'] )
     last_filename = images.filename.irow(0)
 
     for idx in range(len(images)):
@@ -1151,8 +1151,8 @@ def img_polysub(image, order=3):
 
     data = image['data']
 
-    xvals = np.arange(data.shape[0])
-    yvals = np.arange(data.shape[1])
+    xvals = np.arange(data.shape[0], dtype=np.float64)
+    yvals = np.arange(data.shape[1], dtype=np.float64)
     xs, ys = np.meshgrid(xvals, yvals)
 
     x = xs.ravel()
@@ -1495,7 +1495,7 @@ class tm:
         else:
             self.pkts = pd.read_pickle(filename)
 
-        self.pkts.sort('obt', inplace=True)
+        self.pkts.sort_values(by='obt', inplace=True)
         print('INFO: packet index restored with %i packets' % (len(self.pkts)))
 
 
@@ -1570,7 +1570,7 @@ class tm:
 
             self.pkts = store.select(table, where=list(selected))
 
-        self.pkts.sort('obt', inplace=True)
+        self.pkts.sort_values(by='obt', inplace=True)
 
         if sourcepath is not None:
             self.pkts.filename = self.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
@@ -1734,7 +1734,7 @@ class tm:
         tlm.subtype.loc[ tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].index ] = 2
 
         # Merge with the packet list, adding spid and description, then sort by OBT
-        tlm = pd.merge(tlm,pid,how='left').sort('obt')
+        tlm = pd.merge(tlm,pid,how='left').sort_values(by='obt')
         tlm.spid = tlm.spid.astype(np.int64)
 
 
@@ -1765,7 +1765,7 @@ class tm:
         # append to an existing packet list if already existing
         if append and type(self.pkts) == pd.core.frame.DataFrame:
             tlm = tlm.append(self.pkts)
-            tlm.sort('obt', inplace=True, axis=0)
+            tlm.sort_values(by='obt', inplace=True, axis=0)
 
         # Reset the index
         tlm = tlm.reset_index(drop=True)
@@ -1920,7 +1920,7 @@ class tm:
             else:
                 f = open(filename, 'rb')
             if debug: print('DEBUG: opening binary file %s' % (filename))
-            for index,pkt in pkts[pkts.filename==filename].sort('offset').iterrows():
+            for index,pkt in pkts[pkts.filename==filename].sort_values(by='offset').iterrows():
                 f.seek(pkt.offset+pkt_header_size)
                 bindata = f.read(pkt.length+1)
                 pkt_data.append(bindata)
@@ -1946,7 +1946,7 @@ class tm:
             print('WARNING: no packets found')
             return None
 
-        pkts = self.pkts.sort('obt')
+        pkts = self.pkts.sort_values(by='obt')
 
         for idx,packet in pkts.iterrows():
 
@@ -2012,7 +2012,7 @@ class tm:
 
         # To find the target number we need to go to HK
         hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
-        hk2.sort('obt', inplace=True, axis=0)
+        hk2.sort_values(by='obt', inplace=True, axis=0)
 
         # Loop through the OBTs and find the next HK2 packet, then extract parameters
         target = []
@@ -2166,7 +2166,7 @@ class tm:
 
         # To find the target number we need to go to HK
         hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
-        hk2.sort('obt', inplace=True, axis=0)
+        hk2.sort_values(by='obt', inplace=True, axis=0)
 
         # Loop through the OBTs and find the next HK2 packet, then extract parameters
         target = []
@@ -2274,7 +2274,7 @@ class tm:
         filenames = pkts.filename.unique()
         pkts['dds_header'] = pd.Series()
         for filename in filenames:
-            pkts_per_file = pkts[pkts.filename==filename].sort('offset')
+            pkts_per_file = pkts[pkts.filename==filename].sort_values(by='offset')
             header_gap = (pkts_per_file.offset.shift(-1)-(pkts_per_file.offset+pkts_per_file.length+7)).shift(1)
             header_gap.iloc[0] = pkts_per_file.offset.iloc[0]
             pkts.dds_header.ix[header_gap.index] = header_gap.apply( lambda x: True if x==18 else False )
@@ -2312,7 +2312,7 @@ class tm:
 
             pkts.dds_time.loc[offsets.index] = dds_time
 
-        pkts.dds_time = pd.to_datetime(pkts.dds_time, coerce=False)
+        pkts.dds_time = pd.to_datetime(pkts.dds_time, errors='raise')
 
         return pkts
 
@@ -2406,7 +2406,7 @@ class tm:
             for filename in filenames:
                 f = Bits(filename=filename)
                 # loop through each packet and grab the correct number of bits
-                for index,pkt in pkts[pkts.filename==filename].sort('offset').iterrows():
+                for index,pkt in pkts[pkts.filename==filename].sort_values(by='offset').iterrows():
                     pkt_data.append( f[((int(pkt.offset)+byte_offset)*8+bit_offset):((int(pkt.offset)+byte_offset)*8+bit_offset)+int(param.width)] )
                     obt.append( pkt.obt )
 
@@ -2698,7 +2698,7 @@ class tm:
             get_spids = self.pkts[self.pkts.spid.notnull()].spid.unique().astype(int)
 
         params = plf[plf.spid.isin(spids)].merge(pcf).drop_duplicates('param_name')\
-            [['param_name','description']].sort('description')
+            [['param_name','description']].sort_values(by='description')
 
         return params
 
@@ -3178,7 +3178,7 @@ class tm:
 
                 # Now match the packets to the corresponding header by OBT and channel
                 data = img_data[ (img_data.start_time==image.start_time) & (img_data.channel==image.channel) ]
-                data = data.sort('pkt_num')
+                data = data.sort_values(by='pkt_num')
                 if debug: print('DEBUG: %i image data packets expected, %i packets found' % (image.num_pkts, len(data)) )
 
                 if len(data) < image.num_pkts:
@@ -3360,7 +3360,7 @@ class tm:
                 info['z_settle'].loc[indices] = self.get_param('NMDA0270', frame=frame)[1]
 
         # Convert all data types to numeric forms
-        info = info.convert_objects(convert_numeric=True)
+        # info = pd.to_numeric(info)
 
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um','z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
@@ -3462,7 +3462,7 @@ class tm:
             images['%s'%cat] = images['%s'%cat].astype('category')
             images['%s'%cat].cat.set_categories(catcols[cat], inplace=True)
 
-        return images.sort(['start_time','channel'])
+        return images.sort_values(by=['start_time','channel'])
 
 
     def get_freq_scans(self, printdata=False, cantilever=False, fit=False, info_only=False, get_thresh=False):
@@ -3519,7 +3519,7 @@ class tm:
         for idx, start in enumerate(start_times):
 
             single_scan = fscans[fscans.start_time==start]
-            single_scan  = single_scan.sort('fscan_cycle',ascending=True)
+            single_scan  = single_scan.sort_values(by='fscan_cycle',ascending=True)
             if not 1 in single_scan.fscan_cycle.tolist():
                 print('ERROR: missing frequency scan packets, skipping scan')
                 continue
@@ -3746,7 +3746,7 @@ class tm:
                 'num_lines':  len(lines.query('tip_num==%i' % cant)),
                 'num_points': num_points }, ignore_index=True)
 
-        cant_usage.sort('num_points', ascending=False, inplace=True)
+        cant_usage.sort_values(by='num_points', ascending=False, inplace=True)
 
         if html is not None:
 
@@ -3785,7 +3785,7 @@ class tm:
             print('WARNING: target %d has no exposures or images' % target)
             return None
 
-        history = pd.concat([exposures, images]).sort('start')
+        history = pd.concat([exposures, images]).sort_values(by='start')
 
         history = history[ ['start','activity','scan_file', 'description'] ]
 
@@ -4093,7 +4093,7 @@ def read_csp(midas=False):
         'numeric_cal', 'text_cal', 'eng_unit')
     csp = pd.read_table(csp_file,header=None,names=cols,usecols=range(0,16),na_filter=True,index_col=False)
     if midas: csp = csp[csp.sequence.str.startswith('AMD')] # filter by MIDAS sequences
-    csp = csp.sort( ['sequence','param_num'] )
+    csp = csp.sort_values( by=['sequence','param_num'] )
 
     return csp
 
@@ -4106,7 +4106,7 @@ def read_css(midas=False):
 
     css = pd.read_table(css_file,header=None,names=cols,usecols=[0,1,2,3,4,5,7,8,9],na_filter=True,index_col=False)
     if midas: css = css[css.sequence.str.startswith('AMD')] # filter by MIDAS sequences
-    css = css.sort( ['sequence','entry'] )
+    css = css.sort_values( by=['sequence','entry'] )
 
     return css
 
@@ -4119,7 +4119,7 @@ def read_sdf(midas=False):
 
     sdf = pd.read_table(sdf_file,header=None,names=cols,usecols=[0,1,2,4,6,7],na_filter=True,index_col=False)
     if midas: sdf = sdf[sdf.sequence.str.startswith('AMD')] # filter by MIDAS sequences
-    sdf = sdf.sort( ['sequence','entry'] )
+    sdf = sdf.sort_values( by=['sequence','entry'] )
 
     return sdf
 
@@ -4153,8 +4153,7 @@ def read_pcf(filename=False):
 
     cols = ('param_name', 'description', 'unit', 'ptc', 'pfc', 'width', 'cal_cat', 'cal_id','group')
     pcf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,3,4,5,6,9,11,16], na_filter=True )
-    pcf = pcf.convert_objects(convert_numeric=True)
-    # pcf.cal_id = pcf.cal_id.astype(int)
+    # pcf = pd.to_numeric(pcf)
 
     return pcf
 
@@ -4166,7 +4165,7 @@ def read_plf(filename=False):
 
     cols = ('param_name','spid','byte_offset','bit_offset')
     plf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2,3])
-    plf = plf.convert_objects(convert_numeric=True)
+    # plf = pd.to_numeric(plf)
 
     return plf
 
@@ -4179,7 +4178,7 @@ def read_caf(filename=False):
 
     cols = ('cal_id','cal_descrip','eng_fmt','raw_fmt','radix')
     caf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2,3,4])
-    caf = caf.convert_objects(convert_numeric=True)
+    # caf = pd.to_numeric(caf)
     caf.cal_id = caf.cal_id.astype(int)
 
     return caf
@@ -4193,7 +4192,7 @@ def read_pic(filename=False):
 
     cols = ('pkt_type','pkt_subtype','sid_offset','sid_width')
     pic = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2,3])
-    pic = pic.convert_objects(convert_numeric=True)
+    # pic = pd.to_numeric(pic)
     # caf.cal_id = caf.cal_id.astype(int)
 
     return pic
@@ -4208,7 +4207,7 @@ def read_cap(filename=False):
 
     cols = ('cal_id','raw_val','eng_val')
     cap = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2])
-    cap = cap.convert_objects(convert_numeric=True)
+    # cap = pd.to_numeric(cap)
 
     return cap
 
@@ -4220,7 +4219,7 @@ def read_mcf(filename=False):
 
     cols = ('cal_id','cal_descrip','a0','a1','a2','a3','a4')
     mcf = pd.read_table(filename,header=None,names=cols)
-    mcf = mcf.convert_objects(convert_numeric=True)
+    # mcf = pd.to_numeric(mcf)
 
     return mcf
 
@@ -4233,7 +4232,7 @@ def read_txf(filename=False):
 
     cols = ('txf_id','txf_descr','raw_fmt')
     txf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,2])
-    txf = txf.convert_objects(convert_numeric=True)
+    # txf = pd.to_numeric(txf)
 
     return txf
 
@@ -4348,7 +4347,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path):
             filename = os.path.join(common.tlm_path, 'all_images.pkl')
             images = pd.read_pickle(filename)
 
-    images.sort('start_time', inplace=True)
+    images.sort_values(by='start_time', inplace=True)
     images.reset_index(inplace=True)
 
     if sourcepath is not None:

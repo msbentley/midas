@@ -1166,7 +1166,7 @@ def img_polysub(image, order=3):
     return image
 
 
-def show_grid(images, cols=2):
+def show_grid(images, cols=2, planesub='poly'):
     """Plots multiple images in a grid with a given column width"""
 
     import matplotlib.gridspec as gridspec
@@ -1183,7 +1183,7 @@ def show_grid(images, cols=2):
     for idx, image in images.iterrows():
 
         ax = plt.subplot(gs[grid])
-        show(image, fig=fig, ax=ax)
+        show(image, fig=fig, ax=ax, planesub=planesub)
         grid += 1
 
     return

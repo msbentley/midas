@@ -447,6 +447,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
             'major': region.major_axis_length * pix_len,
             'minor': region.minor_axis_length * pix_len,
             'eccen': region.eccentricity,
+            'compact': region.perimeter**2. / (4.*np.pi*pcle.count()),
             'orient': np.degrees(region.orientation),
             'pdata': pcle
             }
@@ -458,7 +459,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
     pcle_data = pcle_data[ ['id', 'name', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
-        'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'orient', 'pdata'] ]
+        'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'orient', 'pdata'] ]
 
     return pcle_data
 
@@ -469,6 +470,10 @@ def plot_subpcles(pcle_data, num_cols=3, savefile=None):
 
     from matplotlib import gridspec
 
+    # find min/max of all data for plotting
+    vmin = pcle_data.z_min.min()
+    vmax = pcle_data.z_max.max()
+
     # Display all of the sub-particles
     num_rows = (len(pcle_data) / num_cols) + 1
     gs = gridspec.GridSpec(num_rows, num_cols)
@@ -477,8 +482,11 @@ def plot_subpcles(pcle_data, num_cols=3, savefile=None):
     for idx, pcle in pcle_data.iterrows():
         ax = plt.subplot(gs[grid])
         ax.set_axis_off()
-        ax.imshow(pcle['pdata'], interpolation='nearest', cmap=cm.afmhot_r)
+        im = ax.imshow(pcle['pdata'], interpolation='nearest', cmap=cm.afmhot, vmin=vmin, vmax=vmax)
         grid += 1
+
+    cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
+    fig.colorbar(im, cax=cax)
 
     for axis in fig.axes:
         axis.get_yaxis().set_visible(False)

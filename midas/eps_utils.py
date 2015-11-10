@@ -360,7 +360,7 @@ def plot_eps_output(power, data, start=False, end=False, observations=False):
 
     if type(observations) != bool:
 
-        observations = observations.sort('start_time')
+        observations = observations.sort_values(by='start_time')
 
         # power/data constant between the start and end times
         start = observations['start_time'].astype(object).values

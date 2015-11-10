@@ -290,9 +290,9 @@ def get_mtp(ltp, mtp, case='p', suffix=''):
     """Returns the start and end date/time of the MTP"""
 
     cycles = get_cycles(ltp, case, suffix=suffix)
-    current_mtp = cycles[cycles.MTP==mtp].sort('STP')
+    current_mtp = cycles[cycles.MTP==mtp].sort_values(by='STP')
 
-    mtp_start = current_mtp.sort('VSTP1').VSTP1.iloc[0] # first VSTP in this MTP
+    mtp_start = current_mtp.sort_values(by='VSTP1').VSTP1.iloc[0] # first VSTP in this MTP
 
     # Check for subsequent MTP (at end of an LTP these are not always present)
     if mtp==cycles.MTP.max():
@@ -302,7 +302,7 @@ def get_mtp(ltp, mtp, case='p', suffix=''):
         mtp_end = mtp_end[0]
         print('WARNING: no data for MTP %i, start of last VSTP in MTP %i is at %s' % (mtp+1, mtp, mtp_end))
     else:
-        mtp_end = cycles[cycles.MTP==mtp+1].sort('VSTP1').VSTP1.iloc[0]
+        mtp_end = cycles[cycles.MTP==mtp+1].sort_values(by='VSTP1').VSTP1.iloc[0]
 
     return mtp_start,mtp_end
 
@@ -771,7 +771,7 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
     csp = ros_tm.read_csp()
 
     # merge frames to add sequence names
-    seqs = pd.merge(left=seqs,right=csf,on='sequence',how='left').sort( ['cnt','reltime'] )
+    seqs = pd.merge(left=seqs,right=csf,on='sequence',how='left').sort_values( by=['cnt','reltime'] )
 
     # add the absolute time for each sequence according to event and count
     seqs = pd.merge(left=seqs,right=event_list,on=['event','cnt'],how='left')
@@ -796,7 +796,7 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
 
         # Get the description of each TC param from the command sequence file (csp.dat)
         csp = ros_tm.read_csp()
-        seqs = pd.merge(left=seqs,right=csp,on=['sequence','param'],how='left').sort( ['abs_time','param_num'] )
+        seqs = pd.merge(left=seqs,right=csp,on=['sequence','param'],how='left').sort_values( by=['abs_time','param_num'] )
 
     if expand_params:
         seqs = seqs[ ['abs_time','doy','sequence','description','param','param_descrip','value','unit'] ]
@@ -950,7 +950,7 @@ def validate_obs(evf_start, evf_end, event_list, itl_start, itl_end, seq_list):
     if 'drate' in end.columns: end.drop(['drate'],1, inplace=True)
 
     observations=pd.merge(start,end, how='inner', on=['obs_id','obs_type'])
-    observations.sort(['start_time'],inplace=True)
+    observations.sort_values( by=['start_time'],inplace=True)
 
     # calculate duration
     observations['duration']=observations['end_time']-observations['start_time']
@@ -1005,7 +1005,7 @@ def read_scanlist(filename):
     #TODO finish these tedious checks
 
     # sort by priority (1=highest)
-    scan_list.sort(['priority'],inplace=True)
+    scan_list.sort_values(by=['priority'],inplace=True)
 
     return scan_list
 
@@ -1181,7 +1181,7 @@ class ptrm:
         """Accepts a list of PTRM entries and merges consecutive OK types to create
         a set of pointing blocks compatible with MIDAS operations"""
 
-        ptrm = self.ptrm.sort('Start')
+        ptrm = self.ptrm.sort_values(by='Start')
         blocks = pointing_ok[:]
 
         if avoid_wols:

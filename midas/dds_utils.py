@@ -555,7 +555,7 @@ def add_observations(evf_file):
 
         observations = observations.append(obs_data, ignore_index=True)
 
-    observations = observations.sort('start')
+    observations = observations.sort_values(by='start')
 
     # Check for and remove duplicates
     observations.drop_duplicates(subset=['mtp','stp','observation','cnt'], inplace=True)

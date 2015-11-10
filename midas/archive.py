@@ -33,7 +33,7 @@ def get_packet_format(apid=1076, sid=1):
 
     pkt_name = ros_tm.pid[ (ros_tm.pid.apid==apid) & (ros_tm.pid.sid==sid) ].description.squeeze()
 
-    params = ros_tm.plf[ros_tm.plf.spid==packet.spid].sort(['byte_offset','bit_offset'])
+    params = ros_tm.plf[ros_tm.plf.spid==packet.spid].sort_values(by=['byte_offset','bit_offset'])
     params = params.merge(ros_tm.pcf)
     params.width = params.width.astype(np.int64)
 
@@ -135,7 +135,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
         tm = ros_tm.tm(files)
 
     pkts = tm.pkts[ (tm.pkts.apid==apid) & (tm.pkts.sid==sid) & (tm.pkts.tsync) ]
-    tm.pkts.sort('obt', inplace=True, axis=0)
+    tm.pkts.sort_values(by='obt', inplace=True, axis=0)
 
     if tsync:
         pkts = pkts[ pkts.tsync ]

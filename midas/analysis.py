@@ -112,7 +112,7 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
             (right_images.xlen_um * right_images.ylen_um)
         over['tip_left'] = left_images.tip_num
         over['tip_right'] = right_images.tip_num
-        over.sort('area', inplace=True)
+        over.sort_values(by='area', inplace=True)
 
     over['left'] = over.left.apply(lambda l: images.scan_file.ix[l])
     over['right'] = over.right.apply(lambda r: images.scan_file.ix[r])
@@ -339,7 +339,7 @@ def read_lap(directory, geom=False):
     for lap in lap_files:
         df = df.append(read_lap_file(lap))
 
-    df.sort('start_utc', inplace=True)
+    df.sort_values(by='start_utc', inplace=True)
     df.set_index('start_utc', inplace=True)
 
     if geom:
@@ -390,8 +390,6 @@ def read_grain_stats(basename, path='.'):
 
     for grainfile in files:
         grain_stats = grain_stats.append(pd.read_table(grainfile, header=None, skiprows=1, names=cols))
-
-    # grain_stats.sort('A_px', inplace=True)
 
     return grain_stats
 
@@ -455,7 +453,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
         pcle_data.append(subpcle)
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
-    pcle_data.sort('id', inplace=True)
+    pcle_data.sort_values(by='id', inplace=True)
     pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 

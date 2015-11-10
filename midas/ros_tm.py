@@ -645,8 +645,8 @@ def combine_linescans(linescans, bcr=False):
         bcrdata['xpixels'] = image.shape[1]
         bcrdata['ypixels'] = image.shape[0]
         # TODO include closed loop?
-        bcrdata['xlength'] = linescans.irow(0).step_size*common.xycal['open']*bcrdata['xpixels']
-        bcrdata['ylength'] = linescans.irow(0).step_size*common.xycal['open']*bcrdata['ypixels']
+        bcrdata['xlength'] = linescans.iloc[0].step_size*common.xycal['open']*bcrdata['xpixels']
+        bcrdata['ylength'] = linescans.iloc[0].step_size*common.xycal['open']*bcrdata['ypixels']
         bcrdata['data'] = image.flatten()
         # bcrdata['data'] = 32767 - bcrdata['data']
         bcrutils.write(bcrdata)
@@ -675,7 +675,7 @@ def to_bcr(images, outputdir='.'):
         return False
 
     images = images.sort_values( by=['filename', 'start_time'] )
-    last_filename = images.filename.irow(0)
+    last_filename = images.filename.iloc[0]
 
     for idx in range(len(images)):
 
@@ -777,7 +777,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
     first_time = True
     filenames = []
 
-    last_filename = images.filename.irow(0)
+    last_filename = images.filename.iloc(0)
     xy_unit, xy_power = gwy.gwy_si_unit_new_parse('nm')
 
     for start_time in images.start_time.unique():

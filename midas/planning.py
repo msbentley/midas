@@ -1198,17 +1198,17 @@ class ptrm:
                 return False
 
         midas_blocks = []
-        block_start = ok_blocks.irow(0).Start
+        block_start = ok_blocks.iloc[0].Start
 
         for idx in range(1,num_blocks):
-            if ok_blocks.irow(idx).Start == ok_blocks.irow(idx-1).End:
+            if ok_blocks.iloc[idx].Start == ok_blocks.iloc[idx-1].End:
                 next
             else:
-                block_end = ok_blocks.irow(idx-1).End
+                block_end = ok_blocks.iloc[idx-1].End
                 midas_blocks.append([block_start,block_end])
-                block_start = ok_blocks.irow(idx).Start
+                block_start = ok_blocks.iloc[idx].Start
 
-        block_end = ok_blocks.irow(-1).End
+        block_end = ok_blocks.iloc[-1].End
         midas_blocks.append([block_start,block_end])
         midas_blocks = pd.DataFrame(midas_blocks,columns=['start','end'])
 
@@ -1224,23 +1224,23 @@ class ptrm:
             obs_end = ptrm.End.iloc[-1]
 
         for idx in range(len(midas_blocks)):
-            block = midas_blocks.irow(idx)
+            block = midas_blocks.iloc[idx]
             if (obs_start <= block.end) and (block.start <= obs_end):
                 valid_blocks.append(idx) # overlapping blocks
 
-        midas_blocks = midas_blocks.irow(valid_blocks)
+        midas_blocks = midas_blocks.iloc[valid_blocks]
 
         # truncate the first and last blocks to the observation window if necessary
-        if midas_blocks.irow(0).start < obs_start:
+        if midas_blocks.iloc[0].start < obs_start:
            midas_blocks.iloc[0,0] = obs_start
 
-        if midas_blocks.irow(-1).end > obs_end:
+        if midas_blocks.iloc[-1].end > obs_end:
            midas_blocks.iloc[-1,1] =  obs_end
 
         midas_blocks['duration'] = midas_blocks.apply(lambda row: row.end-row.start,axis=1)
         midas_blocks['offset'] = midas_blocks.start - obs_start
 
-        self.merged = midas_blocks[midas_blocks.offset>0]
+        self.merged = midas_blocks[midas_blocks.offset>pd.Timedelta(0)]
         self.merged = self.merged.reset_index()
 
         return
@@ -2903,12 +2903,12 @@ def next_pass(time=False):
     fecs = load_fecs()
 
     # find first DUMP_START and DUMP_END events after time
-    dump_start = fecs[ (fecs.time>time) & ((fecs.event=='DUMP_START') | (fecs.event=='DUMP_70_START') ) ].time.irow(0)
-    dump_end = fecs[ (fecs.time>time) & ( (fecs.event=='DUMP_END') | (fecs.event=='DUMP_70_END') ) ].time.irow(0)
+    dump_start = fecs[ (fecs.time>time) & ((fecs.event=='DUMP_START') | (fecs.event=='DUMP_70_START') ) ].time.iloc[0]
+    dump_end = fecs[ (fecs.time>time) & ( (fecs.event=='DUMP_END') | (fecs.event=='DUMP_70_END') ) ].time.iloc[0]
 
     # if we are already in a dump (end<start) find the start time (in the past)
     if dump_end < dump_start:
-        dump_start = fecs[ (fecs.time<time) & (fecs.event=='DUMP_START') ].time.irow(-1)
+        dump_start = fecs[ (fecs.time<time) & (fecs.event=='DUMP_START') ].time.iloc[-1]
 
     # Localise the times to UTC
     dump_start = pytz.utc.localize(dump_start)

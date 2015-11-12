@@ -86,6 +86,8 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
             columns={'left': 'right', 'right': 'left'})], ignore_index=True)
         idx = dedupe[dedupe.duplicated()].index
         over = pd.concat([over, latest], ignore_index=True).drop(idx)
+        over['left'] = over['left'].astype(np.int64)
+        over['right'] = over['right'].astype(np.int64)
 
     if calc_overlap:
 

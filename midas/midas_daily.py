@@ -145,8 +145,8 @@ def run_daily():
     dds_utils.get_sgs_files()
 
     # Download any new NAVCAM images (via rsync)
-    print('\nINFO: Downloading new NAVCAM images')
-    get_navcam()
+    # print('\nINFO: Downloading new NAVCAM images')
+    # get_navcam()
 
     # Perform a pull of the ROS_SGS Git archive
     print('\nINFO: Pulling the ROS_SGS git archive\n')

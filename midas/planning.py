@@ -1648,34 +1648,18 @@ class itl:
         return
 
 
-    def set_auto_retract(self, safety_factor=2.0, min_retract=500.):
-        """Updates the software parameters corresponding to the auto-retract. The value
-        of safety_factor is applied for X/Y and open/closed loop. A minimum value for
-        the auto-retract can also be set with min_retract= (nm)"""
+    def set_auto_retract(self, xopen, xclosed, yopen, yclosed):
+        """Updates the software parameters corresponding to the auto-retract"""
 
         # X open loop : factor=23.25 (default); can be set by means of SET_SW_PARAM(0xA65A, factor*16)
         # X closed loop : factor=8.5 (default); can be set by means of SET_SW_PARAM(0xA65C, factor*16)
         # Y open loop : factor=23.25 (default); can be set by means of SET_SW_PARAM(0xA65E, factor*16)
         # Y closed loop : factor=8.5 (default); can be set by means of SET_SW_PARAM(0xA660, factor*16)
 
-        # Address	Value	Description
-        #
-        # A65A (42586)	744	X factor in open loop (default is 372 which corresponds to a safety factor of 1.0)
-        # A65C (42588)	272	X factor in closed loop (default is 136 which corresponds to a safety factor of 1.0)
-        # A65E (42590)	744	Y factor in open loop  (default is 372)
-        # A660 (42592)	272	Y factor in closed loop  (default is 136)
-        # A662 (42594)  100	min. automatic Z retraction height (default is 100)
-
-        open_factor = int(round(23.25 * 16. * safety_factor))
-        closed_factor = int(round(8.5 * 16. * safety_factor))
-        min_zr = int(round(min_retract/common.zcal))
-
-        self.set_sw_param(0xA65A, open_factor)
-        self.set_sw_param(0xA65C, closed_factor)
-        self.set_sw_param(0xA65E, open_factor)
-        self.set_sw_param(0xA660, closed_factor)
-
-        self.set_sw_param(0xA662,
+        self.set_sw_param(0xA65A, xopen*10.)
+        self.set_sw_param(0xA65C, xclosed*10.)
+        self.set_sw_param(0xA65E, yopen*10.)
+        self.set_sw_param(0xA660, yclosed*10.)
 
         return
 

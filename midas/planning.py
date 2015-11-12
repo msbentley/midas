@@ -236,7 +236,6 @@ def get_cycles(ltp, case='P', suffix=''):
     cycles = pd.read_table(stripped, skiprows=0, header=None, sep=' ', skipinitialspace=True, na_filter=False,
         names=col_names, parse_dates=['VSTP1','VSTP2','VSTP3','VSTP4','VSTP5'])
     cycles = cycles.drop('skip', axis=1)
-    cycles = cycles.convert_objects(convert_numeric=True)
 
     return cycles
 
@@ -2748,7 +2747,7 @@ class itl:
                         108411.1, 85449.6, 86508.1, 94853.1, 84628.8, 84056.2, 83569.9, 89290.5 ]
 
             # cant     1 2 3 4 5 6 7 8  9 0 1 2 3 4 5 6
-            ac_gain = [3,3,1,6,4,4,5,3, 7,3,2,4,2,2,1,3]
+            ac_gain = [3,3,1,6,4,4,4,3, 6,3,2,4,2,2,1,3]
             exc_lvl = [2,1,1,2,3,3,5,6, 4,1,2,6,2,2,2,1]
 
 

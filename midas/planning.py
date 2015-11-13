@@ -1668,7 +1668,7 @@ class itl:
 
         open_factor = int(round(23.25 * 16. * safety_factor))
         closed_factor = int(round(8.5 * 16. * safety_factor))
-        min_zr = int(round(min_retract/common.zcal))
+        min_zr = int(round(min_zr/common.zcal))
 
         self.set_sw_param(0xA65A, open_factor)
         self.set_sw_param(0xA65C, closed_factor)

@@ -450,6 +450,9 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
             'minor': region.minor_axis_length * pix_len,
             'eccen': region.eccentricity,
             'compact': region.perimeter**2. / (4.*np.pi*pcle.count()),
+            'sphericity': min( (region.major_axis_length/region.minor_axis_length),
+                (pcle.max()/(region.major_axis_length*pix_len)),
+                (pcle.max()/(region.minor_axis_length*pix_len)) ),
             'orient': np.degrees(region.orientation),
             'pdata': pcle
             }
@@ -460,8 +463,8 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
-    pcle_data = pcle_data[ ['id', 'name', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
-        'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'orient', 'pdata'] ]
+    pcle_data = pcle_data[ ['name', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
+        'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'sphericity', 'orient', 'pdata'] ]
 
     return pcle_data
 

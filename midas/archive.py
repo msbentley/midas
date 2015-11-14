@@ -157,7 +157,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
             s = ConstBitStream(bytes=open(f, 'rb').read(), length=os.path.getsize(f)*8)
 
         frames = pkts[pkts.filename==f]
-        frames.reset_index(inplace=True)
+        frames.reset_index(inplace=True, drop=True)
 
         # Create a list of the on-board-times for these packets
         obt.extend(frames.obt.tolist())

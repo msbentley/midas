@@ -146,14 +146,15 @@ def closed_to_open(x,y):
 scan_type = ['DYN','CON','MAG']
 
 # Adding virtual channels for unpacked status
+channels = ['ZS', 'AC', 'S2', 'PH', 'DC', 'XH', 'YH', 'ZH', 'M1', 'YP', 'ZP', 'M2', 'YE', 'ZE', 'M3', 'ST']
 status_channels = ['NC', 'RP', 'LA', 'MC', 'PA', 'PC']
 s2_channels = ['RD', 'CF']
-data_channels = ['ZS', 'AC', 'S2', 'PH', 'DC', 'XH', 'YH', 'ZH', 'M1', 'YP', 'ZP', 'M2', 'YE', 'ZE', 'M3', 'ST']
-data_channels.extend(status_channels+s2_channels)
+retr_channel = ['RT']
+data_channels = channels + status_channels + s2_channels + retr_channel
 
-cal_factors = [ zcal, 20./65535., 1, 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1,1,1 ]
-offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
-units = ['nm', 'V', 'none', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none','none','none' ]
+cal_factors = [ zcal, 20./65535., 1, 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1,1,1,1 ]
+offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,0.]
+units = ['nm', 'V', 'none', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none','none','none','none' ]
 channel_names = [
     'Topography (Z piezo position set value)', # ZS
     'Cantilever AC signal', # AC
@@ -178,7 +179,8 @@ channel_names = [
     'Point aborted', # PA
     'Point converged', # PC
     'Retraction distance', # RD
-     'Contact flag'] # CF
+     'Contact flag',
+     'Retraction exceeded'] # RT
 
 ctrl_channels = ['ac','dc','phase','zpos']
 ctrl_names = ['Cantilever AC', 'Cantilever DC', 'Phase', 'Z position']

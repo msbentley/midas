@@ -3476,6 +3476,9 @@ class tm:
                         images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply(lambda item: item.astype('bool'))
 
 
+        # Add a channel showing the any pixels where the retraction height was exceeded
+        images = check_retract(images, boolmask=False)
+
         print('INFO: %i images found' % (len(info.start_time.unique())))
 
         # Use categories instead of pure strings for columns where the input range is limited

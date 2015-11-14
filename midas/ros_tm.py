@@ -3438,7 +3438,7 @@ class tm:
                     images = images.append([status]*(len(common.status_channels)-1)) # duplicate
                     images.loc[ images.index==idx, 'channel' ] = common.status_channels # re-label channel names
 
-                images.reset_index(inplace=True) # to avoid duplicate indices
+                images.reset_index(inplace=True, drop=True) # to avoid duplicate indices
 
                 # loop through each status channel and apply bit shifts and masks
                 for idx, channel in enumerate(common.status_channels):
@@ -3464,7 +3464,7 @@ class tm:
                     images = images.append([status]*(len(common.s2_channels)-1)) # duplicate
                     images.loc[ images.index==idx, 'channel' ] = common.s2_channels # re-label channel names
 
-                images.reset_index(inplace=True) # to avoid duplicate indices
+                images.reset_index(inplace=True, drop=True) # to avoid duplicate indices
 
                 # loop through each status channel and apply bit shifts and masks
                 for idx, channel in enumerate(common.s2_channels):
@@ -3947,53 +3947,59 @@ def sample_slope(images, add_to_df=True):
         return (indices, x_deg, y_deg)
 
 
-def check_retract(image, boolmask=True):
+def check_retract(images, boolmask=True):
     """Accepts an image produced by get_images() and checks whether any points have
     pixel-to-pixel height differences greater than the retraction.
 
     If boolmask=True a boolean array is returned masking points.
     If boolmask=False a numerical array of the height above retraction is returned."""
 
-    # if type(images) == pd.Series:
-    #     images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+    if type(images) == pd.Series:
+        images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
 
-    if image.channel!='ZS':
-        print('ERROR: retraction checking can only be performed on a topography channel')
-        return False
+    topo_images = images[ images.channel=='ZS']
 
-    data = image['data']
+    if len(topo_images)==0:
+        print('ERROR: no topography channels present in images')
+        return None
 
-    # Transpose and flip according to main scan direction and H_L parameters
-    if image.x_dir == 'H_L': data = np.fliplr(data)
-    if image.y_dir == 'H_L': data = np.flipud(data)
-    if image.fast_dir=='Y': data = np.transpose(data)
+    for idx,image in topo_images.iterrows():
 
-    # Loop through rows, checking for pixels with height diffs > z_ret
-    num_rows = image.ysteps if image.fast_dir=='X' else image.xsteps
+        data = image['data']
 
-    if boolmask:
-        mask = np.zeros_like(data, dtype=bool) # mask is a boolean array of bad pixels
-    else:
-        mask = np.zeros_like(data)
+        # Transpose and flip according to main scan direction and H_L parameters
+        if image.x_dir == 'H_L': data = np.fliplr(data)
+        if image.y_dir == 'H_L': data = np.flipud(data)
+        if image.fast_dir=='Y': data = np.transpose(data)
 
-    for row in range(num_rows):
-        line=data[row,:]
+        # Loop through rows, checking for pixels with height diffs > z_ret
+        num_rows = image.ysteps if image.fast_dir=='X' else image.xsteps
+
         if boolmask:
-            mask[row,1:] = (line[1:]-line[:-1]) > image.z_ret
+            mask = np.zeros_like(data, dtype=bool) # mask is a boolean array of bad pixels
         else:
-            mask[row,1:] = (line[1:]-line[:-1]) - image.z_ret
+            mask = np.zeros_like(data)
 
-    if not boolmask: mask[ mask<0 ] = 0
+        for row in range(num_rows):
+            line=data[row,:]
+            if boolmask:
+                mask[row,1:] = (line[1:]-line[:-1]) > image.z_ret
+            else:
+                mask[row,1:] = (line[1:]-line[:-1]) - image.z_ret
 
-    # Transpose and flip according to main scan direction and H_L parameters
-    if image.fast_dir=='Y': mask = np.transpose(mask)
-    if image.y_dir == 'H_L': mask = np.flipud(mask)
-    if image.x_dir == 'H_L': mask = np.fliplr(mask)
+        if not boolmask: mask[ mask<0 ] = 0
 
-    return mask
+        # Transpose and flip according to main scan direction and H_L parameters
+        if image.fast_dir=='Y': mask = np.transpose(mask)
+        if image.y_dir == 'H_L': mask = np.flipud(mask)
+        if image.x_dir == 'H_L': mask = np.fliplr(mask)
 
+        image['data'] = mask
+        image.channel = 'RT'
 
+        images.loc[images.index.max() + 1] = image
 
+    return images.sort_values(by='start_time').reset_index(drop=True)
 
 
 def css_write(html, filename, cssfile='midas.css'):
@@ -4376,7 +4382,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path):
             images = pd.read_pickle(filename)
 
     images.sort_values(by='start_time', inplace=True)
-    images.reset_index(inplace=True)
+    images.reset_index(inplace=True, drop=True)
 
     if sourcepath is not None:
         images.filename = images.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )

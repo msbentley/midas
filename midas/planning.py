@@ -1240,7 +1240,7 @@ class ptrm:
         midas_blocks['offset'] = midas_blocks.start - obs_start
 
         self.merged = midas_blocks[midas_blocks.offset>pd.Timedelta(0)]
-        self.merged = self.merged.reset_index()
+        self.merged = self.merged.reset_index(drop=True)
 
         return
 
@@ -2895,7 +2895,7 @@ def get_dumps(start, end):
     dump_end = dump_end.rename(columns={'time': 'dump_end'})
 
     dump_end = dump_end.drop('event', axis=1)
-    dumps = pd.merge( dump_start, dump_end, on=['cnt']).reset_index()
+    dumps = pd.merge( dump_start, dump_end, on=['cnt']).reset_index(drop=True)
     dumps = dumps.drop(['cnt'], axis=1)
     dumps['is_70m'] = dumps.event.apply( lambda ev: True if ev=='DUMP_70_START' else False )
     dumps = dumps.drop(['event'], axis=1)

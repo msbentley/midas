@@ -149,7 +149,7 @@ def run_daily():
     # get_navcam()
 
     # Generate tip images
-    ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png')
+    ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
 
     # Perform a pull of the ROS_SGS Git archive
     print('\nINFO: Pulling the ROS_SGS git archive\n')

@@ -1217,15 +1217,47 @@ def show_grid(images, cols=2, planesub='poly'):
     return
 
 
+def show_tips(savefig=None):
+    """Shows the latest tip image for all 16 tips"""
+
+    import matplotlib.gridspec as gridspec
+
+    gs = gridspec.GridSpec(4,4)
+    fig = plt.figure(figsize=(15,15))
+
+    images = load_images(data=True)
+    tip_images = images[ (images.target==3) & (images.channel=='ZS') & (~images.aborted) ].copy()
+    tip_images.sort_values(by='start_time', inplace=True)
+
+    for tip_num in range(1,17):
+        ax = plt.subplot(gs[tip_num-1])
+        ax.set_aspect('equal')
+        tip_image = tip_images[ tip_images.tip_num==tip_num ]
+        if len(tip_image)==0:
+            ax.get_yaxis().set_visible(False)
+            ax.get_xaxis().set_visible(False)
+            ax.set_title('Tip %d' % tip_num, fontsize=12)
+            continue
+        else:
+            tip_image = tip_image.iloc[-1].squeeze()
+            show(tip_image, title='Tip %d' % tip_num, fig=fig, ax=ax, cbar=False, planesub='plane')
+
+    fig.tight_layout(h_pad=2.5)
+
+    if savefig is not None:
+        fig.savefig(savefig)
+
+    return
 
 
-
-def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, shade=False, show_fscans=False):
+def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None, ax=None, shade=False, show_fscans=False):
     """Accepts one or more images from get_images() and plots them in 2D.
 
     units= can be 'real', 'dac' or 'pix'
     planesub= can be 'plane', 'poly'  or 'median'
-    placesub=True will peform a least-square plane subtraction
+    title= can be True (defaults to scan name), None (no title), or a string
+    cbar= display colour bar (True/False)
+    fig, ax = existing figure and axis instances can be passed
     shade=True will add surface illumination and shading
     show_fscans=True marks lines where frequency re-tuning has occured (note - slow!)"""
 
@@ -1306,18 +1338,22 @@ def show(images, units='real', planesub='poly', title=True, fig=None, ax=None, s
             axis.set_ylabel('Y (pixels)')
             data = image['data']
 
+        plt.setp(axis.get_xticklabels(), rotation=45)
         axis.grid(True)
 
         if shade:
             data = ls.shade(data,cmap)
 
-        if not shade:
+        if (not shade) and (cbar):
             cbar = figure.colorbar(plot1, ax=ax) # Now plot using a colourbar
             if units=='real':
                 cbar.set_label(unit, rotation=90)
 
-        if title:
-            axis.set_title(image.scan_file, fontsize=12)
+        if title is not None:
+            if title==True:
+                axis.set_title(image.scan_file, fontsize=12)
+            else:
+                axis.set_title(title, fontsize=12)
 
         # If show_fscans is True, index the appropriate TLM file, get the OBTs of frequency scans
         # between the start and end times, find the line number of these times in HK and then

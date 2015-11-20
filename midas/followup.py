@@ -143,7 +143,7 @@ X step size: %i (%3.2f nm)\nY step size: %i (%3.2f nm)\nDuration: %02d:%02d:%02d
                     self.y_orig += (height-self.height)/2
                     self.height = height
                     self.update_display()
-            if event.key == 'enter' and selector.RS.active:
+            if event.key in ['enter' or '5'] and selector.RS.active:
                 print(self.x_orig, self.y_orig, self.x_orig+self.width/2, self.y_orig+self.height/2, self.x_pix, self.y_pix, self.x_step, self.y_step, self.zret)
 
 

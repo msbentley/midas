@@ -486,6 +486,9 @@ def plot_assembly(pcle_data, anim=False, figure=None, axis=None, extent=None, ce
     else:
         ax = axis
 
+    ax.get_yaxis().set_visible(False)
+    ax.get_xaxis().set_visible(False)
+
     if centre is None:
         # cent = np.array( [ (pcle_data.down.max()+1.)/2., (pcle_data.right.max()+1.)/2. ] )
         cent = np.array(extent)/2
@@ -592,8 +595,16 @@ def animate_assembly(orig_data, num_frames=50, pix_per_frame=1.0, centre=None, a
 
 
 
-def plot_subpcles(pcle_data, num_cols=3, savefile=None):
-    """Simple overview plot of all sub-particle data"""
+def plot_subpcles(pcle_data, num_cols=3, scale=False, title=False, savefile=None):
+    """Simple overview plot of all sub-particle data. The number of columns can
+    be set via num_cols= and the number of rows will be calculated accordingly.
+
+    By default all sub-particles are drawn to fill the sub-plot, and so the pixel
+    size of each is different. To force all sub-particles to be drawn to the
+    scale of the largest, set scale=True.
+
+    The final output can be written to a file by specifiying a filename (and path
+    if required) in savefile=."""
 
     from matplotlib import gridspec
 
@@ -601,15 +612,53 @@ def plot_subpcles(pcle_data, num_cols=3, savefile=None):
     vmin = pcle_data.z_min.min()
     vmax = pcle_data.z_max.max()
 
-    # Display all of the sub-particles
+    if scale:
+        # find the size of the bounding box of the particle with
+        # the largest linear size (in either direction)
+        max_size = max((pcle_data.right-pcle_data.left).max(),(pcle_data.down-pcle_data.up).max()) + 1
+
+    # Display all of the sub-particles on a grid of subplots
     num_rows = (len(pcle_data) / num_cols) + 1
     gs = gridspec.GridSpec(num_rows, num_cols)
     fig = plt.figure(figsize=(17,3*25))
+
     grid = 0
+
     for idx, pcle in pcle_data.iterrows():
         ax = plt.subplot(gs[grid])
         ax.set_axis_off()
-        im = ax.imshow(pcle['pdata'], interpolation='nearest', cmap=cm.afmhot, vmin=vmin, vmax=vmax)
+
+        if title is not None:
+            if title not in pcle_data.columns:
+                print('WARNING: label %s not valid for the title' % title)
+                title_txt = pcle['name']
+            else:
+                title_txt = '%s: %s' % (title, pcle['%s' % title])
+
+            ax.set_title(title_txt, fontsize=12)
+
+        data = pcle['pdata']
+
+        if scale:
+
+            # make an empty array whose largest dimension matches the
+            # largest sub-particle, but with constant aspect ratio.
+            aspect = float(data.shape[1])/float(data.shape[0])
+            if data.shape[0] >= data.shape[1]:
+                new_size = (max_size, int(round(max_size*aspect)))
+            else:
+                new_size = (int(round(max_size/aspect)),max_size)
+
+            new_arr = ma.zeros(new_size, dtype=data.dtype)
+            new_arr.mask = True
+
+            # insert the sub-particle data into this array at the centre
+            new_arr[0:data.shape[0],0:data.shape[1]] = data
+
+        else:
+            new_arr = data
+
+        im = ax.imshow(new_arr, interpolation='nearest', cmap=cm.afmhot, vmin=vmin, vmax=vmax)
         grid += 1
 
     cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])

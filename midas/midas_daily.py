@@ -148,6 +148,9 @@ def run_daily():
     # print('\nINFO: Downloading new NAVCAM images')
     # get_navcam()
 
+    # Generate tip images
+    ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png')
+
     # Perform a pull of the ROS_SGS Git archive
     print('\nINFO: Pulling the ROS_SGS git archive\n')
     tunnel = open_rostun()
@@ -223,7 +226,7 @@ def image_pickle(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir,
 
     import cPickle as pkl
 
-    # Check for the h5 file and remove if it exists
+    # Check for the pkl file and remove if it exists
     pkl_file = os.path.join(out_path, out_file)
 
     if os.path.exists(pkl_file):

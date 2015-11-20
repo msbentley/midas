@@ -438,6 +438,10 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
             'pcle': pcle,
             'id': chan_id,
             'name': chan_name,
+            'left': left,
+            'right': right,
+            'up': up,
+            'down': down,
             'tot_min_z': data.min()*1.e6,
             'tot_max_z': data.max()*1.e6,
             'a_pix': pcle.count(),
@@ -463,10 +467,128 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
-    pcle_data = pcle_data[ ['name', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
+    pcle_data = pcle_data[ ['name', 'left', 'right', 'up', 'down', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
         'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'sphericity', 'orient', 'pdata'] ]
 
     return pcle_data
+
+
+def plot_assembly(pcle_data, anim=False, figure=None, axis=None, extent=None, centre=None):
+    """Plot an assembly of sub-particles"""
+
+    if figure is None:
+        fig = plt.figure()
+    else:
+        fig = figure
+
+    if axis is None:
+        ax = fig.add_subplot(111)
+    else:
+        ax = axis
+
+    if centre is None:
+        # cent = np.array( [ (pcle_data.down.max()+1.)/2., (pcle_data.right.max()+1.)/2. ] )
+        cent = np.array(extent)/2
+    else:
+        cent = np.array(centre)
+
+    if extent is None:
+        new_array = np.zeros( (pcle_data.down.max()+1, pcle_data.right.max()+1), dtype=np.float64)
+    else:
+        new_array = np.zeros( extent, dtype=np.float64)
+        x_off = int(round(extent[0]/2 - cent[0]))
+        y_off = int(round(extent[1]/2 - cent[1]))
+
+    for idx, pcle in pcle_data.iterrows():
+        if extent is None:
+            new_array[pcle.up:pcle.down+1, pcle.left:pcle.right+1] = pcle['pdata']
+        else:
+            new_array[pcle.up+y_off:pcle.down+y_off+1, pcle.left+x_off:pcle.right+x_off+1] = pcle['pdata']
+
+    im = ax.imshow(new_array, cmap=cm.afmhot, interpolation='nearest', vmin=0, vmax=new_array.max(), animated=anim)
+
+    plt.show()
+
+    return im
+
+
+def animate_assembly(orig_data, num_frames=50, pix_per_frame=1.0, centre=None, ani_file='subpcle_anim.mp4'):
+    """Plot an animation of sub particle assembly and/or disassembly.
+
+    If centre= is set to a tuple corresponding to a pixel position, this is used as
+    the centre position, otherwise the centre of the bounding box is taken.
+
+    num_frames= gives the number of frames to animate over
+
+    ani_file= is the output file (with full path if necessary)"""
+
+    import matplotlib.animation as animation
+
+    # If no expansion centre is given, use the centre of the main particle
+    # bounding box
+    if centre is None:
+        cent = np.array( [ (orig_data.down.max()+1.)/2., (orig_data.right.max()+1.)/2. ] )
+    else:
+        cent = np.array(centre)
+
+    pcle_data = orig_data.copy()
+
+    # add a new column to the dataframe with the (normalised) vector from the particle centre
+    # to each sub-particle centre
+    pcle_data['pos_x'] = (pcle_data.right-pcle_data.left)/2. + pcle_data.left - cent[1]
+    pcle_data['pos_y'] = (pcle_data.up-pcle_data.down)/2. + pcle_data.down - cent[0]
+    pcle_data['mag']   = np.sqrt( pcle_data.pos_x**2. + pcle_data.pos_y**2. )
+    pcle_data['pos_x'] = pcle_data.pos_x / pcle_data.mag
+    pcle_data['pos_y'] = pcle_data.pos_y / pcle_data.mag
+
+    fig = plt.figure()
+    frames = []
+
+    # Calculate the bounding box of the final frame (need to know how large to
+    # make the array before plotting the first frame)
+    new_data = orig_data.copy()
+    for idx, pcle in new_data.iterrows():
+        delta_x = num_frames * pix_per_frame * pcle_data.pos_x.ix[idx]
+        delta_y = num_frames * pix_per_frame * pcle_data.pos_y.ix[idx]
+        pcle.up += delta_y
+        pcle.down += delta_y
+        pcle.left += delta_x
+        pcle.right += delta_x
+
+        new_data.ix[idx] = pcle
+
+    max_x = int(round(max(abs(new_data.right.max()-cent[0]),abs(new_data.left.min()-cent[0]))))
+    max_y = int(round(max(abs(new_data.up.max()-cent[1]),abs(new_data.down.min()-cent[1]))))
+
+    for frame_cnt in range(num_frames):
+
+        new_data = orig_data.copy()
+
+        for idx, pcle in new_data.iterrows():
+
+            # calculate the offset according to the unit vector (direction)
+            # and speed (given in pixels per frame)
+            delta_x = frame_cnt * pix_per_frame * pcle_data.pos_x.ix[idx]
+            delta_y = frame_cnt * pix_per_frame * pcle_data.pos_y.ix[idx]
+
+            # apply the offset to the bounding box (used for plotting the sub-pcle)
+            pcle.up += delta_y
+            pcle.down += delta_y
+            pcle.left += delta_x
+            pcle.right += delta_x
+
+            new_data.ix[idx] = pcle
+
+        im = plot_assembly(new_data, anim=True, figure=fig, extent=(max_y*2,max_x*2), centre=cent)
+        frames.append([im])
+
+    ani = animation.ArtistAnimation(fig, frames, interval=50, blit=True, repeat_delay=1000)
+
+    ani.save(ani_file)
+    plt.close()
+
+    return
+
 
 
 

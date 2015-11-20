@@ -438,7 +438,9 @@ def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instru
 
     if return_tcs:
         if inc_time:
-            return pd.Series(tcs, index=times, name='telecommands')
+            tcs = pd.Series(tcs, index=times, name='telecommands')
+            tcs.index = pd.to_datetime(tcs.index)
+            return tcs
         else:
             return tcs
     else:

@@ -20,7 +20,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from midas import common
 import matplotlib.pyplot as plt
-
+import matplotlib as mpl
 
 # datefmt='%m/%d/%Y %I:%M:%S %p'
 isofmt = '%Y-%m-%dT%H%M%SZ'
@@ -1217,6 +1217,50 @@ def show_grid(images, cols=2, planesub='poly'):
     return
 
 
+def show_facets(facet_select=None, savefig=None, cols=3):
+    """Show the coverage to date of all facets if facet_select=None
+    or show a single, or list of facets"""
+
+    import matplotlib.gridspec as gridspec
+
+    images = load_images(data=True)
+    images = images[ images.channel=='ZS' ]
+    facets = sorted(images.target.unique())
+
+    if facet_select is not None:
+        if type(facet_select)!=list:
+            facet_select = [facet_select]
+        facets = list(set(facets) & set(facet_select))
+
+    num_facets = len(facets)
+    if num_facets==0:
+        print('WARNING: no images found matching facets')
+        return None
+
+    images = images[ images.target.isin(facets) ]
+
+    fig = plt.figure(figsize=(15,15))
+
+    rows = num_facets / cols
+    if num_facets % cols != 0:
+        rows += 1
+
+    gs = gridspec.GridSpec(rows, cols)
+
+    for idx, facet in enumerate(facets):
+        ax = plt.subplot(gs[idx])
+        plt.setp(ax.get_xticklabels(), rotation=45)
+
+        # def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False):
+        show_loc( images[ images.target==facet ], figure=fig, axis=ax, labels=False, title=False, font=8)
+
+    fig.tight_layout(h_pad=5.0)
+
+    plt.show()
+
+    return
+
+
 def show_tips(savefig=None):
     """Shows the latest tip image for all 16 tips"""
 
@@ -1431,8 +1475,12 @@ def locate_scans(images):
 
     return images
 
-def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False):
+def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False,
+    figure=None, axis=None, labels=True, title=True, font=None):
     """Plot the location of a series of images"""
+
+    if font is None:
+        font = mpl.rcParams['font.size']
 
     # filter out dummy scans
     images = images[ ~images.dummy ]
@@ -1456,22 +1504,33 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
 
     from matplotlib.patches import Rectangle
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    if figure is None:
+        fig = plt.figure()
+    else:
+        fig = figure
+
+    if axis is None:
+        ax = fig.add_subplot(1,1,1)
+    else:
+        ax = axis
+
     ax.invert_yaxis()
 
     # Plot open and closed loop scans in different colours
     opencolor='red'
     closedcolor='blue'
 
-    title = ''
-    if len(images.tip_num.unique())==1:
-        title = title.join('Tip %i, ' % images.tip_num.unique()[0] )
+    if title:
+        title = ''
+        if len(images.tip_num.unique())==1:
+            title = title.join('Tip %i, ' % images.tip_num.unique()[0] )
 
-    title += ('Target %i (%s)' % (images.target.unique()[0], images.target_type.unique()[0] ))
-    ax.set_title(title)
-    ax.set_xlabel('Offset from wheel centre (microns)')
-    ax.set_ylabel('Offset from segment centre (microns)')
+        title += ('Target %i (%s)' % (images.target.unique()[0], images.target_type.unique()[0] ))
+        ax.set_title(title, fontsize=font)
+
+    if labels:
+        ax.set_xlabel('Offset from wheel centre (microns)', fontsize=font)
+        ax.set_ylabel('Offset from segment centre (microns)', fontsize=font)
 
     for idx, scan in images.iterrows():
         edgecolor=closedcolor if scan.y_closed else opencolor
@@ -1485,6 +1544,9 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     # Make sure we plpot fix a fixed aspect ratio!
     ax.autoscale(enable=True)
     ax.set_aspect('equal')
+
+    ax.tick_params(axis='x', labelsize=font)
+    ax.tick_params(axis='y', labelsize=font)
 
     if zoom_out:
         ax.set_xlim(-700.,700.)

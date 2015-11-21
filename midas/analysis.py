@@ -627,6 +627,9 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=False, savefile=None
     for idx, pcle in pcle_data.iterrows():
         ax = plt.subplot(gs[grid])
         ax.set_axis_off()
+        ax.set_aspect('equal')
+        ax.get_yaxis().set_visible(False)
+        ax.get_xaxis().set_visible(False)
 
         if title is not None:
             if title not in pcle_data.columns:
@@ -662,11 +665,8 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=False, savefile=None
         grid += 1
 
     cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
-    fig.colorbar(im, cax=cax)
 
-    for axis in fig.axes:
-        axis.get_yaxis().set_visible(False)
-        axis.get_xaxis().set_visible(False)
+    fig.colorbar(im, cax=cax)
 
     if savefile is not None:
         fig.savefig(savefile)

@@ -3574,8 +3574,8 @@ class tm:
                         images.loc[ images.channel==channel, 'data' ] = images.loc[ images.channel==channel, 'data' ].apply(lambda item: item.astype('bool'))
 
 
-        # Add a channel showing the any pixels where the retraction height was exceeded
-        images = check_retract(images, boolmask=False)
+            # Add a channel showing the any pixels where the retraction height was exceeded
+            images = check_retract(images, boolmask=False)
 
         print('INFO: %i images found' % (len(info.start_time.unique())))
 
@@ -4048,7 +4048,7 @@ def sample_slope(images, add_to_df=True):
         return (indices, x_deg, y_deg)
 
 
-def check_retract(images, boolmask=True):
+def check_retract(images, boolmask=False):
     """Accepts an image produced by get_images() and checks whether any points have
     pixel-to-pixel height differences greater than the retraction.
 
@@ -4064,7 +4064,7 @@ def check_retract(images, boolmask=True):
         print('ERROR: no topography channels present in images')
         return None
 
-    for idx,image in topo_images.iterrows():
+    for idx, image in topo_images.iterrows():
 
         data = image['data']
 

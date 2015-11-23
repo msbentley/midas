@@ -2058,7 +2058,7 @@ class itl:
 
         # Add additional data rate if control data packets are enabled
         if ctrl_data:
-            data_bytes += (32 * 32 * 2096)
+            data_bytes += (num_lines * 32 * 2096)
             print('INFO: Control data in image requested - InstrumentSetup must be sent as well!')
 
         data_rate = (data_bytes*8/duration_s)

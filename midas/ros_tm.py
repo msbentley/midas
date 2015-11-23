@@ -2620,7 +2620,7 @@ class tm:
 
 
 
-    def plot_params(self, param_names, start=False, end=False, label_events=None):
+    def plot_params(self, param_names, start=False, end=False, label_events=None, symbol=False):
         """Plot a TM parameter vs OBT. Requires a packet list and parameter
         name. start= and end= can be set to a string or DateTime to limit the returned
         data.
@@ -2653,6 +2653,13 @@ class tm:
             print('ERROR: one or more parameters is non-numeric, cannot plot!')
             return False
 
+        if symbol:
+            marker_left = 'x'
+            marker_right = '+'
+        else:
+            marker_left = None
+            marker_right = None
+
         plot_fig = plt.figure()
         ax_left = plot_fig.add_subplot(1,1,1)
         if len(units)==2:
@@ -2671,11 +2678,11 @@ class tm:
             param = pcf[pcf.param_name==param_name].squeeze()
 
             if param.unit==units[0] or (pd.isnull(param.unit) & (pd.isnull(units[0]))): # plot on left axis
-                lines.append(ax_left.plot( data.index, data, label=param.description, linestyle='-' )[0])
+                lines.append(ax_left.plot( data.index, data, label=param.description, linestyle='-', marker=marker_left )[0])
                 ax_left.set_ylabel( "%s" % (param.unit))
             else:
                 ax_left._get_lines.color_cycle.next()
-                lines.append(ax_right.plot( data.index, data, label=param.description, linestyle='-.' )[0])
+                lines.append(ax_right.plot( data.index, data, label=param.description, linestyle='-.', marker=marker_right )[0])
                 ax_right.set_ylabel( "%s" % (param.unit))
 
         if len(lines)==0:

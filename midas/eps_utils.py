@@ -8,14 +8,14 @@ import numpy as np
 import pandas as pd
 import os
 from midas import common, planning
+from datetime import timedelta
+from dateutil import parser
 
 
 def parse_itl(filename, header=True):
 
     # Uses PyParsing http://pyparsing.wikispaces.com
     import pyparsing as pp
-
-    from datetime import timedelta
 
     pp.ParserElement.setDefaultWhitespaceChars(" \t\n")
 
@@ -237,12 +237,37 @@ def run_mtp(mtp, case='P', outfolder=None):
     return status
 
 
+def read_latency(directory='.'):
+    """Reads the datastore latency (DS_latency.out) file and returns
+    the MIDAS-related contents as a df"""
+
+    dsfile = os.path.join(directory, 'DS_latency.out')
+    if not os.path.isfile(dsfile):
+        print('ERROR: DS_latency.out file not found in directory %s' % (directory))
+        return None
+
+    cols = ['time', 'max', 'ALICE', 'CONSERT', 'COSIMA', 'GIADA', 'MIDAS', 'MIRO', 'ROSINA', 'RPC', 'SR_SCI',
+            'SR_NAV', 'VIRTIS', 'NAV_ENG', 'NAV_SCI', 'LANDER', 'SREM']
+
+    latency = pd.read_table(dsfile, header=None, skiprows=27, names=cols,
+        skipinitialspace=True, delimiter=' ', comment='#', skip_blank_lines=True, index_col=False,
+        usecols=[0,6])
+
+    # for now just flag as bad any data which is not a clear calculated latency
+    invalids = ['-', '+', '--']
+
+    latency.MIDAS = latency.MIDAS.apply( lambda data: -1 if any(inv in data for inv in invalids) else data )
+    latency.MIDAS = pd.to_numeric(latency.MIDAS)
+    latency.MIDAS[latency.MIDAS==-1] = None
+    latency['time'] = latency['time'].apply(lambda time: parser.parse(" ".join(time.split('_'))))
+    latency.set_index('time', drop=True, inplace=True)
+
+    return latency
+
+
+
 def read_output(directory='.', ng=True):
     """Reads the power and data EPS output files."""
-
-    import pandas as pd
-    from dateutil import parser
-    from datetime import timedelta
 
     powerfile = os.path.join(directory, 'power_avg.out')
     if not os.path.isfile(powerfile):

@@ -7,7 +7,7 @@ Mark S. Bentley (mark@lunartech.org), 2015
 A module containing various routines related to the analysis of MIDAS data,
 including investigating particle statistics, exposure geometries etc."""
 
-import os
+import os, math
 import pandas as pd
 from midas import common, ros_tm
 import matplotlib.pyplot as plt
@@ -467,7 +467,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
-    pcle_data = pcle_data[ ['name', 'left', 'right', 'up', 'down', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
+    pcle_data = pcle_data[ ['id', 'name', 'left', 'right', 'up', 'down', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
         'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'sphericity', 'orient', 'pdata'] ]
 
     return pcle_data
@@ -491,7 +491,8 @@ def plot_assembly(pcle_data, anim=False, figure=None, axis=None, extent=None, ce
 
     if centre is None:
         # cent = np.array( [ (pcle_data.down.max()+1.)/2., (pcle_data.right.max()+1.)/2. ] )
-        cent = np.array(extent)/2
+        if extent is not None:
+            cent = np.array(extent)/2
     else:
         cent = np.array(centre)
 
@@ -502,13 +503,18 @@ def plot_assembly(pcle_data, anim=False, figure=None, axis=None, extent=None, ce
         x_off = int(round(extent[0]/2 - cent[0]))
         y_off = int(round(extent[1]/2 - cent[1]))
 
+    # new_array.mask = True
+
     for idx, pcle in pcle_data.iterrows():
         if extent is None:
-            new_array[pcle.up:pcle.down+1, pcle.left:pcle.right+1] = pcle['pdata']
+            new_array[pcle.up:pcle.down+1, pcle.left:pcle.right+1][~pcle['pdata'].mask] = pcle['pdata'][ ~pcle['pdata'].mask ]
         else:
-            new_array[pcle.up+y_off:pcle.down+y_off+1, pcle.left+x_off:pcle.right+x_off+1] = pcle['pdata']
+            new_array[pcle.up+y_off:pcle.down+y_off+1, pcle.left+x_off:pcle.right+x_off+1][~pcle['pdata'].mask] = pcle['pdata'][ ~pcle['pdata'].mask ]
 
-    im = ax.imshow(new_array, cmap=cm.afmhot, interpolation='nearest', vmin=0, vmax=new_array.max(), animated=anim)
+    cmap = cm.afmhot
+    cmap.set_bad('c', alpha=1.0)
+
+    im = ax.imshow(new_array, cmap=cmap, interpolation='nearest', vmin=0, vmax=new_array.max(), animated=anim)
 
     plt.show()
 
@@ -595,7 +601,7 @@ def animate_assembly(orig_data, num_frames=50, pix_per_frame=1.0, centre=None, a
 
 
 
-def plot_subpcles(pcle_data, num_cols=3, scale=False, title=False, savefile=None):
+def plot_subpcles(pcle_data, num_cols=3, scale=False, title=None, savefile=None, cbar=False):
     """Simple overview plot of all sub-particle data. The number of columns can
     be set via num_cols= and the number of rows will be calculated accordingly.
 
@@ -618,16 +624,26 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=False, savefile=None
         max_size = max((pcle_data.right-pcle_data.left).max(),(pcle_data.down-pcle_data.up).max()) + 1
 
     # Display all of the sub-particles on a grid of subplots
-    num_rows = (len(pcle_data) / num_cols) + 1
-    gs = gridspec.GridSpec(num_rows, num_cols)
-    fig = plt.figure(figsize=(17,3*25))
+    if len(pcle_data) < num_cols:
+        num_cols = len(pcle_data)
+        num_rows = 1
+    else:
+        num_rows = (len(pcle_data) / num_cols)
+        if len(pcle_data) % num_cols != 0:
+            num_rows += 1
+
+    if cbar:
+        num_rows += 1
+
+    gs = gridspec.GridSpec(num_rows, num_cols, height_ratios=[1]*num_rows, width_ratios=[1]*num_cols)
+    fig = plt.figure()
 
     grid = 0
 
     for idx, pcle in pcle_data.iterrows():
         ax = plt.subplot(gs[grid])
-        ax.set_axis_off()
         ax.set_aspect('equal')
+        ax.set_axis_off()
         ax.get_yaxis().set_visible(False)
         ax.get_xaxis().set_visible(False)
 
@@ -644,29 +660,25 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=False, savefile=None
 
         if scale:
 
-            # make an empty array whose largest dimension matches the
-            # largest sub-particle, but with constant aspect ratio.
-            aspect = float(data.shape[1])/float(data.shape[0])
-            if data.shape[0] >= data.shape[1]:
-                new_size = (max_size, int(round(max_size*aspect)))
-            else:
-                new_size = (int(round(max_size/aspect)),max_size)
-
+            new_size = (max_size, max_size)
             new_arr = ma.zeros(new_size, dtype=data.dtype)
             new_arr.mask = True
 
-            # insert the sub-particle data into this array at the centre
+            # insert the sub-particle data into this array
             new_arr[0:data.shape[0],0:data.shape[1]] = data
+            # TODO - would it be better to centre in the array?
 
         else:
             new_arr = data
 
-        im = ax.imshow(new_arr, interpolation='nearest', cmap=cm.afmhot, vmin=vmin, vmax=vmax)
+        im = ax.imshow(new_arr*1.e6, interpolation='nearest', cmap=cm.afmhot, vmin=vmin*1.e6, vmax=vmax*1.e6)
         grid += 1
 
-    cax = fig.add_axes([0.9, 0.1, 0.03, 0.8])
-
-    fig.colorbar(im, cax=cax)
+    if cbar:
+        cax = fig.add_axes([0.2, 0.1, 0.6, 0.05])
+        # cax = plt.subplot(gs[-1,:])
+        cbar = fig.colorbar(im, cax=cax, label='height (microns)', orientation='horizontal')
+        cbar.ax.tick_params(labelsize=10)
 
     if savefile is not None:
         fig.savefig(savefile)

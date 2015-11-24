@@ -721,7 +721,7 @@ def get_fdyn_files(directory=fdyn_path):
     try:
         ssh.open()
     except Exception as e:
-        print('ERROR: could not connect to server)
+        print('ERROR: could not connect to server')
         print('ERROR: %s' % e)
         return None
 

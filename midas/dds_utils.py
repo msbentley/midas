@@ -718,7 +718,13 @@ def get_fdyn_files(directory=fdyn_path):
     """Log onto the MIMAS server and retrieve any new Flight Dynamics data files"""
 
     ssh = sftp()
-    ssh.open()
+    try:
+        ssh.open()
+    except Exception as e:
+        print('ERROR: could not connect to server)
+        print('ERROR: %s' % e)
+        return None
+
     retrieved = []
 
     files = ssh.sftp.listdir()

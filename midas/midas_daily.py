@@ -132,6 +132,9 @@ def run_daily():
         print('\n\nINFO: updating binary image index\n')
         image_pickle()
 
+    # Generate tip images
+    ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
+
     # Download any new SPICE kernels (spawn as background job)
     print('\nINFO: Downloading new or updated SPICE kernels...')
     status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
@@ -147,9 +150,6 @@ def run_daily():
     # Download any new NAVCAM images (via rsync)
     # print('\nINFO: Downloading new NAVCAM images')
     # get_navcam()
-
-    # Generate tip images
-    ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
 
     # Perform a pull of the ROS_SGS Git archive
     print('\nINFO: Pulling the ROS_SGS git archive\n')

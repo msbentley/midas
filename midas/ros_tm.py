@@ -1874,7 +1874,7 @@ class tm:
 
         if dedupe:
             # Remove duplicates (packets with the same OBT, APID and SID)
-            tlm = tlm.drop_duplicates(subset=('obt','apid','sid'), take_last=False)
+            tlm = tlm.drop_duplicates(subset=('obt','apid','sid'), keep='last')
             print('INFO: %i duplicate packets removed' % ( (num_pkts)-len(tlm) ) )
 
         print('INFO: %i packets read' % (len(tlm)) )
@@ -3319,7 +3319,7 @@ class tm:
                     # continue
                 elif len(data) > image.num_pkts:
                     print('ERROR: image at %s: too many image packets (%i instead of %i) - image may be corrupt!' % (obt_to_iso(image.start_time),len(data),image.num_pkts))
-                    data = data.drop_duplicates(subset=('start_time','pkt_num'), take_last=True)
+                    data = data.drop_duplicates(subset=('start_time','pkt_num'), keep='last')
 
                 # Use the xsteps and ysteps values from the header to mash together and reform the data
                 xsteps = image.xsteps_dir & 0x3ff

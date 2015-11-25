@@ -47,15 +47,15 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
     images = images[images.channel == 'ZS']
     images = images[(images.x_step > 0) & (images.y_step > 0)]
 
+    if query is not None:
+        images = images.query(query)
+
     if image is not None:
         if type(image) == str:
             image = [image]
         target = images[images.scan_file.isin(image)]
     else:
         target = images
-
-    if query is not None:
-        images = images.query(query)
 
     if len(images) == 0:
         print('ERROR: no images match these criteria')

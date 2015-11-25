@@ -2681,7 +2681,8 @@ class tm:
                 lines.append(ax_left.plot( data.index, data, label=param.description, linestyle='-', marker=marker_left )[0])
                 ax_left.set_ylabel( "%s" % (param.unit))
             else:
-                ax_left._get_lines.color_cycle.next()
+                # ax_left._get_lines.color_cycle.next()
+                ax_left._get_lines.prop_cycler.next()['color']
                 lines.append(ax_right.plot( data.index, data, label=param.description, linestyle='-.', marker=marker_right )[0])
                 ax_right.set_ylabel( "%s" % (param.unit))
 

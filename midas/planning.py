@@ -76,7 +76,8 @@ other_templates = {
     'LIN_ABS': 'ITLS_MD_LINEAR_ABS.itl',
     'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl',
     'COMMENT': 'ITLS_MD_COMMENT.itl',
-    'WHEEL': 'ITLS_MD_WHEEL_MOVE.itl' }
+    'WHEEL': 'ITLS_MD_WHEEL_MOVE.itl',
+    'HK_RATE': 'ITLS_MD_HK_RATE.itl' }
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
 
@@ -1786,6 +1787,19 @@ class itl:
     def linear_max(self):
         self.generate({'template': 'LINEAR_MAX', 'params': {}}, timedelta(minutes=5))
         return
+
+    def hk_rate(self, hk1=60, hk2=30):
+        """Set the housekeeping telemetry interval for both HK1 (engineering) and
+        HK2 (extended) packets (in seconds)"""
+
+        proc = {}
+        proc['template'] = 'HK_RATE'
+
+        proc['params'] = {
+            'hk1': hk1,
+            'hk2' : hk2 }
+
+        self.generate(proc, duration=timedelta(minutes=1))
 
 
     def wheel_move(self, segment, pwidth=147):

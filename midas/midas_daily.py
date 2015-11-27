@@ -248,6 +248,9 @@ def image_pickle(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir,
         if images is not None:
             pkl.dump(images, file=pkl_f, protocol=pkl.HIGHEST_PROTOCOL)
 
+        del(images)
+        del(tm)
+
     pkl_f.close()
 
     return

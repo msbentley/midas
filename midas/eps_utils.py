@@ -177,7 +177,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
     return True
 
 
-def run_mtp(mtp, case='P', outfolder=None):
+def run_mtp(mtp, case='P', outfolder=None, showout=False):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
     import glob
@@ -229,7 +229,8 @@ def run_mtp(mtp, case='P', outfolder=None):
     # files = os.listdir(mtp_folder)
 
     status = run_eps(itl[0], evf, ros_sgs=True, mtp=mtp,
-                     case=case, outputdir=local_folder)
+                     case=case, outputdir=local_folder,
+                     showout=showout)
 
     if not status:
         return False

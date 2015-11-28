@@ -74,6 +74,13 @@ def run_daily():
         # M.S.Bentley 02/09/2014 - the server has only 1GB of memory and indexing ALL packets
         # causes problems. Breaking down indexing here per file, to see if that helps...
 
+        # Generate tip images
+        ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
+
+        # Use this to write a binary file with all image data
+        print('\n\nINFO: updating binary image index\n')
+        image_pickle()
+
         import glob
         tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD_M*.DAT')))
 
@@ -127,13 +134,6 @@ def run_daily():
 
         print('\n\nINFO: Requesting latest time correlation packet (TCP)\n')
         tcorr = dds_utils.get_timecorr(outputpath=tlm_dir)
-
-        # Use this to write a binary file with all image data
-        print('\n\nINFO: updating binary image index\n')
-        image_pickle()
-
-    # Generate tip images
-    ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
 
     # Download any new SPICE kernels (spawn as background job)
     print('\nINFO: Downloading new or updated SPICE kernels...')

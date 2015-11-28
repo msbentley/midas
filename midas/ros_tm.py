@@ -3224,7 +3224,8 @@ class tm:
         return fvec_header, feature
 
 
-    def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False, expand_params=False, unpack_status=False):
+    def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False,
+        expand_params=False, unpack_status=False, add_retr=False):
         """Extracts images from telemetry packets. Setting info_only=True returns a
         dataframe containing the scan metadata, but no actual images.
 
@@ -3583,7 +3584,8 @@ class tm:
 
 
             # Add a channel showing the any pixels where the retraction height was exceeded
-            images = check_retract(images, boolmask=False)
+            if add_retr:
+                images = check_retract(images, boolmask=False)
 
         print('INFO: %i images found' % (len(info.start_time.unique())))
 
@@ -4529,6 +4531,60 @@ def read_timecorr(tcorr_file='TLM__MD_TIMECORR.DAT'):
 
     return timecorr
 
+
+def wheel_aborts():
+    """Finds wheel aborts and timeouts and reports the times, starting
+    and ending segment to diagnose problems"""
+
+    tlm = tm()
+
+    # Find aborts and segment move timeouts
+
+    tlm.query_index(what='events')
+    wheel_sids = [
+        42752,  # EvWheelMoveAborted
+        42904 ] # EvSegSearchTimeout
+    wheel_evts = tlm.pkts[ tlm.pkts.sid.isin(wheel_sids) ]
+    wheel_evts = wheel_evts[ ['obt','sid', 'description']]
+
+    # Find the previous wheel move start
+    # 42591 = EvSearchForRefPulse
+    start_obts = []
+    start_sid = 42591
+    for idx, evt in wheel_evts.iterrows():
+        start_obts.append(tlm.pkts[ (tlm.pkts.sid==start_sid) & (tlm.pkts.obt < evt.obt) ].obt.iloc[-1])
+    wheel_evts['start_obt'] = start_obts
+
+    # Find the segment number before the move, and the value after seg search start
+    # NMDA0196 = WheSegmentNum
+    seg_from = []
+    seg_to = []
+    seg_param = 'NMDA0196'
+
+    for idx, evt in wheel_evts.iterrows():
+        tlm.query_index(what='hk', start=evt.obt-pd.Timedelta(hours=1), end=evt.obt+pd.Timedelta(hours=1))
+        hk2 = tlm.pkts[ tlm.pkts.sid==2 ]
+
+        frame = hk2[hk2.obt < evt.start_obt].index
+        if len(frame)==0:
+            print('WARNING: no HK2 frame found before wheel start at %s' % evt.start_obt)
+            seg_from.append(None)
+        else:
+            frame = frame[-1]
+            seg_from.append( tlm.get_param(seg_param, frame=frame)[1]) # WheSegmentNum
+
+        frame = hk2[hk2.obt < evt.obt].index
+        if len(frame)==0:
+            print('WARNING: no HK2 frame found after wheel start at %s' % evt.start_obt)
+            seg_to.append(None)
+        else:
+            frame = frame[-1]
+            seg_to.append( tlm.get_param(seg_param, frame=frame)[1]) # WheSegmentNum
+
+    wheel_evts['seg_from'] = seg_from
+    wheel_evts['seg_to'] = seg_to
+
+    return wheel_evts
 
 
 if __name__ == "__main__":

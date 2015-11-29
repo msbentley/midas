@@ -1556,7 +1556,7 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         ax.set_ylim(images.y_orig_um.min()-50.,images.y_orig_um.max()+images[images.y_orig_um==images.y_orig_um.max()].ylen_um.max()+50.)
     plt.show()
 
-    return
+    return fig
 
 
 def locate(pattern, root_path):
@@ -4469,7 +4469,7 @@ def strfdelta(tdelta, fmt):
     return fmt.format(**d)
 
 
-def load_images(filename=None, data=False, sourcepath=common.tlm_path):
+def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only=True):
     """Load a messagepack file containing all image meta-data"""
 
     if filename is None:
@@ -4491,6 +4491,9 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path):
         else:
             filename = os.path.join(common.tlm_path, 'all_images.pkl')
             images = pd.read_pickle(filename)
+
+    if topo_only:
+        images = images[ images.channel=='ZS' ]
 
     images.sort_values(by='start_time', inplace=True)
     images.reset_index(inplace=True, drop=True)

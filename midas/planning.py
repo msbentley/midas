@@ -77,7 +77,8 @@ other_templates = {
     'SETUP': 'ITLS_MD_INSTRUMENT_SETUP.itl',
     'COMMENT': 'ITLS_MD_COMMENT.itl',
     'WHEEL': 'ITLS_MD_WHEEL_MOVE.itl',
-    'HK_RATE': 'ITLS_MD_HK_RATE.itl' }
+    'HK_RATE': 'ITLS_MD_HK_RATE.itl',
+    'CLEAR_ALL': 'ITLS_MD_CLEAR_ALL.itl' }
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
 
@@ -1800,6 +1801,12 @@ class itl:
             'hk2' : hk2 }
 
         self.generate(proc, duration=timedelta(minutes=1))
+
+    def clear_ram(self):
+        """Clear all memory"""
+        self.generate({'template': 'CLEAR_ALL', 'params': {}}, timedelta(minutes=1))
+        return
+
 
 
     def wheel_move(self, segment, pwidth=147):

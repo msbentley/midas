@@ -68,13 +68,12 @@ def run_daily():
 
 
     if new_data:
-        print('\n\nGenerating meta-data spreadsheet for all images')
-        # Read ALL TLM files so far and extract image meta-data to an XLS and CSV spreadsheet
 
         # M.S.Bentley 02/09/2014 - the server has only 1GB of memory and indexing ALL packets
         # causes problems. Breaking down indexing here per file, to see if that helps...
 
         # Generate tip images
+        print('\n\nINFO: generating tip images\n')
         ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
 
         # Use this to write a binary file with all image data
@@ -83,6 +82,9 @@ def run_daily():
 
         import glob
         tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD_M*.DAT')))
+
+        print('\n\nGenerating meta-data spreadsheet for all images')
+        # Read ALL TLM files so far and extract image meta-data to an XLS and CSV spreadsheet
 
         tm = ros_tm.tm()
         for f in tm_files:

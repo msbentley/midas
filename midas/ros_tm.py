@@ -1206,13 +1206,22 @@ def show_grid(images, cols=2, planesub='poly'):
 
     gs = gridspec.GridSpec(rows, cols)
     fig = plt.figure()
+
     grid = 0
+    axes = []
 
     for idx, image in images.iterrows():
 
-        ax = plt.subplot(gs[grid])
-        show(image, fig=fig, ax=ax, planesub=planesub)
+        axes.append(plt.subplot(gs[grid]))
+        show(image, fig=fig, ax=axes[grid], planesub=planesub)
         grid += 1
+
+    # fig.subplots_adjust(bottom = 0)
+    # fig.subplots_adjust(top = 1)
+    # fig.subplots_adjust(right = 1)
+    # fig.subplots_adjust(left = 0)
+
+    # plt.tight_layout() #fig, axes)
 
     return
 
@@ -1261,7 +1270,7 @@ def show_facets(facet_select=None, savefig=None, cols=3):
     return
 
 
-def show_tips(savefig=None):
+def show_tips(savefig=None, info=False):
     """Shows the latest tip image for all 16 tips"""
 
     import matplotlib.gridspec as gridspec
@@ -1283,8 +1292,18 @@ def show_tips(savefig=None):
             ax.set_title('Tip %d' % tip_num, fontsize=12)
             continue
         else:
+
             tip_image = tip_image.iloc[-1].squeeze()
-            show(tip_image, title='Tip %d' % tip_num, fig=fig, ax=ax, cbar=False, planesub='plane')
+
+            if info:
+                # get number of images since this tip image
+                num_images = len(images[ (images.tip_num==tip_num) & (images.channel=='ZS') &
+                    (images.start_time > tip_image.end_time) ])
+                title = 'Tip %d (%s)\n%d images following' % (tip_num, tip_image.start_time, num_images)
+            else:
+                title='Tip %d' % tip_num
+
+            show(tip_image, title=title, fig=fig, ax=ax, cbar=False, planesub='plane')
 
     fig.tight_layout(h_pad=2.5)
 

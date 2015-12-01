@@ -1265,7 +1265,11 @@ def show_facets(facet_select=None, savefig=None, cols=3):
 
     fig.tight_layout(h_pad=5.0)
 
-    plt.show()
+    if savefig is None:
+        plt.show()
+    else:
+        plt.savefig(savefig)
+        plt.close()
 
     return
 
@@ -1309,6 +1313,9 @@ def show_tips(savefig=None, info=False):
 
     if savefig is not None:
         fig.savefig(savefig)
+        plt.close()
+    else:
+        plt.show()
 
     return
 
@@ -1449,7 +1456,8 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
             else:
                 print('INFO: no frequency re-tunes occured during the image at OBT %s' % image.start_time)
 
-    plt.show()
+    if fig is None:
+        plt.show()
 
     return figure, axis
 
@@ -1573,7 +1581,9 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     else:
         ax.set_xlim(images.x_orig_um.min()-50.,images.x_orig_um.max()+images[images.x_orig_um==images.x_orig_um.max()].xlen_um.max()+50.)
         ax.set_ylim(images.y_orig_um.min()-50.,images.y_orig_um.max()+images[images.y_orig_um==images.y_orig_um.max()].ylen_um.max()+50.)
-    plt.show()
+
+    if fig is None:
+        plt.show()
 
     return fig
 

@@ -152,9 +152,9 @@ s2_channels = ['RD', 'CF']
 retr_channel = ['RT']
 data_channels = channels + status_channels + s2_channels + retr_channel
 
-cal_factors = [ zcal, 20./65535., 1, 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1,1,1,1 ]
+cal_factors = [ zcal, 20./65535., 1, 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1,1,1, zcal]
 offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,0.]
-units = ['nm', 'V', 'none', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none','none','none','none' ]
+units = ['nm', 'V', 'none', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none','none','none','nm' ]
 channel_names = [
     'Topography (Z piezo position set value)', # ZS
     'Cantilever AC signal', # AC

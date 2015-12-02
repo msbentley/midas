@@ -778,7 +778,7 @@ def to_bcr(images, outputdir='.'):
     return bcrs if len(bcrs) > 1 else bcrs[0]
 
 
-def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
+def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, pt_spec=False):
     """Accepts one or more sets of image data from get_images() and returns individual
     GWY files, with multiple channels combined in single files and all meta-data.
 
@@ -867,7 +867,8 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
 
                 if pt_spec:
                     # check for control data packets sent between image start and image end (+/- 5 minutes)
-                    telem = tm(scan['filename'].iloc[0])
+                    if telem is None:
+                        telem = tm(scan['filename'].iloc[0])
                     ctrl = telem.get_ctrl_data()
                     ctrl = ctrl[ (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
                         (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
@@ -900,11 +901,13 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', pt_spec=False):
 
                             if ctrl_pt.scan_dir=='X':
                                 xpos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * xcal * 10**xy_power
-                                ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
+                                # ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
+                                ypos = (i // 32) * channel.y_step * ycal * 10**xy_power
 
                             else:
                                 ypos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * ycal * 10**xy_power
-                                xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
+                                # xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
+                                xpos = (i // 32) * channel.x_step * xcal * 10**xy_power
 
                             spec.add_spectrum(spec_data, xpos, ypos)
                             i += 1
@@ -1226,7 +1229,7 @@ def show_grid(images, cols=2, planesub='poly'):
     return
 
 
-def show_facets(facet_select=None, savefig=None, cols=3):
+def show_facets(facet_select=None, savefig=None, cols=3,  show_stripes=True, zoom_out=False, title=True):
     """Show the coverage to date of all facets if facet_select=None
     or show a single, or list of facets"""
 
@@ -1261,7 +1264,8 @@ def show_facets(facet_select=None, savefig=None, cols=3):
         plt.setp(ax.get_xticklabels(), rotation=45)
 
         # def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False):
-        show_loc( images[ images.target==facet ], figure=fig, axis=ax, labels=False, title=False, font=8)
+        show_loc( images[ images.target==facet ], figure=fig, axis=ax, labels=False, title=title, font=8,
+            show_stripes=show_stripes, zoom_out=zoom_out)
 
     fig.tight_layout(h_pad=5.0)
 

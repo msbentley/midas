@@ -80,12 +80,11 @@ def run_daily():
         print('\n\nINFO: updating binary image index\n')
         image_pickle()
 
-        import glob
-        tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD_M*.DAT')))
-
         print('\n\nGenerating meta-data spreadsheet for all images')
         # Read ALL TLM files so far and extract image meta-data to an XLS and CSV spreadsheet
 
+        import glob
+        tm_files = sorted(glob.glob(os.path.join(tlm_dir,'TLM__MD_M*.DAT')))
         tm = ros_tm.tm()
         for f in tm_files:
             tm.get_pkts(f, append=True)

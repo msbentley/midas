@@ -3210,10 +3210,8 @@ class tm:
 
 
 
-    def get_feature_vectors(self):
+    def get_feature_vectors(self, header=False):
         """Checks for feature vector packets and returns the relevant data"""
-
-        # TODO: fix so it handles multiple fvec sets
 
         import struct
 
@@ -3236,6 +3234,10 @@ class tm:
             print('WARNING: no feature vector packets found')
             return False
 
+        feature_out = pd.DataFrame([], columns=fvec_names._fields)
+
+        header = []
+
         for idx,pkt in fvec_pkts.iterrows():
 
             fvec_header = fvec_header_names(*struct.unpack(fvec_header_fmt,pkt['data'][0:fvec_header_size]))
@@ -3245,17 +3247,27 @@ class tm:
             fvec_header['feat_weight'] *= (4./65535.)
             fvec_header['regress_x'] /= 65536.
             fvec_header['regress_y'] /= 65536.
+            fvec_header['obt'] = pkt.obt
+
+            header.append(fvec_header)
 
             for feat_num in range(fvec_header['num_fvec']):
                 feature_start = fvec_header_size+feat_num*fvec_size
                 feature_end = feature_start + fvec_size
                 feature.append(fvec_names(*struct.unpack(fvec_fmt,pkt['data'][feature_start:feature_end])))
 
-        feature = pd.DataFrame(feature, columns=fvec_names._fields)
+            current_feature = pd.DataFrame(feature, columns=fvec_names._fields)
+            current_feature['obt'] = pkt.obt
+            feature_out = feature_out.append(current_feature)
 
         print('INFO: %i feature vectors extracted' % len(feature))
 
-        return fvec_header, feature
+        if header:
+            header = pd.DataFrame(header)
+            header.drop(['sid', 'sw_major', 'sw_minor'], inplace=True, axis=1)
+            return header, feature_out
+        else:
+            return feature_out
 
 
     def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False,

@@ -899,7 +899,8 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, pt_s
                             # need to calculate this from dimensions, open/closed loop and main scan direction
                             # of the parent image. Update when the OBSW has been upgraded!
 
-                            if ctrl_pt.scan_dir=='X':
+                            # if ctrl_pt.scan_dir=='X':
+                            if channel.fast_dir=='X':
                                 xpos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * xcal * 10**xy_power
                                 # ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
                                 ypos = (i // 32) * channel.y_step * ycal * 10**xy_power

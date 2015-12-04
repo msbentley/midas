@@ -10,8 +10,7 @@ import gwy, gwyutils, re
 import pandas as pd
 import numpy as np
 
-
-def extract_masks(gwy_file, channel=None):
+def extract_masks(gwy_file, channel=None, return_df=False):
     """Looks for mask channels within the Gwyddion file and returns these
     masks as a list of numpy arrays. If channel= is given a string, only
     channels with names containing this string are returned."""
@@ -53,9 +52,12 @@ def extract_masks(gwy_file, channel=None):
     for chan in matching:
 
         datafield = C.get_value_by_name('/%d/mask' % chan)
-        data = np.array(datafield.get_data(), dtype=np.bool).reshape(
-            datafield.get_yres(), datafield.get_xres())
-        mask_data.append(data)
+        if return_df:
+            mask_data.append(datafield)
+        else:
+            data = np.array(datafield.get_data(), dtype=np.bool).reshape(
+                datafield.get_yres(), datafield.get_xres())
+            mask_data.append(data)
 
     if len(mask_data)>1:
         print('INFO: %d masks extracted from Gwyddion file %s' %
@@ -253,3 +255,52 @@ def gwy_to_bcr(gwyfile, channel, bcrfile=None):
     # Set minimal data to default values if not present
     if not 'xlength' in bcrdata: bcrdata['xlength'] = bcrdata['xpixels']
     if not 'ylength' in bcrdata: bcrdata['ylength'] = bcrdata['ypixels']
+
+
+def get_grain_data(gwy_file, chan_name=None, datatype=None):
+    """Extract grain data from the specificed channels in a Gwyddion file.
+    Channels can be filtered via chan_name=, otherwise all channels containin
+    a mask will be used. All grain properties are return unless datatype= is
+    given as a list of data types."""
+
+    channels = list_chans(gwy_file, filter=chan_name, masked=True)
+    if len(channels)==0:
+        print('ERROR: no channels matching %s in file %s' % (chan_name, gwy_file))
+        return None
+
+    masks = extract_masks(gwy_file, channel=chan_name, return_df=True)
+
+    if datatype is not None:
+        if type(datatype) != list:
+            datatype = [datatype]
+
+    # Obtain a list of all grain data types available in Gwyddion and tidy up
+    grain_types = [item for item in dir(gwy) if item.startswith('GRAIN_VALUE')]
+    grain_types = [item.split('GRAIN_VALUE_')[1] for item in grain_types]
+
+    # If a datatype list is given, filter to requested types, if valid
+    if datatype is not None:
+        selected = [item for item in grain_types if item in datatype]
+        if len(selected)==0 & datatype is not None:
+            print('WARNING: cannot find specified grain data type, defaulting to all')
+            datatype = None
+            selected = grain_types
+    else:
+        selected = grain_types
+
+    graindata = pd.DataFrame([], columns=selected)
+
+    # For each channel, loop through the masks and extract named properties into a df
+    for idx, (name, mask) in enumerate(zip(channels.values(), masks)):
+        num_grains = mask.number_grains()
+        row_data = {}
+        row_data['channel'] = name
+        for sel in selected:
+            property = getattr(gwy, 'GRAIN_VALUE_'+sel)
+            row_data[sel] = mask.grains_get_distribution(mask, num_grains, property, -1).get_real()
+        graindata = graindata.append(row_data, ignore_index=True)
+
+    # rename column names to be lower case
+    graindata.columns = map(str.lower, graindata.columns)
+
+    return graindata

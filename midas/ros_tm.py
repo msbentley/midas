@@ -2419,7 +2419,7 @@ class tm:
 
 
         uhoh = events[events.severity!='PROGRESS']
-        if (len(uhoh)>0) & verbose:
+        if (len(uhoh)>0) and verbose:
             print('WARNING: non-nominal events detected:\n')
             common.printtable(uhoh[['obt','event']])
 

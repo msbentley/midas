@@ -404,13 +404,14 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     from skimage import measure
 
     # Get all masked channels matching the sub-particle filter
-    channels = gwy_utils.list_chans(gwyfile, chan, masked=True)
+    channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True)
     if len(channels)==0:
         print('ERROR: no channels found matching: %s' % chan)
         return None
 
     # Get meta-data from the first channel of the GWY file
-    meta = gwy_utils.get_meta(gwyfile)
+    # meta = gwy_utils.get_meta(gwyfile)
+    meta = channels.iloc[0]
 
     # Calculate the pixel area (simply x_step*y_step)
     pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
@@ -418,10 +419,10 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
 
     pcle_data = []
 
-    for chan_id, chan_name in channels.items():
-
-        mask = gwy_utils.extract_masks(gwyfile, chan_name)
-        xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name)
+    for idx, channel in channels.iterrows():
+        # chan_id, chan_name
+        mask = gwy_utils.extract_masks(gwyfile, channel['name'])
+        xlen, ylen, data = gwy_utils.get_data(gwyfile, channel['name'])
 
         locs = np.where(mask)
         left, right = locs[1].min(), locs[1].max()
@@ -439,8 +440,8 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
         subpcle = {
 
             'pcle': pcle,
-            'id': chan_id,
-            'name': chan_name,
+            'id': channel.id,
+            'name': channel['name'],
             'left': left,
             'right': right,
             'up': up,

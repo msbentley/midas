@@ -405,6 +405,9 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
 
     # Get all masked channels matching the sub-particle filter
     channels = gwy_utils.list_chans(gwyfile, chan, masked=True)
+    if len(channels)==0:
+        print('ERROR: no channels found matching: %s' % chan)
+        return None
 
     # Get meta-data from the first channel of the GWY file
     meta = gwy_utils.get_meta(gwyfile)

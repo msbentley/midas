@@ -281,7 +281,7 @@ def get_grain_data(gwy_file, chan_name=None, datatype=None):
     # If a datatype list is given, filter to requested types, if valid
     if datatype is not None:
         selected = [item for item in grain_types if item in datatype]
-        if len(selected)==0 & datatype is not None:
+        if len(selected)==0 and datatype is not None:
             print('WARNING: cannot find specified grain data type, defaulting to all')
             datatype = None
             selected = grain_types

@@ -69,7 +69,7 @@ def extract_masks(gwy_file, channel=None, return_df=False):
     return mask_data
 
 
-def list_chans(gwy_file, filter=None, masked=False):
+def list_chans(gwy_file, filter=None, masked=False, info=False):
     """Lists the channels in a Gwyddion file.
 
     If filter is given, only channels whose names contain this substring will be returned.
@@ -101,6 +101,23 @@ def list_chans(gwy_file, filter=None, masked=False):
         for chan_num in channels.keys():
             if not C.contains_by_name('/%d/mask' % chan_num):
                 del(channels[chan_num])
+
+    if info:
+        # If additional information is requested, use the selected channels
+        # and retrieve the datafield and associated parameters
+        channel_data = pd.DataFrame(columns=['id', 'name', 'xlen_um', 'ylen_um', 'xpix', 'ypix'])
+        for idx, chan_num in enumerate(channels.keys()):
+            datafield = C.get_value_by_name('/%d/data' % chan_num)
+            channel_data.loc[idx] = pd.Series({
+                'id': chan_num,
+                'name': channels[chan_num],
+                'xlen_um': 1.e6 * datafield.get_xreal(),
+                'ylen_um': 1.e6 * datafield.get_yreal(),
+                'xpix': datafield.get_xres(),
+                'ypix': datafield.get_yres() })
+        channel_data['x_step_nm'] = 1.e3 * channel_data.xlen_um / channel_data.xpix
+        channel_data['y_step_nm'] = 1.e3 * channel_data.ylen_um / channel_data.ypix
+        channels = channel_data
 
     return channels
 

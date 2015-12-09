@@ -3102,10 +3102,10 @@ class tm:
     def get_ctrl_data(self, rawdata=False, info_only=False, expand_params=False):
         """Extracts control data from TM packets"""
 
-        ctrl_data_fmt = ">H2Bh6H2B2H3H"
+        ctrl_data_fmt = ">H2Bh6H3H3H"
         ctrl_data_size = struct.calcsize(ctrl_data_fmt)
         ctrl_data_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_pos \
-            wheel_posn tip_num x_orig y_orig step_size num_steps scan_mode scan_dir main_cnt \
+            wheel_posn tip_num x_orig y_orig step_size num_steps scan_mode main_cnt \
             num_meas block_addr sw_flags spare")
 
         ctrl_data_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=133)
@@ -3131,9 +3131,17 @@ class tm:
         ctrl_data['sw_ver'] = ctrl_data['sw_ver'].str.cat(ctrl_data['sw_minor'].values.astype(str),sep='.')
         ctrl_data['lin_pos'] = ctrl_data.lin_pos.apply( lambda pos: pos*20./65535.)
         ctrl_data['tip_num'] += 1
-        ctrl_data['scan_dir'] = ctrl_data.scan_mode.apply( lambda fast: 'X' if (fast >> 12 & 1)==0 else 'Y')
-        ctrl_data['x_dir'] = ctrl_data.scan_mode.apply( lambda xdir: 'H_L' if (xdir >> 8 & 1) else 'L_H')
+        # Scan mode and direction:
+        # Bits 15-13: Spare
+        # Bit     12: Main scan direction (0 = X, 1 = Y)
+        # Bit   11-9: Spare
+        # Bit      8: Line scan direction (0 = low2high, 1 = high2low)
+        # Bit    7-2: Spare
+        # Bit    0-1: Mode (0 = dynamic, 1 = contact, 2 = magnetic)
+        ctrl_data['fast_dir'] = ctrl_data.scan_mode.apply( lambda fast: 'X' if (fast >> 12 & 1)==0 else 'Y')
+        ctrl_data['scan_dir'] = ctrl_data.scan_mode.apply( lambda xdir: 'H_L' if (xdir >> 8 & 1) else 'L_H')
         ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
+
         ctrl_data['hires'] = ctrl_data.sw_flags.apply( lambda flags: bool(flags >> 1 & 1))
         ctrl_data['in_image'] = ctrl_data.sw_flags.apply( lambda flag: bool(flag & 1))
 

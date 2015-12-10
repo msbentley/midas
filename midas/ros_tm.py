@@ -2666,6 +2666,7 @@ class tm:
         label_events= can be one of scan, fscan, lines or all and will label events."""
 
         import matplotlib.dates as md
+        import matplotlib.transforms as transforms
         from dateutil import parser
         import math
 
@@ -2794,7 +2795,8 @@ class tm:
 
             for idx, event in events.iterrows():
                 ax_left.axvline(event.obt,color='r')
-                ax_left.text(event.obt,max(data)*0.9,event.event,rotation=90, clip_on=True)
+                trans = transforms.blended_transform_factory(ax_left.transData, ax_left.transAxes)
+                ax_left.text(event.obt,0.9,event.event,rotation=90, transform=trans, clip_on=True)
 
         plt.draw()
 

@@ -2245,12 +2245,13 @@ class itl:
 
 
     def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
-        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
+        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=0.0,
+        safety_factor=4.0):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         self.scan(cantilever=cantilever, facet=1, channels=channels, openloop=openloop, \
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep, \
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, contact=contact, threshold=threshold,
+            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor=safety_factor, contact=contact, threshold=threshold,
             dc_set=dc_set, zapp_pos=zapp_pos)
 
         return
@@ -2258,7 +2259,7 @@ class itl:
     def tip_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=False, ystep=False,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
         fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2,
-        z_settle=50, xy_settle=50, contact=False, threshold=False, dc_set=False, zapp_pos=0.0):
+        z_settle=50, xy_settle=50, contact=False, threshold=False, dc_set=False, zapp_pos=0.0, safety_factor=4.0):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         # set default steps according to open or closed loop mode
@@ -2272,7 +2273,7 @@ class itl:
 
         self.scan(cantilever=cantilever, facet=3, channels=channels, openloop=openloop,
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor = 4.0, xorigin=xorigin, yorigin=yorigin,
+            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor=safety_factor, xorigin=xorigin, yorigin=yorigin,
             op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
             set_start=set_start, fadj_numscans=fadj_numscans, z_settle=z_settle, xy_settle=xy_settle,
             contact=contact, threshold=threshold, dc_set=dc_set, zapp_pos=zapp_pos)

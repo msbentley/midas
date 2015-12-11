@@ -458,9 +458,9 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
             'minor': region.minor_axis_length * pix_len,
             'eccen': region.eccentricity,
             'compact': region.perimeter**2. / (4.*np.pi*pcle.count()),
-            'sphericity': min( (region.major_axis_length/region.minor_axis_length),
+            'sphericity': min( (region.minor_axis_length/region.major_axis_length),
                 (pcle.max()/(region.major_axis_length*pix_len)),
-                (pcle.max()/(region.minor_axis_length*pix_len)) ),
+                ((region.minor_axis_length*pix_len)/pcle.max()) ),
             'orient': np.degrees(region.orientation),
             'pdata': pcle
             }

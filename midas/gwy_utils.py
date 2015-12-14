@@ -69,12 +69,17 @@ def extract_masks(gwy_file, channel=None, return_df=False):
     return mask_data
 
 
-def list_chans(gwy_file, filter=None, masked=False, info=False):
-    """Lists the channels in a Gwyddion file.
+def list_chans(gwy_file, filter=None, log=False, masked=False, info=False):
+    """Lists the data channels in a Gwyddion file.
 
     If filter is given, only channels whose names contain this substring will be returned.
 
-    If masked=True only channels contaning a mask will be returned."""
+    If log is True, only data channels containing log information will be returned.
+
+    If masked=True, channels containing a mask will be returned instead."""
+
+    if log:
+        masked = False
 
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
     keys = zip(C.keys(), C.keys_by_name())
@@ -94,6 +99,12 @@ def list_chans(gwy_file, filter=None, masked=False, info=False):
     else:
         for chan_num, chan_name in channels.items():
             if filter not in chan_name:
+                del(channels[chan_num])
+
+    # Also check if they contain masks
+    if log:
+        for chan_num in channels.keys():
+            if not C.contains_by_name('/%d/data/log' % chan_num):
                 del(channels[chan_num])
 
     # Also check if they contain masks
@@ -321,3 +332,56 @@ def get_grain_data(gwy_file, chan_name=None, datatype=None):
     graindata.columns = map(str.lower, graindata.columns)
 
     return graindata
+
+
+def read_log(gwy_file, channel=None):
+    """Reads a Gwyddion log file"""
+
+    channels = list_chans(gwy_file, filter=channel, log=True, masked=False)
+    if len(channels)==0:
+        print('ERROR: no channels matching %s in file %s' % (chan_name, gwy_file))
+        return None
+
+    C = gwy.gwy_file_load(gwy_file,gwy.RUN_NONINTERACTIVE)
+
+    def logparser(entry):
+    # type::function(param=value,...)@time
+    # fn_type, fn, params, time =
+
+        fn_type = entry.split('::')[0]
+        fn = entry.split('::')[1].split('(')[0]
+        param_list = entry.split('(')[1].split(')')[0].split(',')
+        params = []
+        for param in param_list:
+            if len(param)==0:
+                break
+            par, val = param.split('=')
+            params.append({'param': par.strip(), 'value':val.strip()})
+        time = pd.Timestamp(entry.split('@')[1])
+
+        return fn_type, fn, params, time
+
+    # Extract log for all channels and put it in a dataframe
+    log_list = []
+
+    for channel in channels.keys():
+        log = C.get_value_by_name('/%d/data/log' % channel)
+        if log is None:
+            print('WARNING: no log found for channel ID %d' % channel)
+            continue
+        logs = []
+        for step in range(log.get_length()):
+            log_entry = {}
+            fn_type, fn, params, time = logparser(log.get(step))
+            log_entry['channel'] = channel
+            log_entry['function_type'] = fn_type
+            log_entry['function'] = fn
+            log_entry['params'] = None if len(params)==0 else params
+            log_entry['time'] = time
+            log_list.append(log_entry)
+
+    log = pd.DataFrame(log_list)
+    # log.sort('time', inplace=True)
+    log = log.drop_duplicates('time')
+
+    return log

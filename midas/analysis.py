@@ -435,7 +435,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
         region = regions[0]
 
         if pcle.count() != int(region.area):
-            print('WARNING: region count does not match mask count')
+            print('WARNING: region count does not match mask count (>1 grain per mask)')
 
         subpcle = {
 

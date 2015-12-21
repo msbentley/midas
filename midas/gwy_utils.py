@@ -9,11 +9,16 @@ A module containing routines to manipulate Gwyddion (.gwy) files"""
 import gwy, gwyutils, re
 import pandas as pd
 import numpy as np
+import os
 
 def extract_masks(gwy_file, channel=None, return_df=False):
     """Looks for mask channels within the Gwyddion file and returns these
     masks as a list of numpy arrays. If channel= is given a string, only
     channels with names containing this string are returned."""
+
+    if not os.path.isfile(gwy_file):
+        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        return None
 
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
     keys = zip(C.keys(), C.keys_by_name())
@@ -81,6 +86,10 @@ def list_chans(gwy_file, filter=None, log=False, masked=False, info=False):
     if log:
         masked = False
 
+    if not os.path.isfile(gwy_file):
+        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        return None
+
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
     keys = zip(C.keys(), C.keys_by_name())
 
@@ -138,6 +147,10 @@ def add_mask(gwy_file, mask, chan_name):
     and creates a new mask with the passed boolean array if the
     dimensions match"""
 
+    if not os.path.isfile(gwy_file):
+        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        return None
+
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
     keys = zip(C.keys(), C.keys_by_name())
 
@@ -189,6 +202,10 @@ def get_data(gwy_file, chan_name=None):
     """Returns data from a Gwyddion file with channel matching channel=, or
     the first channel if channel=None."""
 
+    if not os.path.isfile(gwy_file):
+        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        return None
+
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
     keys = zip(C.keys(), C.keys_by_name())
 
@@ -234,6 +251,10 @@ def get_meta(gwyfile):
     """Returns all meta-data from a Gwyddion file. Note that all returned data
     will be in strings, and the user must ensure correct type conversion!"""
 
+    if not os.path.isfile(gwy_file):
+        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        return None
+
     C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
 
     metadata = {}
@@ -247,7 +268,7 @@ def get_meta(gwyfile):
     return pd.Series(metadata) #.convert_objects(convert_numeric=True, convert_dates=True)
 
 
-def gwy_to_bcr(gwyfile, channel, bcrfile=None):
+def gwy_to_bcr(gwy_file, channel, bcrfile=None):
     """Converts a given channel in a Gywddion .gwy file to a BCR. If
     bcrfile=None, the Gwyddion filename will be used and the extension
     changed."""
@@ -255,15 +276,15 @@ def gwy_to_bcr(gwyfile, channel, bcrfile=None):
     import bcrutils, common
 
     # Read a given channel from GWY file
-    xlen, ylen, data = get_data(gwyfile, chan_name=channel)
+    xlen, ylen, data = get_data(gwy_file, chan_name=channel)
 
     if data is None:
         print('ERROR: no valid data found for channel %s in GWY file %s' % (
-            channel, gwyfile) )
+            channel, gwy_file) )
         return None
 
     bcrdata = {}
-    bcrdata['filename'] = bcrfile if bcrfile is not None else gwyfile.replace('.gwy', '.bcr')
+    bcrdata['filename'] = bcrfile if bcrfile is not None else gwy_file.replace('.gwy', '.bcr')
 
     bcrdata['xpixels'] = data.shape[1]
     bcrdata['ypixels'] = data.shape[0]
@@ -292,6 +313,10 @@ def get_grain_data(gwy_file, chan_name=None, datatype=None):
     given as a list of data types."""
 
     channels = list_chans(gwy_file, filter=chan_name, masked=True)
+
+    if channels is None:
+        return None
+
     if len(channels)==0:
         print('ERROR: no channels matching %s in file %s' % (chan_name, gwy_file))
         return None
@@ -338,6 +363,10 @@ def read_log(gwy_file, channel=None):
     """Reads a Gwyddion log file"""
 
     channels = list_chans(gwy_file, filter=channel, log=True, masked=False)
+
+    if channels is None:
+        return None
+
     if len(channels)==0:
         print('ERROR: no channels matching %s in file %s' % (chan_name, gwy_file))
         return None

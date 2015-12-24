@@ -192,13 +192,13 @@ def submit_request(template, request, socks):
         if tunnel.returncode:
             print('Tunnel open return code: %i' % (tunnel.returncode))
 
-        time.sleep(10) # tunnel stays open, hence no return code and just need to wait
+        time.sleep(20) # tunnel stays open, hence no return code and just need to wait
 
         import socks as proxy
         proxy.setdefaultproxy(proxy.PROXY_TYPE_SOCKS5, 'localhost', 1080)
         proxy.wrapmodule(ftplib)
 
-    ftp = ftplib.FTP('rodda.esoc.ops.esa.int')
+    ftp = ftplib.FTP('rodda.esoc.ops.esa.int', timeout=30)
     ftp.login('roreq', 'rod6$')
 
     # check we're in the right directory (should be by default)

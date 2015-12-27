@@ -194,6 +194,8 @@ def plot_line_scans(lines, units='real', label=None, align=False, title=None):
     if title is not None:
         ax.set_title(title)
 
+    plt.show()
+
     return
 
 
@@ -265,6 +267,8 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
     ax.set_xlim(xmin,xmax)
     ax.set_ylim(ymin,ymax)
+
+    plt.show()
 
     return
 
@@ -2798,7 +2802,7 @@ class tm:
                 trans = transforms.blended_transform_factory(ax_left.transData, ax_left.transAxes)
                 ax_left.text(event.obt,0.9,event.event,rotation=90, transform=trans, clip_on=True)
 
-        plt.draw()
+        plt.show()
 
         return plot_fig
 

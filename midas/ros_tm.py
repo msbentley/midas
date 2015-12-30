@@ -1664,7 +1664,7 @@ class tm:
 
 
     def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'),
-        start=None, end=None, stp=None, what='all', sourcepath=common.tlm_path):
+        start=None, end=None, stp=None, what='all', sourcepath=common.tlm_path, rows=None):
         """Restores a TLM packet index from filename. The entire file is read if no other options are given, otherwise
         filters can be applied:
 
@@ -1694,6 +1694,13 @@ class tm:
 
         table = 'pkts'
         store = pd.HDFStore(filename, 'r')
+
+        if rows is not None:
+            self.pkts = store.select(table, where=list(rows))
+            if sourcepath is not None:
+                self.pkts.filename = self.pkts.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
+            store.close()
+            return
 
         if start is None and end is None and stp is None and (what=='all'):
             self.pkts = store.get(table)

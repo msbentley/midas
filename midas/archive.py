@@ -111,7 +111,7 @@ def search_params(search=''):
 
 
 
-def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on_disk=False):
+def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on_disk=False, rows=None):
     """Read in data for a given APID and SID and return a dataframe of calibrated
     data for all matching frames. This can then be written to an archive.
 
@@ -127,10 +127,12 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
     if not fmt: return False
 
     # Index TM files and filter by APID and SID
-
     if use_index:
         tm = ros_tm.tm()
-        tm.query_index(what='hk')
+        if rows is not None:
+            tm.query_index(rows=rows)
+        else:
+            tm.query_index(what='hk')
     else:
         tm = ros_tm.tm(files)
 
@@ -199,10 +201,16 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
     return hk_data
 
 
-def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive_raw.h5', calibrate=False, use_index=False, on_disk=False):
-    """Writes a DataFrame of (optionally) calibrated TM data to an hdf5 archive"""
+def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive_raw.h5',
+        calibrate=False, use_index=False, on_disk=False, chunksize=None):
+    """Writes a DataFrame of (optionally) calibrated TM data to an hdf5 archive.
 
-    # data.to_hdf(hdf5file, pkt_name, mode='w', format='table', data_columns=True)
+    TM files (and optionally a TM index) are read from tlm_path, matching files
+    Archive files are written to archive_path with the filename archfile
+    if calibrate=True, data are calibrated first (slow/larger file, but cross platform)
+    if use_index=True TLM files are not read individually but an existing packet index is loaded
+    chunksize= specifies how many HK packets are processed in one chunk when use_index=True,
+    if None then all data are read."""
 
     import glob
 
@@ -224,11 +232,38 @@ def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common
 
     else:
 
-        hk = read_data(files=None, apid=apid, sid=1, calibrate=calibrate, use_index=True, on_disk=on_disk)
-        store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
+        if chunksize is None:
 
-        hk = read_data(files=None, apid=apid, sid=2, calibrate=calibrate, use_index=True, on_disk=on_disk)
-        store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
+            hk = read_data(files=None, apid=apid, sid=1, calibrate=calibrate, use_index=True, on_disk=on_disk)
+            store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
+
+            hk = read_data(files=None, apid=apid, sid=2, calibrate=calibrate, use_index=True, on_disk=on_disk)
+            store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
+
+        else:
+
+            pkt_store = pd.HDFStore(os.path.join(common.tlm_path, 'tlm_packet_index.hd5'), 'r')
+            table = 'pkts'
+            apid = 1076
+            col = pkt_store.select_column(table,'apid')
+            nrows = pkt_store.get_storer('pkts').nrows
+            pkt_store.close()
+            selected = set(np.arange(nrows))
+            selected = list(selected.intersection( col[ col==apid ].index ))
+            # store.select(table, where=list(selected))
+            num_hk = len(selected)
+
+            for i in xrange(num_hk//chunksize + 1):
+
+                start=i*chunksize
+                stop=(i+1)*chunksize
+                idx = selected[start:stop]
+
+                hk = read_data(files=None, apid=apid, sid=1, calibrate=calibrate, use_index=True, on_disk=on_disk, rows=idx)
+                store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
+
+                hk = read_data(files=None, apid=apid, sid=2, calibrate=calibrate, use_index=True, on_disk=on_disk, rows=idx)
+                store.append('HK2', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
 
     store.root._v_attrs.calibrated = calibrate
 

@@ -259,6 +259,8 @@ def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common
                 stop=(i+1)*chunksize
                 idx = selected[start:stop]
 
+                print('INFO: processing chunk %i of %i' % (i+1, num_hk//chunksize))
+
                 hk = read_data(files=None, apid=apid, sid=1, calibrate=calibrate, use_index=True, on_disk=on_disk, rows=idx)
                 store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
 

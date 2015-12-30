@@ -63,8 +63,8 @@ def run_daily():
         del(tm)
 
         # Adding new data from these files into the HK archive
-        # print('\n\nAdding new data to the HK archive\n')
-        # archive.append(tlm_files=obs_fname, tlm_path=obs_path, on_disk=True)
+        print('\n\nAdding new data to the HK archive\n')
+        archive.append(tlm_files=obs_fname, tlm_path=obs_path, on_disk=True)
 
 
     if new_data:

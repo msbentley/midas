@@ -268,7 +268,8 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
     ax.set_xlim(xmin,xmax)
     ax.set_ylim(ymin,ymax)
 
-    plt.show()
+    if figure is None:
+        plt.show()
 
     return
 

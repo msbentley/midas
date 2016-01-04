@@ -362,6 +362,7 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
 
     store = pd.HDFStore(os.path.join(archive_path,archfile), 'r')
 
+    # Extract the available parameter (column) names
     hk1_params = store.root.HK1.table.colpathnames
     hk1_params.remove('index')
 
@@ -372,6 +373,8 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
         print('ERROR: one or more parameters not found in the archive')
         return False
 
+    # Work out which of the requested parameters is in HK1 and which in HK2
+    # Extract indices (different for both tables!), then data
     hk1_list = [param for param in params if param in hk1_params]
     if len(hk1_list) > 0:
         hk1_index = store.select_column('HK1','index').values
@@ -382,6 +385,7 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
         hk2_index = store.select_column('HK2','index').values
         hk2_data = pd.DataFrame(columns=hk2_list, index=hk2_index)
 
+    # Extract data from the HK tables and calibrate if necessary
     for param in params:
 
         if param in hk1_params:
@@ -396,12 +400,25 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
 
     store.close()
 
+    # If parameters are from both HK1 and HK2, merge and sort by timestamp
+    # Also filter by start/end time here (quicker to load entire dataset and
+    # reduce here, but if memory becomes a problem can do during HDF read)
     if len(hk1_list)==0:
-        return hk2_data
+        if start is None: start = hk2_data.index.min()
+        if end is None: end = hk2_data.index.max()
+        return hk2_data[ (hk2_data.index>start) & (hk2_data.index<end)]
     elif len(hk2_list)==0:
-        return hk1_data
+        if start is None: start = hk1_data.index.min()
+        if end is None: end = hk1_data.index.max()
+        return hk1_data[ (hk1_data.index>start) & (hk1_data.index<end)]
     else:
-        return pd.concat([hk1_data, hk2_data]).sort()
+        if start is None:
+            start = min(hk1_data.index.min(), hk2_data.index.min())
+        if end is None:
+            end = max(hk1_data.index.max(), hk2_data.index.max())
+
+        data = pd.concat([hk1_data, hk2_data]).sort_index()
+        return data[ (data.index>start) & (data.index<end) ]
 
 
 def plot(param, start=None, end=None, max_pts=10000):

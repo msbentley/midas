@@ -402,3 +402,66 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
         return hk1_data
     else:
         return pd.concat([hk1_data, hk2_data]).sort()
+
+
+def plot(param, start=None, end=None, max_pts=10000):
+
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as md
+
+    # Resample code cribbed from http://matplotlib.org/examples/event_handling/resample.html
+    class DataDisplayDownsampler(object):
+        def __init__(self, xdata, ydata):
+            self.origYData = ydata
+            self.origXData = xdata
+            self.numpts = max_pts
+            self.delta = xdata[-1] - xdata[0]
+
+        def resample(self, xstart, xend):
+            if type(xstart)==np.float64: xstart = md.num2date(xstart)
+            if type(xend)==np.float64: xend = md.num2date(xend)
+
+            mask = (self.origXData > xstart) & (self.origXData < xend)
+            xdata = self.origXData[mask]
+            ratio = int(xdata.size / self.numpts) + 1
+            xdata = xdata[::ratio]
+
+            ydata = self.origYData[mask]
+            ydata = ydata[::ratio]
+
+            return xdata, ydata
+
+        def update(self, ax):
+            lims = ax.viewLim
+            if np.abs(  md.num2date(lims.x1)-md.num2date(lims.x0) - self.delta) > pd.Timedelta(seconds=1):
+                self.delta = md.num2date(lims.x1)-md.num2date(lims.x0)
+                xstart, xend = lims.intervalx
+                self.line.set_data(*self.resample(xstart, xend))
+                ax.figure.canvas.draw_idle()
+
+    data = query(param, start=start, end=end)
+    xdata = data.index
+    ydata = data
+
+    d = DataDisplayDownsampler(xdata, ydata)
+
+    fig, ax = plt.subplots()
+    xdata, ydata = d.resample(xdata[0], xdata[-1])
+
+    fig.autofmt_xdate()
+    xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+    ax.xaxis.set_major_formatter(xfmt)
+    ax.xaxis_date()
+
+    ax.set_xlabel('On-board time')
+
+    param_name = ros_tm.pcf[ros_tm.pcf.param_name==param].description.squeeze()
+    ax.set_ylabel(param_name)
+
+    d.line, = ax.plot(xdata, ydata)
+    ax.set_autoscale_on(False)  # Otherwise, infinite loop
+    ax.callbacks.connect('xlim_changed', d.update)
+
+    fig.tight_layout()
+
+    plt.show()

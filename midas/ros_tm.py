@@ -2494,7 +2494,7 @@ class tm:
 
 
 
-    def get_param(self, param, frame=False, start=False, end=False, value_after=None, tsync=True):
+    def get_param(self, param, frame=False, cal=True, start=False, end=False, value_after=None, tsync=True):
         """Accepts a parameter ID. Uses the SCOS-2K tables to search packets for this
         parameter, reads the relevant binary data and applies necessary calibration.
 
@@ -2625,7 +2625,10 @@ class tm:
             print('ERROR: PTC/PFC type not supported')
 
         # Now calibrate the engineering value to a real unit
-        real_val = calibrate(param.param_name, values)
+        if cal:
+            real_val = calibrate(param.param_name, values)
+        else:
+            real_val = values
 
         if frame:
             return obt[0], real_val[0]

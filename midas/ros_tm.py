@@ -2787,6 +2787,20 @@ class tm:
                 # 42655 - EvLineScanStarted
                 # 42611 - EvLineScanFinished
                 scan_events = [42655, 42611]
+            elif label_events=='approach':
+                # 42662 - EvApproachStarted
+                # 42664 - EvApproachFinished
+                # 42762 - EvApproachAborted
+                # 42764 - EvAppContact
+                # 42765 - EvAppError
+                # 42766 - EvApproachStuck
+                # 42906 - EvApproachTimeout
+                # 42916 - EvMoveAbortedApp
+                # 42917 - EvAppAbortedLin
+                # 42623	- EvSurfaceFound
+                # 42665	- EvZpiezoFineAdj
+                app_events = [42662, 42664, 42762, 42764, 42765, 42766, 42906, 42916, 42917, 42623, 42665 ]
+                events = events[events.sid.isin(app_events)]
             elif label_events=='all':
                 # Ignore events that don't bring much diagonstic info or flood the plot
                 ignore_sids = [ \
@@ -2810,12 +2824,13 @@ class tm:
                 trans = transforms.blended_transform_factory(ax_left.transData, ax_left.transAxes)
                 ax_left.text(event.obt,0.9,event.event,rotation=90, transform=trans, clip_on=True)
 
+        plot_fig.tight_layout()
         plt.show()
 
         return plot_fig
 
 
-    def plot_temps(self, start=False, end=False, cssc=False, label='scan'):
+    def plot_temps(self, start=False, end=False, cssc=False, label='scan', **kwargs):
         """Plot the temperatures from all MIDAS sensors for the given TM packages.
         If start= and end= are set to date/time strings the data will be limited
         to those times, otherwise all data are plotted."""
@@ -2830,22 +2845,36 @@ class tm:
         if cssc:
             temp_params.extend(['NMDA0006','NMDA0007']) # CSSC X ref temp, CSSC Y ref temp
 
-        fig = self.plot_params(temp_params, label_events=label, start=start, end=end)
+        fig = self.plot_params(temp_params, label_events=label, start=start, end=end, **kwargs)
 
         return fig
 
 
-    def plot_hv(self, start=False, end=False, label='scan'):
+    def plot_hv(self, start=False, end=False, label='scan', **kwargs):
         """Plot piezo high voltages (HV)s"""
 
         hv_params = ['NMDA0110', 'NMDA0111', 'NMDA0115']
 
-        fig = self.plot_params(hv_params, label_events=label, start=start, end=end)
+        fig = self.plot_params(hv_params, label_events=label, start=start, end=end, **kwargs)
 
         return fig
 
 
-    def plot_volts(self, cssc=False, start=False, end=False, label='scan'):
+    def plot_app(self, start=False, end=False, label='approach', **kwargs):
+        """Plot approach related parameters"""
+
+        # NMDA0105  app LVDT signal
+        # NMDA0115  Z piezo HV mon
+        # NMDA0114  Z piezo position
+
+        app_params = ['NMDA0105', 'NMDA0115', 'NMDA0114']
+
+        fig = self.plot_params(app_params, start=start, end=end, label_events=label, **kwargs)
+
+        return fig
+
+
+    def plot_volts(self, cssc=False, start=False, end=False, label='scan', **kwargs):
         """Plot the voltages from all MIDAS lines for the given TM packages.
         If start= and end= are set to date/time strings the data will be limited
         to those times, otherwise all data are plotted."""
@@ -2858,15 +2887,15 @@ class tm:
         if len(volt_params)==0:
             print('No MIDAS voltage data found in these packets')
         else:
-            self.plot_params(volt_params, label_events=label, start=start, end=end)
+            self.plot_params(volt_params, label_events=label, start=start, end=end, **kwargs)
 
 
-    def plot_cantilever(self, start=False, end=False, label='scan'):
+    def plot_cantilever(self, start=False, end=False, label='scan', **kwargs):
         """Plot the cantilever AC and DC values"""
 
         cant_params = ['NMDA0102', 'NMDA0103', 'NMDA0104']
 
-        fig = self.plot_params(cant_params, label_events=label, start=start, end=end)
+        fig = self.plot_params(cant_params, label_events=label, start=start, end=end, **kwargs)
 
         return fig
 

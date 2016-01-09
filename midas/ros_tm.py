@@ -1232,6 +1232,8 @@ def show_grid(images, cols=2, planesub='poly'):
 
     # plt.tight_layout() #fig, axes)
 
+    plt.show()
+
     return
 
 
@@ -1460,9 +1462,16 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
 
                     line = telem.get_param('NMDA0165', frame=frame)[1]
 
-                    xstart, xstop = axis.get_xlim()
-                    arrow_delta = (xstop-xstart)*0.025
-                    axis.arrow(xstop+arrow_delta*2, line, -arrow_delta, 0, head_width=4, head_length=arrow_delta, fc='k', ec='k', clip_on=False)
+                    # arrow sig: arrow(x, y, dx, dy, **kwargs)
+
+                    if image.fast_dir=='X':
+                        xstart, xstop = axis.get_xlim()
+                        arrow_delta = (xstop-xstart)*0.025
+                        axis.arrow(xstop+arrow_delta*2, line, -arrow_delta, 0, head_width=4, head_length=abs(arrow_delta), fc='k', ec='k', clip_on=False)
+                    else:
+                        ystart, ystop = axis.get_ylim()
+                        arrow_delta = (ystart-ystop)*0.025
+                        axis.arrow(line, ystop-arrow_delta*2, 0, arrow_delta, head_width=4, head_length=abs(arrow_delta) , fc='k', ec='k', clip_on=False)
             else:
                 print('INFO: no frequency re-tunes occured during the image at OBT %s' % image.start_time)
 

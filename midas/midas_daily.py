@@ -290,8 +290,8 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
             images = ros_tm.load_images(data=True)
             # Save BCR and GWY files
             if type(images)!=bool:
-                ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
                 ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
+                ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
 
         else:
             import glob

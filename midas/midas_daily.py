@@ -47,8 +47,8 @@ def run_daily():
         images = tm.get_images(expand_params=True) # extract images
 
         if images is not None:
-            ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
             ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
+            ros_tm.save_bcr(images,os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
 
         # Extract and save event data as an HTML including commanding history
         itl_file = ros_tm.select_files(wildcard='ITLS_MD_M%03i_S%03i*P_RSUXPIYZ.itl' % (mtp, stp), directory=common.ros_sgs_path, recursive=True)[0]

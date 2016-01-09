@@ -3397,7 +3397,7 @@ class tm:
                 if debug: print('DEBUG: image packet %i of %i' % (idx, len(img_pkts)))
                 image = {}
                 image['header'] = image_names(*struct.unpack(image_fmt,pkt['data'][0:image_size]))
-                if (image['header'].channel == 1) or (image['header'].channel == 32768):
+                if image['header'].channel in [1, 4, 32768]:
                     image['data'] = struct.unpack(">1024H",pkt['data'][image_size:image_size+2048])
                 else:
                     image['data'] = struct.unpack(">1024h",pkt['data'][image_size:image_size+2048])

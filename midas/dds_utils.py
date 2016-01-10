@@ -198,8 +198,13 @@ def submit_request(template, request, socks):
         proxy.setdefaultproxy(proxy.PROXY_TYPE_SOCKS5, 'localhost', 1080)
         proxy.wrapmodule(ftplib)
 
-    ftp = ftplib.FTP('rodda.esoc.ops.esa.int', timeout=30)
-    ftp.login('roreq', 'rod6$')
+    try:
+        ftp = ftplib.FTP('rodda.esoc.ops.esa.int', timeout=30)
+        ftp.login('roreq', 'rod6$')
+    except Exception as e:
+        print('ERROR: exception: %s' % e)
+        return None, None
+
 
     # check we're in the right directory (should be by default)
     cwd = ftp.pwd()

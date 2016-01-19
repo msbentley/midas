@@ -906,14 +906,15 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, pt_s
 
                             # if ctrl_pt.scan_dir=='X':
                             if channel.fast_dir=='X':
-                                xpos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * xcal * 10**xy_power
+                                xpos = ctrl_pt.main_cnt * ctrl_pt.step_size * xcal * 10**xy_power
                                 # ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
-                                ypos = (i // 32) * channel.y_step * ycal * 10**xy_power
+                                ypos = ((i // 32)+1) * channel.y_step * ycal * 10**xy_power
 
                             else:
-                                ypos = (ctrl_pt.main_cnt-1) * ctrl_pt.step_size * ycal * 10**xy_power
+                                # ypos = (((ctrl_pt.main_cnt-1) * ctrl_pt.step_size * ycal) + ctrl_pt.step_size * ycal/2.  ) * 10**xy_power
+                                ypos = ctrl_pt.main_cnt * ctrl_pt.step_size * ycal * 10**xy_power
                                 # xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
-                                xpos = (i // 32) * channel.x_step * xcal * 10**xy_power
+                                xpos = ((i // 32)+1) * channel.x_step * xcal * 10**xy_power
 
                             spec.add_spectrum(spec_data, xpos, ypos)
                             i += 1
@@ -4135,7 +4136,7 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
             print('ERROR: error appending to file: %s' % e)
             store.close()
             return None
-            
+
     store.close()
 
 

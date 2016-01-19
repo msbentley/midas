@@ -2247,13 +2247,23 @@ class itl:
 
     def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
         xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=0.0,
-        safety_factor=4.0):
+        safety_factor=4.0, z_settle=50, xy_settle=50,  op_amp=False, set_pt=False, fadj=85.0):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
+
+        # set default steps according to open or closed loop mode
+        if not xstep:
+            xstep = 10
+        if not  ystep:
+            if openloop:
+                ystep = 10
+            else:
+                ystep = 27
 
         self.scan(cantilever=cantilever, facet=1, channels=channels, openloop=openloop, \
             xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep, \
             xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor=safety_factor, contact=contact, threshold=threshold,
-            dc_set=dc_set, zapp_pos=zapp_pos)
+            dc_set=dc_set, zapp_pos=zapp_pos, z_settle=z_settle, xy_settle=xy_settle,
+            op_amp=op_amp, set_pt=set_pt, fadj=fadj)
 
         return
 

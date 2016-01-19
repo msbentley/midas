@@ -127,7 +127,16 @@ def run_daily():
 
         # (Re-)build the packet index
         print('\n\nINFO: Updating packet index\n')
+        os.rename(os.path.join(common.tlm_path,'tlm_packet_index.hd5'), os.path.join(common.tlm_path,'tlm_packet_index.hd5.bak'))
         ros_tm.build_pkt_index()
+        old_size = os.path.getsize(os.path.join(common.tlm_path,'tlm_packet_index.hd5.bak')))
+        new_size = os.path.getsize(os.path.join(common.tlm_path,'tlm_packet_index.hd5')))
+        if new_size > old_size:
+            os.remove(os.path.join(common.tlm_path,'tlm_packet_index.hd5.bak'))
+        else:
+            print('WARNING: new packet index smaller than old, keeping previous version!')
+            os.remove(os.path.join(common.tlm_path,'tlm_packet_index.hd5'))
+            os.rename(os.path.join(common.tlm_path,'tlm_packet_index.hd5.bak'), os.path.join(common.tlm_path,'tlm_packet_index.hd5'))
 
         # Generate a list of html files corresponding to each ITL/EVF pair
         print('\n\nINFO: Generating commanding summaries\n')

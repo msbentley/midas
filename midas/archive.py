@@ -106,7 +106,7 @@ def search_params(search=''):
     params = ros_tm.search_params(search)[ ['param_name','description', 'unit'] ]
     print(params.to_string(index=False))
 
-    return # params
+    return params
 
 
 

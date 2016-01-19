@@ -4102,7 +4102,12 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
     import glob
     from pandas import HDFStore
 
-    store = HDFStore(tm_index_file, 'w', complevel=9, complib='blosc')
+    try:
+        store = HDFStore(tm_index_file, 'w', complevel=9, complib='blosc')
+    except IOError as (errno, strerror):
+        print "ERROR: I/O error({0}): {1}".format(errno, strerror)
+        return None
+
     table = 'pkts'
 
     tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
@@ -4124,8 +4129,13 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
             nrows = 0
 
         telem.pkts.index = pd.Series(telem.pkts.index) + nrows
-        store.append(table, telem.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
-
+        try:
+            store.append(table, telem.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
+        except Exception as e:
+            print('ERROR: error appending to file: %s' % e)
+            store.close()
+            return None
+            
     store.close()
 
 

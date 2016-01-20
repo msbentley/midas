@@ -1980,7 +1980,7 @@ class itl:
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
-        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=0.):
+        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -2223,7 +2223,7 @@ class itl:
     def xy_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None, \
         xlh=True, ylh=True, mainscan_x=True, at_surface=False, set_start=True, fadj_numscans=2,
         ac_gain=False, exc_lvl=False, set_pt=False, op_amp=False, fadj=85.0, z_settle=50, xy_settle=50,
-        contact=False, threshold=False, dc_set=False, zapp_pos=0.0, safety_factor=4.0):
+        contact=False, threshold=False, dc_set=False, zapp_pos=1.5, safety_factor=4.0):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         # set default steps according to open or closed loop mode
@@ -2246,7 +2246,7 @@ class itl:
 
 
     def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
-        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=0.0,
+        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=1.5,
         safety_factor=4.0, z_settle=50, xy_settle=50,  op_amp=False, set_pt=False, fadj=85.0):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
 
@@ -2270,7 +2270,7 @@ class itl:
     def tip_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=False, ystep=False,
         xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
         fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2,
-        z_settle=50, xy_settle=50, contact=False, threshold=False, dc_set=False, zapp_pos=0.0, safety_factor=4.0):
+        z_settle=50, xy_settle=50, contact=False, threshold=False, dc_set=False, zapp_pos=1.5, safety_factor=4.0):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         # set default steps according to open or closed loop mode
@@ -2486,7 +2486,7 @@ class itl:
     def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH', 'ST'], openloop=True, xpixels=256, ypixels=256,
         xstep=15, ystep=15, xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
         xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, op_amp=False, set_start=False, xy_settle=50., z_settle=50, set_pt=False,
-        contact=False, dc_set=False, threshold=False, segment=None, zapp_pos=0.):
+        contact=False, dc_set=False, threshold=False, segment=None, zapp_pos=1.5):
         """Generates a series of identical tiled scans of a single target following an approach.
 
         The number of x and y tiles is given, all other parameters are as per scan().
@@ -2618,7 +2618,7 @@ class itl:
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
         at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False,
-        segment=None, dc_set=False, zapp_pos=0.0):
+        segment=None, dc_set=False, zapp_pos=1.5):
 
         import scanning
         proc = {}

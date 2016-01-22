@@ -871,6 +871,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, pt_s
                     c.set_object_by_name('/%i/mask' % (chan_idx), mask)
 
                 if pt_spec:
+                    print('DEBUG: processing control data for file %s' % filename)
                     # check for control data packets sent between image start and image end (+/- 5 minutes)
                     if telem is None:
                         telem = tm(scan['filename'].iloc[0])
@@ -879,47 +880,49 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, pt_s
                         (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
                         (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
 
-                    for ctrl_chan in range(len(common.ctrl_channels)): # GWY stores point per channel, so loop over this first
+                    if len(ctrl)>0:
 
-                        spec = gwy.Spectra()
-                        spec.set_title(common.ctrl_names[ctrl_chan])
-                        spec.set_si_unit_xy(xy_unit)
-                        x_unit, x_power = gwy.gwy_si_unit_new_parse('index')
-                        y_unit, y_power = gwy.gwy_si_unit_new_parse(common.ctrl_units[ctrl_chan])
+                        for ctrl_chan in range(len(common.ctrl_channels)): # GWY stores point per channel, so loop over this first
 
-                        i = 0
+                            spec = gwy.Spectra()
+                            spec.set_title(common.ctrl_names[ctrl_chan])
+                            spec.set_si_unit_xy(xy_unit)
+                            x_unit, x_power = gwy.gwy_si_unit_new_parse('index')
+                            y_unit, y_power = gwy.gwy_si_unit_new_parse(common.ctrl_units[ctrl_chan])
 
-                        for idx, ctrl_pt in ctrl.iterrows(): # loop over control data points
+                            i = 0
 
-                            num_pix = len(ctrl_pt.zpos)
-                            spec_data = gwy.DataLine(num_pix, num_pix, False)
-                            spec_data.set_si_unit_x(x_unit)
-                            spec_data.set_si_unit_y(y_unit)
+                            for idx, ctrl_pt in ctrl.iterrows(): # loop over control data points
 
-                            ctrl_data = ctrl_pt['%s' % common.ctrl_channels[ctrl_chan]]
-                            for pt in range(num_pix):
-                                spec_data.set_val(pt, ctrl_data[pt])
+                                num_pix = len(ctrl_pt.zpos)
+                                spec_data = gwy.DataLine(num_pix, num_pix, False)
+                                spec_data.set_si_unit_x(x_unit)
+                                spec_data.set_si_unit_y(y_unit)
 
-                            # TODO - control data points do not (yet!) uniquely identify their position, so we
-                            # need to calculate this from dimensions, open/closed loop and main scan direction
-                            # of the parent image. Update when the OBSW has been upgraded!
+                                ctrl_data = ctrl_pt['%s' % common.ctrl_channels[ctrl_chan]]
+                                for pt in range(num_pix):
+                                    spec_data.set_val(pt, ctrl_data[pt])
 
-                            # if ctrl_pt.scan_dir=='X':
-                            if channel.fast_dir=='X':
-                                xpos = ctrl_pt.main_cnt * ctrl_pt.step_size * xcal * 10**xy_power
-                                # ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
-                                ypos = ((i // 32)+1) * channel.y_step * ycal * 10**xy_power
+                                # TODO - control data points do not (yet!) uniquely identify their position, so we
+                                # need to calculate this from dimensions, open/closed loop and main scan direction
+                                # of the parent image. Update when the OBSW has been upgraded!
 
-                            else:
-                                # ypos = (((ctrl_pt.main_cnt-1) * ctrl_pt.step_size * ycal) + ctrl_pt.step_size * ycal/2.  ) * 10**xy_power
-                                ypos = ctrl_pt.main_cnt * ctrl_pt.step_size * ycal * 10**xy_power
-                                # xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
-                                xpos = ((i // 32)+1) * channel.x_step * xcal * 10**xy_power
+                                # if ctrl_pt.scan_dir=='X':
+                                if channel.fast_dir=='X':
+                                    xpos = ctrl_pt.main_cnt * ctrl_pt.step_size * xcal * 10**xy_power
+                                    # ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
+                                    ypos = ((i // 32)+1) * channel.y_step * ycal * 10**xy_power
 
-                            spec.add_spectrum(spec_data, xpos, ypos)
-                            i += 1
+                                else:
+                                    # ypos = (((ctrl_pt.main_cnt-1) * ctrl_pt.step_size * ycal) + ctrl_pt.step_size * ycal/2.  ) * 10**xy_power
+                                    ypos = ctrl_pt.main_cnt * ctrl_pt.step_size * ycal * 10**xy_power
+                                    # xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
+                                    xpos = ((i // 32)+1) * channel.x_step * xcal * 10**xy_power
 
-                        c.set_object_by_name('/sps/%i' % ctrl_chan, spec)
+                                spec.add_spectrum(spec_data, xpos, ypos)
+                                i += 1
+
+                            c.set_object_by_name('/sps/%i' % ctrl_chan, spec)
 
             # Calibrate channel according to cal-factor
             a *= cal_factor*10**z_power
@@ -3343,8 +3346,13 @@ class tm:
         """Extracts images from telemetry packets. Setting info_only=True returns a
         dataframe containing the scan metadata, but no actual images.
 
+        info_only=True returns only meta data
+        sw_flags=True will unpack the software flags word into component values
+        rawheader=True returns uncalibrated meta data (debugging only)
+        rawdata=True returns uncalibrated image data (debugging only)
         expand_params=True will query HK for additional parameters (slow!)
-        unpack_status=True will unpack the ST and S2 channels into new channels"""
+        unpack_status=True will unpack the ST and S2 channels into new channels
+        add_retr=True adds an extra channel flagging where the retraction height is exceeded."""
 
         # structure definition for the image header packet
         image_header_fmt = ">H2B2IHh11H11H2H"

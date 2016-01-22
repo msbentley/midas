@@ -3169,7 +3169,7 @@ class tm:
         ctrl_data_size = struct.calcsize(ctrl_data_fmt)
         ctrl_data_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_pos \
             wheel_posn tip_num x_orig y_orig step_size num_steps scan_mode main_cnt \
-            num_meas block_addr sw_flags spare")
+            num_meas block_addr sw_flags line_cnt")
 
         ctrl_data_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=133)
 
@@ -3208,7 +3208,7 @@ class tm:
         ctrl_data['hires'] = ctrl_data.sw_flags.apply( lambda flags: bool(flags >> 1 & 1))
         ctrl_data['in_image'] = ctrl_data.sw_flags.apply( lambda flag: bool(flag & 1))
 
-        ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode', 'spare'], inplace=True, axis=1)
+        ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode'], inplace=True, axis=1)
 
         if info_only:
             return ctrl_data

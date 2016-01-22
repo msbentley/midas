@@ -2245,15 +2245,15 @@ class itl:
         return
 
 
-    def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=10, ystep=10, \
+    def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None, \
         xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=1.5,
         safety_factor=4.0, z_settle=50, xy_settle=50,  op_amp=False, set_pt=False, fadj=85.0):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         # set default steps according to open or closed loop mode
-        if not xstep:
+        if xstep is None:
             xstep = 10
-        if not  ystep:
+        if ystep is None:
             if openloop:
                 ystep = 10
             else:

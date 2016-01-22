@@ -1602,7 +1602,7 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         ax.set_xlim(images.x_orig_um.min()-50.,images.x_orig_um.max()+images[images.x_orig_um==images.x_orig_um.max()].xlen_um.max()+50.)
         ax.set_ylim(images.y_orig_um.min()-50.,images.y_orig_um.max()+images[images.y_orig_um==images.y_orig_um.max()].ylen_um.max()+50.)
 
-    if fig is None:
+    if figure is None:
         plt.show()
 
     return fig

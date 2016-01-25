@@ -3355,7 +3355,7 @@ class tm:
         add_retr=True adds an extra channel flagging where the retraction height is exceeded."""
 
         # structure definition for the image header packet
-        image_header_fmt = ">H2B2IHh11H11H2H"
+        image_header_fmt = ">H2B2IHh17H4h3H"
         image_header_size = struct.calcsize(image_header_fmt)
         image_header_names = collections.namedtuple("img_header_names", "sid sw_minor sw_major start_time end_time \
             channel lin_pos wheel_pos tip_num x_orig y_orig x_step y_step xsteps_dir ysteps_dir scan_type \
@@ -3602,7 +3602,8 @@ class tm:
 
                 indices = info[info.start_time==time].index
 
-                sw_ver = int("".join(info[info.start_time==time].sw_ver.iloc[0].split('.'))) # numeric version of the OBSW version
+                # numeric version of the OBSW version
+                sw_ver = int("".join(info[info.start_time==time].sw_ver.iloc[0].split('.')))
 
                 if sw_ver < 664:
 
@@ -3615,9 +3616,6 @@ class tm:
                 info['work_pt'].loc[indices] = info['res_amp'] * abs(info['work_pt_per'].loc[indices].iloc[0]) / 100.
                 info['xy_settle'].loc[indices] = self.get_param('NMDA0271', frame=frame)[1]
                 info['z_settle'].loc[indices] = self.get_param('NMDA0270', frame=frame)[1]
-
-        # Convert all data types to numeric forms
-        # info = pd.to_numeric(info)
 
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um','z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\

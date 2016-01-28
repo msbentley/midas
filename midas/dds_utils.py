@@ -5,7 +5,7 @@ debug = False
 
 import pandas as pd
 import os, time, socket
-from midas import common, ros_tm
+from midas import common, ros_tm, socks
 from dateutil import parser
 
 # Global module level definitions

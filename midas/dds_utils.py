@@ -5,7 +5,7 @@ debug = False
 
 import pandas as pd
 import os, time, socket
-from midas import ros_tm
+from midas import common, ros_tm
 from dateutil import parser
 
 # Global module level definitions
@@ -25,20 +25,17 @@ dds_wait_time=1*60. # 1 minute
 
 # Set default paths
 
-template_path = os.path.expanduser('~/MIDAS/software') if socket.gethostname() in servers else os.path.expanduser('~/Dropbox/work/midas/software')
 template_file = 'midas_dds_request.xml'
-template_file = os.path.join(template_path,template_file)
+template_file = os.path.join(common.config_path, template_file)
 
-tcp_template = os.path.join(template_path,'tcp_dds_request.xml')
-single_template = os.path.join(template_path,'generic_dds_req.xml')
+tcp_template = os.path.join(common.config_path,'tcp_dds_request.xml')
+single_template = os.path.join(common.config_path,'generic_dds_req.xml')
 
-schema_path = os.path.expanduser('~/MIDAS/software') if socket.gethostname() in servers else os.path.expanduser('~/Dropbox/work/midas/software')
 schema_file = 'GDDSRequest.xsd'
-schema_file = os.path.join(schema_path,schema_file)
+schema_file = os.path.join(common.config_path, schema_file)
 
-obs_list_path = os.path.expanduser('~/MIDAS/operations') if socket.gethostname() in servers else os.path.expanduser('~/Dropbox/work/midas/operations')
 obs_list_file = 'observations.csv'
-obs_list_file = os.path.join(obs_list_path,obs_list_file)
+obs_list_file = os.path.join(common.config_path, obs_list_file)
 
 data_path  = os.path.expanduser('~/Copy/midas/data') if socket.gethostname() in servers else os.path.expanduser('~/Copy/midas/data')
 # fdyn_path = os.path.expanduser('~/Copy/midas/fdyn')
@@ -260,6 +257,13 @@ def request_data_by_apid(start_time, end_time, apid=False, target=False, socks=F
 
 
 def get_data(start_time, end_time, outputfile=False, outputpath='.', apid=False, socks=False, delfiles=True, max_retry=5, retry_delay=2):
+    """Pull data from the DDS. The time interval should be given via start_time and end_time in any sane format.
+
+    If outputfile=False, separate files are created for each APID. If true, one file is created with the name given by outputfile.
+    All files are places in outputpath ('.' by default)
+    If apid=False, ALL MIDAS APIDs are requested, otherwise APIDs can be passed.
+    If delfiles=True, intermediate files are deleted after a combined outputfile has been created.
+    max_retry= and retry_delay= control how often and how many times the MIDAS server is polled for returned DDS files"""
 
     filenames, aplist = request_data_by_apid(start_time, end_time, apid=apid, socks=socks)
 
@@ -754,7 +758,7 @@ def get_fdyn_files(directory=fdyn_path):
     return retrieved
 
 
-def get_sgs_files(directory=obs_list_path):
+def get_sgs_files(directory=common.ops_path):
     """Log onto the MIDAS server and retrieve any new SGS-pushed files"""
 
     ssh = sftp()

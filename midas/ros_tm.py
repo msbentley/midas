@@ -1507,6 +1507,7 @@ def locate_scans(images):
 
         # Take the cantilever and linear stage position into account for X position
         left = ( (scan.lin_pos-common.lin_centre_pos_fm[int(scan.tip_num)-1]) / common.linearcal ) + x_offset
+        left -= common.tip_offset[scan.tip_num-1]
         x_orig_um.append(left)
 
         # Y position in this stripe is simple related to the offset from the Y origin
@@ -3571,6 +3572,9 @@ class tm:
 
         # Calculate the tip offset from the wheel centre
         info['tip_offset'] = info.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
+
+        # Apply corrections due to relative tip offsets
+        info['tip_offset'] = info.apply( lambda row: (row.tip_offset - common.tip_offset[row.tip_num-1]), axis=1 )
 
         # Add the filename
         info['scan_file'] = info.apply( lambda row: src_file_to_img_file(os.path.basename(row.filename), row.start_time, row.target), axis=1 )

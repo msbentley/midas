@@ -88,6 +88,12 @@ lin_centre_pos_fs = [6.655, 5.775, 4.895, 4.015, 3.135, 2.255, 1.375, 0.495, \
     -0.385, -1.265, -2.145, -3.025, -3.905, -4.785, -5.665, -6.545]
 
 
+# Cantilever offsets in X (linear stage) - derived from line and image scans
+# Cantilever 9 is left "untouched" and others are shifted to this value
+
+#              1   2   3    4   5   6   7   8  9   10  11 12 13  14  15 16
+tip_offset = [65, 80, 90, 105, 80, 85, 85, 60, 0, -15, -5, 0, 0, 10, 45, 0]
+
 # Geometric data
 facet_area = 2.4e-3*1.2e-3 # m (1.2 x 2.4 mm facet area)
 funnel_angle = 30.0 # degrees, full cone angle

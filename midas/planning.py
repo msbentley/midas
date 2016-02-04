@@ -16,7 +16,7 @@ is inserted into the relevant ITLS planning file.
 from __future__ import print_function
 import pandas as pd
 import numpy as np
-import logging, os, sys
+import logging, os, sys, math
 from datetime import datetime, timedelta
 from dateutil import parser
 
@@ -2689,7 +2689,7 @@ class itl:
         # Line scan as well: 1072 bytes (single line)
 
         # Round up to the next minute
-        duration_s = int(60 * round(duration_s/60))
+        duration_s = int(60 * math.ceil(duration_s/60))
 
         data_bytes = 1072 # line scan
         if ctrl_data: data_bytes += (32 * 2096)

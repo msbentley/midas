@@ -122,7 +122,7 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
     return over
 
 
-def find_followup(same_tip=True, image_index=None, sourcepath=os.path.expanduser('~/Copy/midas/data/tlm')):
+def find_followup(same_tip=True, image_index=None, sourcepath=common.tlm_path):
     """Similar to find_exposures() - reads a list of scans containing grains and for
     each grain finds all later scans containing this region, within a window."""
 
@@ -197,7 +197,7 @@ def find_followup(same_tip=True, image_index=None, sourcepath=os.path.expanduser
     return followup
 
 
-def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=os.path.expanduser('~/Copy/midas/data/tlm')):
+def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=common.tlm_path):
     """Reads a list of scans containing grains from the catalogue and
     finds exposures between this and the previous scan"""
 

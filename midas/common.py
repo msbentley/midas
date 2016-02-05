@@ -20,9 +20,9 @@ import os, math
 ros_sgs_path = os.path.expanduser('~/ROS_SGS/') if os.getenv("ROS_SGS_PATH") is None else os.getenv("ROS_SGS_PATH")
 ops_path = os.path.expanduser('~/Dropbox/work/midas/operations/') if os.getenv("MIDAS_OPS_PATH") is None else os.getenv("MIDAS_OPS_PATH")
 config_path = os.path.expanduser('~/Dropbox/work/midas/operations/config/') if os.getenv("MIDAS_CFG_PATH") is None else os.getenv("MIDAS_CFG_PATH")
-tlm_path = os.path.expanduser('~/Copy/midas/data/tlm') if os.getenv("TLM_PATH") is None else os.getenv("TLM_PATH")
-gwy_path = os.path.expanduser('~/Copy/midas/data/images/gwy') if os.getenv("GWY_PATH") is None else os.getenv("GWY_PATH")
-kernel_path = os.path.expanduser('~/Copy/midas/spice') if os.getenv("SPICE_PATH") is None else os.getenv("SPICE_PATH")
+tlm_path = os.path.expanduser('~/btsync/midas/tlm') if os.getenv("TLM_PATH") is None else os.getenv("TLM_PATH")
+gwy_path = os.path.expanduser('~/btsync/midas/images/gwy') if os.getenv("GWY_PATH") is None else os.getenv("GWY_PATH")
+kernel_path = os.path.expanduser('~/btsync/midas/spice') if os.getenv("SPICE_PATH") is None else os.getenv("SPICE_PATH")
 s2k_path = os.path.join(ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL') if os.getenv("S2K_PATH") is None else os.getenv("S2K_PATH")
 
 

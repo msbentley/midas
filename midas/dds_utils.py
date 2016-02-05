@@ -37,10 +37,6 @@ schema_file = os.path.join(common.config_path, schema_file)
 obs_list_file = 'observations.csv'
 obs_list_file = os.path.join(common.config_path, obs_list_file)
 
-data_path  = os.path.expanduser('~/Copy/midas/data') if socket.gethostname() in servers else os.path.expanduser('~/Copy/midas/data')
-# fdyn_path = os.path.expanduser('~/Copy/midas/fdyn')
-fdyn_path = '/media/data/fdyn'
-
 def validate_xml(xml, schema_file, isfile=False):
     """Validate a DDS request (or other) XML file against a given schema"""
 
@@ -599,7 +595,7 @@ def write_obs_file(obs_list):
     return
 
 
-def get_new_observations(outputdir=data_path, mtpstp_dir=True, get_aux=True, max_retry=10, retry_delay=5):
+def get_new_observations(outputdir='.', mtpstp_dir=True, get_aux=True, max_retry=10, retry_delay=5):
     """Based on the current date and time, searches the event list for recently
     finished observations and retrieves data from the DDS.
 
@@ -723,7 +719,7 @@ def open_tunnel():
 
 
 
-def get_fdyn_files(directory=fdyn_path):
+def get_fdyn_files(directory='.'):
     """Log onto the MIMAS server and retrieve any new Flight Dynamics data files"""
 
     ssh = sftp()
@@ -810,9 +806,4 @@ def get_sgs_files(directory=common.ops_path):
 
 if __name__ == "__main__":
 
-    # Called as a file (e.g. from a cron job) not as a library
-    #
-    # Poll the observation file and look for new observations - request and download data for
-    # those that have completed but have not yet been downloaded from the DDS.
-
-    get_new_observations(outputdir=data_path)
+    print('WARNING: this module cannot be called directly')

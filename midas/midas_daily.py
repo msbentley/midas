@@ -6,14 +6,16 @@ import numpy as np
 from midas import common, dds_utils, ros_tm, archive
 from datetime import date, datetime, timedelta
 
+# Server specific directories
 log_dir = '/var/www/html/'
 event_dir = '/var/www/html/events/'
 target_dir = '/var/www/html/targets'
 commanding_dir = '/var/www/html/commanding'
 image_dir = '/home/midas/images/'
 tlm_dir = '/home/midas/tlm/'
-kernel_dir = os.path.expanduser('~/Copy/midas/spice')
+kernel_dir = os.path.expanduser('/media/data/spice')
 tempdir = tempfile.gettempdir()
+fdyn_path = '/media/data/fdyn'
 
 isofmt = '%Y-%m-%dT%H%M%SZ'
 
@@ -43,7 +45,7 @@ def run_daily():
 
         tm = ros_tm.tm(obs_file) # open TM file
 
-        # Extract and save images in various formatos.path.join(os.path.expanduser('~/Copy/midas/data/tlm'), 'all_images.pkl'))s
+        # Extract and save images in various format
         images = tm.get_images(expand_params=True) # extract images
 
         if images is not None:
@@ -162,7 +164,7 @@ def run_daily():
 
     # Check for new auto-pushed files from FDyn
     print('\nINFO: Retrieving FDyn auto-pushed files')
-    dds_utils.get_fdyn_files()
+    dds_utils.get_fdyn_files(fdyn_path)
 
     # Check for new OFPM-pushed files from SGS
     print('\nINFO: Retrieving RSGS OFPM pushed files\n')

@@ -3638,7 +3638,8 @@ class tm:
 
         # Remove dummy scans
         if len(images)>0:
-            dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+            # dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+            dummy = images[ (images.exc_lvl==0) & (images.ac_gain==0) & (images.lin_pos>-0.0005) & (images.lin_pos<0.0005) & (images.tip_num.isin([1,16])) ]
             images.drop(dummy.index, inplace=True)
             images = images[ ~images.dummy ]
 

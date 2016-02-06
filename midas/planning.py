@@ -2860,15 +2860,13 @@ class itl:
         offset from the centre of the wheel for the given cantilever."""
 
         centre = self.tip_centre(cant_num)
-        offset = distance * common.linearcal
+        offset = (distance + common.tip_offset[cant_num-1]) * common.linearcal
         if abs(offset) > common.lin_max_offset:
             print('WARNING: linear stage out of range for tip %i' % cant_num)
             return False
         offset_v = centre + offset
         v_per_bit = 20./65535.
         offset_v = np.rint(offset_v/v_per_bit)*v_per_bit
-
-
 
         return offset_v
 

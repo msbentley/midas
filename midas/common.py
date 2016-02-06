@@ -87,10 +87,10 @@ lin_centre_pos_fm = [6.610, 5.729, 4.847, 3.966, 3.085, 2.203, 1.322, 0.441, \
 lin_centre_pos_fs = [6.655, 5.775, 4.895, 4.015, 3.135, 2.255, 1.375, 0.495, \
     -0.385, -1.265, -2.145, -3.025, -3.905, -4.785, -5.665, -6.545]
 
-
 # Cantilever offsets in X (linear stage) - derived from line and image scans
 # Cantilever 9 is left "untouched" and others are shifted to this value
-
+# Values are in um and should be SUBTRACTED to the centre position for analysis
+# and ADDED for commanding.
 #              1   2   3    4   5   6   7   8  9   10  11 12 13  14  15 16
 tip_offset = [65, 80, 90, 105, 80, 85, 85, 60, 0, -15, -5, 0, 0, 10, 45, 0]
 

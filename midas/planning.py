@@ -1978,7 +1978,7 @@ class itl:
 
 
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
-        xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
+        xlh=True, ylh=True, mainscan_x=True, tip_offset=0, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
         contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
@@ -2097,7 +2097,7 @@ class itl:
                 return False
 
         # Linear and wheel move params
-        linear_posn = self.tip_centre(cantilever) if not tip_offset else self.tip_position(cantilever,tip_offset)
+        linear_posn = self.tip_position(cantilever, tip_offset)
         wheel_move_params = { \
                 'linear_posn': linear_posn,
                 # to always approach from the same direction, so first make a linear move 0.5 voltages "below"
@@ -2484,7 +2484,7 @@ class itl:
 ##    ac_gain=False, exc_lvl=False,
 
     def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH', 'ST'], openloop=True, xpixels=256, ypixels=256,
-        xstep=15, ystep=15, xlh=True, ylh=True, mainscan_x=True, tip_offset=False, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
+        xstep=15, ystep=15, xlh=True, ylh=True, mainscan_x=True, tip_offset=0, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,
         xorigin=False, yorigin=False, exc_lvl=False, ac_gain=False, op_amp=False, set_start=False, xy_settle=50., z_settle=50, set_pt=False,
         contact=False, dc_set=False, threshold=False, segment=None, zapp_pos=1.5):
         """Generates a series of identical tiled scans of a single target following an approach.
@@ -2617,7 +2617,7 @@ class itl:
     def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
-        at_surface=False, ctrl_data=False, tip_offset=False, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False,
+        at_surface=False, ctrl_data=False, tip_offset=0, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False,
         segment=None, dc_set=False, zapp_pos=1.5):
 
         import scanning
@@ -2695,7 +2695,7 @@ class itl:
         if ctrl_data: data_bytes += (32 * 2096)
         data_rate = data_bytes*8/duration_s
 
-        linear_posn = self.tip_centre(cantilever) if not tip_offset else self.tip_position(cantilever,tip_offset)
+        linear_posn = self.tip_position(cantilever, tip_offset)
 
         if segment is None:
             segment = facet*16

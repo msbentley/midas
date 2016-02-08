@@ -713,7 +713,13 @@ class sftp():
 def open_tunnel():
 
     import subprocess
-    tunnel = subprocess.Popen( ['ssh', '-N', 'mbentley@193.170.92.8', '-D1080', '-p222'] )
+    # tunnel = subprocess.Popen( ['ssh', '-N', 'mbentley@193.170.92.8', '-D1080', '-p222'] )
+    if socket.gethostname() in ['laptop-mark', 'desktop-home']:
+        user = 'mbentley'
+    else:
+        user = os.getlogin()
+    server = 'midas.iwf.oeaw.ac.at'
+    tunnel = subprocess.Popen( ['ssh', '-N', user+'@'+server, '-D1080'] )
 
     return tunnel
 

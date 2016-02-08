@@ -1853,16 +1853,15 @@ class itl:
             print('ERROR: DAC values must be between 0 and 65535')
             return None
 
-        scan_type = ['DYN','CON','MAG']
-        if scan_mode not in scan_type:
-            print('ERROR: scan mode must be one of %s' % scan_type)
+        if scan_mode not in common.scan_type:
+            print('ERROR: scan mode must be one of %s' % common.scan_type)
             return None
 
         proc['params'] = {
             'x_dac': x_dac,
             'y_dac': y_dac,
             'z_dac': z_dac,
-            'scan_mode': scan_type.index(scan_mode),
+            'scan_mode': common.scan_type.index(scan_mode),
             'fsynth_onoff': 'ON*' if fsynth else 'OFF*',
             'zout_onoff': 'ON*' if zout else 'OFF*' }
 
@@ -1980,7 +1979,7 @@ class itl:
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=0, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
-        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5):
+        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5, magnetic=False, retr_m1=0):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -2023,6 +2022,20 @@ class itl:
             else:
                 if xstep == ystep:
                     print('WARNING: X and Y steps are equal, but we are in hybrid mode!')
+
+        if contact:
+            scan_mode='CON'
+            if 'PH' in channels:
+                print('WARNING: phase channel not relevant in contact mode')
+        elif magnetic:
+            scan_mode='MAG'
+            print('INFO: to enable additional magnetic measurements, use InstrumentSetup')
+            if retr_m1<=0:
+                print('WARNING: magnetic mode selected, but magnetic retraction height <= 0!')
+            if 'M1' not in channels:
+                print('WARNING: at least one magnetic channel should be returned in magnetic mode')
+        else:
+            scan_mode='DYN'
 
         #  This is an analogue value in the range +5V (minimum; Z piezo fully retracted) to -5V (maximum; Z piezo fully elongated)
         # defining the Z piezo start position to be set after an successful approach.
@@ -2120,7 +2133,8 @@ class itl:
             'z_settle': z_settle,
             'xy_settle': xy_settle,
             'ctrl_data': 'ON*' if ctrl_data else 'OFF*',
-            'scan_algo': 1 if threshold else 0 }
+            'scan_algo': 1 if threshold else 0,
+            'mag_retr_1': retr_m1 }
 
             # Contact mode parameters:
             # <dc_set_pt>, <contact_window>, <delta_dc_contact>
@@ -2165,6 +2179,7 @@ class itl:
             'y_low_high': 'L_H' if ylh else 'H_L',
             'freq_adj': fadj,
             'channel': dtype,
+            'scan_mode': common.scan_type.index(scan_mode),
             'zapp_pos': zapp_pos } # actually in the approach sequence
 
         zrec_params = { \
@@ -2614,16 +2629,18 @@ class itl:
 
         return
 
-    def line_scan(self, cantilever, facet, channels=['ZS'], openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
+    def line_scan(self, cantilever, facet, openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
         ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
         at_surface=False, ctrl_data=False, tip_offset=0, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False,
-        segment=None, dc_set=False, zapp_pos=1.5):
+        segment=None, dc_set=False, zapp_pos=1.5,  magnetic=False, retr_m1=0):
 
         import scanning
         proc = {}
 
         if contact: set_start=False
+
+        channels=['ZS'] # topography data always returned
 
         if at_surface:
             if contact:
@@ -2655,6 +2672,20 @@ class itl:
         if not (-4.9 < zapp_pos < 4.9):
             print('ERROR: Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
             return False
+
+        if contact:
+            scan_mode='CON'
+            if 'PH' in channels:
+                print('WARNING: phase channel not relevant in contact mode')
+        elif magnetic:
+            scan_mode='MAG'
+            print('INFO: to enable additional magnetic measurements, use InstrumentSetup')
+            if retr_m1<=0:
+                print('WARNING: magnetic mode selected, but magnetic retraction height <= 0!')
+            if 'M1' not in channels:
+                print('WARNING: at least one magnetic channel should be returned in magnetic mode')
+        else:
+            scan_mode='DYN'
 
         # Return parameters for selected cantilever
         # fscan = self.cantilever_select(cantilever)
@@ -2750,6 +2781,8 @@ class itl:
             'xy_settle': xy_settle,
             'z_settle': z_settle,
             'scan_algo': 1 if threshold else 0,
+            'scan_mode': common.scan_type.index(scan_mode),
+            'mag_retr_1': retr_m1,
 
             'scan_data_rate': "%3.2f" % (data_rate) }
 

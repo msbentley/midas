@@ -2687,7 +2687,7 @@ class tm:
 
 
 
-    def plot_params(self, param_names, start=False, end=False, label_events=None, symbol=False):
+    def plot_params(self, param_names, start=False, end=False, label_events=None, symbol=True, line=''):
         """Plot a TM parameter vs OBT. Requires a packet list and parameter
         name. start= and end= can be set to a string or DateTime to limit the returned
         data.
@@ -2746,7 +2746,7 @@ class tm:
             param = pcf[pcf.param_name==param_name].squeeze()
 
             if param.unit==units[0] or (pd.isnull(param.unit) & (pd.isnull(units[0]))): # plot on left axis
-                lines.append(ax_left.plot( data.index, data, label=param.description, linestyle='-', marker=marker_left )[0])
+                lines.append(ax_left.plot( data.index, data, label=param.description, linestyle=line, marker=marker_left )[0])
                 ax_left.set_ylabel( "%s" % (param.unit))
             else:
                 # ax_left._get_lines.color_cycle.next()
@@ -3638,7 +3638,7 @@ class tm:
 
         # Remove dummy scans
         if len(images)>0:
-            # dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
+            dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
             dummy = images[ (images.exc_lvl==0) & (images.ac_gain==0) & (images.lin_pos>-0.0005) & (images.lin_pos<0.0005) & (images.tip_num.isin([1,16])) ]
             images.drop(dummy.index, inplace=True)
             images = images[ ~images.dummy ]

@@ -446,6 +446,8 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
             'right': right,
             'up': up,
             'down': down,
+            'centre_x': region.centroid[0],
+            'centre_y': region.centroid[1],
             'tot_min_z': data.min()*1.e6,
             'tot_max_z': data.max()*1.e6,
             'a_pix': pcle.count(),
@@ -471,8 +473,10 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
-    pcle_data = pcle_data[ ['id', 'name', 'left', 'right', 'up', 'down', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
-        'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'sphericity', 'orient', 'pdata'] ]
+    pcle_data.drop(['pcle'], axis=1, inplace=True)
+
+    # pcle_data = pcle_data[ ['id', 'name', 'left', 'right', 'up', 'down', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
+    #     'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'sphericity', 'orient', 'pdata'] ]
 
     return pcle_data
 

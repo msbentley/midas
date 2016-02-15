@@ -3223,8 +3223,8 @@ class tm:
 
         # Convert data as necessary in the df
         ctrl_data['obt'] = ctrl_data_pkts.obt
-        ctrl_data['block_addr'] = ctrl_data.block_addr.apply( lambda block: block >> 1 )
         ctrl_data['z_retract'] = ctrl_data.block_addr.apply( lambda block: bool(block & 1) )
+        ctrl_data['block_addr'] = ctrl_data.block_addr.apply( lambda block: block >> 1 )
         ctrl_data['sw_ver'] = ctrl_data.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
         ctrl_data['sw_ver'] = ctrl_data['sw_ver'].str.cat(ctrl_data['sw_minor'].values.astype(str),sep='.')
         ctrl_data['lin_pos'] = ctrl_data.lin_pos.apply( lambda pos: pos*20./65535.)

@@ -2704,6 +2704,7 @@ class tm:
         import matplotlib.transforms as transforms
         from dateutil import parser
         import math
+        from cycler import cycler
 
         if type(param_names) != list: param_names = [param_names]
         units = pcf[pcf.param_name.isin(param_names)].unit.unique()
@@ -2736,8 +2737,11 @@ class tm:
 
         plot_fig = plt.figure()
         ax_left = plot_fig.add_subplot(1,1,1)
+        ax_left.set_prop_cycle(cycler('color', ['c', 'm', 'y', 'k']))
+
         if len(units)==2:
             ax_right = ax_left.twinx()
+            ax_right.set_prop_cycle(cycler('color', ['r', 'g', 'b', 'y']))
 
         lines = []
 
@@ -3130,7 +3134,7 @@ class tm:
                     line_type['info']['res_amp'] = np.nan if in_image else self.get_param('NMDA0306', frame=frame)[1]
                     line_type['info']['work_pt_per'] = np.nan if in_image else self.get_param('NMDA0181', frame=frame)[1]
                     line_type['info']['work_pt'] = np.nan if in_image else line_type['info']['res_amp'] * abs(line_type['info']['work_pt_per']) / 100.
-                    line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
+                    line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0245', frame=frame)[1]
                     line_type['info']['set_pt_per'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
                     line_type['info']['fadj'] = np.nan if in_image else self.get_param('NMDA0347', frame=frame)[1]
 

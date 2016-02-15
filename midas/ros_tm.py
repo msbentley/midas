@@ -156,12 +156,18 @@ def plot_line_scans(lines, units='real', label=None, align=False, title=None):
     if align:
         units='real'
 
+    if label is not None:
+        if label not in lines.columns:
+            print('WARNING: requested label (%s) not found - disabling legend' % label)
+            label = None
+            lab = ''
+
     for idx, line in lines.iterrows():
 
-        if label in lines.columns:
+        if label is not None:
             lab = line['%s'%label]
-        else:
-            lab = ''
+            if type(lab) == float:
+                lab = "%3.2f" % lab
 
         if units=='real':
 
@@ -3102,8 +3108,32 @@ class tm:
                     in_image = True # hack to put NaNs in the table if no HK available
                 else:
                     frame = frame[0]
-                line_type['info']['op_pt'] = np.nan if in_image else self.get_param('NMDA0181', frame=frame)[1]
-                line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
+
+                if line_type['info']['scan_mode_dir'] & 0b11 == 1: # CON:
+
+                    # work_pt -> NMDA0287 CantDcStart
+                    # work_pt_per -> NaN
+                    # set_pt -> NMDA0298 DcAmplSet
+                    # set_pt_per -> NaN
+
+                    line_type['info']['work_pt'] = np.nan if in_image else self.get_param('NMDA0287', frame=frame)[1]
+                    line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0298', frame=frame)[1]
+
+                    line_type['info']['res_amp'] = np.nan
+                    line_type['info']['work_pt_per'] = np.nan
+                    line_type['info']['set_pt_per'] = np.nan
+                    line_type['info']['fadj'] = np.nan
+                    line_type['info']['res_amp'] = np.nan
+
+                else:
+
+                    line_type['info']['res_amp'] = np.nan if in_image else self.get_param('NMDA0306', frame=frame)[1]
+                    line_type['info']['work_pt_per'] = np.nan if in_image else self.get_param('NMDA0181', frame=frame)[1]
+                    line_type['info']['work_pt'] = np.nan if in_image else line_type['info']['res_amp'] * abs(line_type['info']['work_pt_per']) / 100.
+                    line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
+                    line_type['info']['set_pt_per'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
+                    line_type['info']['fadj'] = np.nan if in_image else self.get_param('NMDA0347', frame=frame)[1]
+
                 line_type['info']['exc_lvl'] = np.nan if in_image else self.get_param('NMDA0147', frame=frame)[1]
                 line_type['info']['ac_gain'] = np.nan if in_image else self.get_param('NMDA0118', frame=frame)[1]
                 line_type['info']['xy_settle'] = np.nan if in_image else self.get_param('NMDA0271', frame=frame)[1]
@@ -3117,7 +3147,7 @@ class tm:
 
         cols = line_scan_names._fields
         if expand_params:
-            cols += ('op_pt', 'set_pt', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle', 'z_ret')
+            cols += ('work_pt_per', 'work_pt', 'set_pt_per', 'set_pt', 'res_amp', 'fadj', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle', 'z_ret')
 
         lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=line_scan_pkts.index)
 

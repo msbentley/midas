@@ -720,7 +720,7 @@ def open_tunnel():
         user = os.getlogin()
     server = 'midas.iwf.oeaw.ac.at'
     address = user+'@'+server
-    print('DEBUG: connecting to proxy server as: %s' % address)
+    # print('DEBUG: connecting to proxy server as: %s' % address)
     tunnel = subprocess.Popen( ['ssh', '-N', address, '-D1080'] )
 
     return tunnel

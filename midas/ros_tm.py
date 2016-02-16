@@ -3072,11 +3072,12 @@ class tm:
 
 
 
-    def get_line_scans(self, info_only=False, expand_params=False, ignore_image=False):
+    def get_line_scans(self, info_only=False, expand_params=False, ignore_image=True):
         """Extracts line scans from TM packets.
 
         info_only=True will return meta-data, but not line scan data.
-        expand_params=True will look up additional data in HK but only for non-image lines!"""
+        expand_params=True will look up additional data in HK but only for non-image lines!
+        ignore_image=True will ignore lines forming part of an image scan."""
 
         line_scan_fmt = ">H2Bh6H6H"
         line_scan_size = struct.calcsize(line_scan_fmt)
@@ -3157,19 +3158,18 @@ class tm:
 
         lines['in_image'] = lines.sw_flags.apply( lambda flag: bool(flag & 1))
         lines['aborted'] = lines.sw_flags.apply( lambda flag: bool(flag >> 3 & 1))
-
+        lines['anti_creep'] = lines.sw_flags.apply( lambda flag: bool(flag >> 1 & 0b11))
 
         if not info_only:
             lines['data'] = [line['data'] for line in linescans]
 
         if ignore_image:
-            lines = lines[~lines.in_image]
+            lines = lines[ (~lines.in_image) & (~lines.anti_creep) ]
             if len(lines)==0:
                 print('WARNING: ignore_image is set, but there are no lines not forming an image')
                 return None
 
 
-        lines['anti_creep'] = lines.sw_flags.apply( lambda flag: bool(flag >> 1 & 0b11))
 
         lines['obt'] = line_scan_pkts.obt
         lines['tip_num'] += 1

@@ -3137,6 +3137,10 @@ class tm:
         lines['x_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 4 & 1) )
         lines['y_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 5 & 1) )
         lines['z_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 6 & 1) )
+        lines['exc_lvl'] = lines.mode_params.apply( lambda mode: (mode >>  7) & 0b111 )
+        lines['ac_gain'] = lines.mode_params.apply( lambda mode: (mode >> 10) & 0b111 )
+        lines['dc_gain'] = lines.mode_params.apply( lambda mode: (mode >> 13) & 0b111 )
+
         lines['scan_algo'] = lines.mode_params.apply(lambda mode: common.scan_algo[mode & 0b1111] )
 
         if ignore_image:
@@ -3146,7 +3150,7 @@ class tm:
                 return None
 
         if expand_params:
-            cols = ('work_pt_per', 'work_pt', 'set_pt_per', 'set_pt', 'res_amp', 'fadj', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle', 'z_ret')
+            cols = ('work_pt_per', 'work_pt', 'set_pt_per', 'set_pt', 'res_amp', 'fadj', 'xy_settle', 'z_settle', 'z_ret')
             # create new columns
             for col in cols:
                 lines[col] = np.nan
@@ -3167,13 +3171,14 @@ class tm:
                     lines['work_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0287', frame=frame)[1]
                     lines['set_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0298', frame=frame)[1]
 
+                    # set expanded parameters that are not relevant in CON mode to NaN
                     lines['res_amp'].loc[idx] = np.nan
                     lines['work_pt_per'].loc[idx] = np.nan
                     lines['set_pt_per'].loc[idx] = np.nan
                     lines['fadj'].loc[idx] = np.nan
                     lines['res_amp'].loc[idx] = np.nan
 
-                else:
+                else: # MAG or DYN modes
 
                     lines['res_amp'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0306', frame=frame)[1]
                     lines['work_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0181', frame=frame)[1]
@@ -3182,16 +3187,20 @@ class tm:
                     lines['set_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0244', frame=frame)[1]
                     lines['fadj'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0347', frame=frame)[1]
 
-                if sw_ver < 665:
+                if sw_ver < 665: # have to get these from HK
                     lines['z_step'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0231', frame=frame)[1]
+                    lines['exc_lvl'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0147', frame=frame)[1]
+                    lines['ac_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0118', frame=frame)[1]
+                    lines['dc_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0142', frame=frame)[1]
 
-                lines['exc_lvl'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0147', frame=frame)[1]
-                lines['ac_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0118', frame=frame)[1]
+                # get these regardless of mode
                 lines['xy_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0271', frame=frame)[1]
                 lines['z_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0270', frame=frame)[1]
                 lines['z_ret'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0188', frame=frame)[1]
+            lines['z_ret_nm'] = lines.z_ret * common.zcal
 
         else:
+            # if expanded params NOT requested, set z_step to NaN (not in header)
             lines['z_step'][lines['sw_ver_num']<665] = np.nan
 
         lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'sw_ver_num', 'spare2'], inplace=True, axis=1)

@@ -3092,10 +3092,10 @@ class tm:
             return False
 
         linescans = []
+        pkt_idx = []
 
         if expand_params:
             hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
-
 
         for idx,pkt in line_scan_pkts.iterrows():
 
@@ -3104,65 +3104,40 @@ class tm:
             num_steps = line_type['info'].num_steps
             in_image = bool(line_type['info'].sw_flags & 1)
 
-            # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
-            if expand_params:
-
-                line_type['info'] = line_type['info']._asdict()
-                frame = hk2[hk2.obt>pkt.obt].index
-                if len(frame)==0:
-                    print('WARNING: no HK2 frame found after line scan at %s' % pkt.obt)
-                    in_image = True # hack to put NaNs in the table if no HK available
-                else:
-                    frame = frame[0]
-
-                    sw_ver = int('%i%i%i' % (line_type['info']['sw_major'] >> 4, line_type['info']['sw_major'] & 0x0F, line_type['info']['sw_minor']))
-
-                if line_type['info']['scan_mode_dir'] & 0b11 == 1: # CON:
-
-                    line_type['info']['work_pt'] = np.nan if in_image else self.get_param('NMDA0287', frame=frame)[1]
-                    line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0298', frame=frame)[1]
-
-                    line_type['info']['res_amp'] = np.nan
-                    line_type['info']['work_pt_per'] = np.nan
-                    line_type['info']['set_pt_per'] = np.nan
-                    line_type['info']['fadj'] = np.nan
-                    line_type['info']['res_amp'] = np.nan
-
-                else:
-
-                    line_type['info']['res_amp'] = np.nan if in_image else self.get_param('NMDA0306', frame=frame)[1]
-                    line_type['info']['work_pt_per'] = np.nan if in_image else self.get_param('NMDA0181', frame=frame)[1]
-                    line_type['info']['work_pt'] = np.nan if in_image else line_type['info']['res_amp'] * abs(line_type['info']['work_pt_per']) / 100.
-                    line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0245', frame=frame)[1]
-                    line_type['info']['set_pt_per'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
-                    line_type['info']['fadj'] = np.nan if in_image else self.get_param('NMDA0347', frame=frame)[1]
-
-                if sw_ver < 665:
-                    line_type['info']['z_step'] = np.nan if in_image else self.get_param('NMDA0231', frame=frame)[1]
-
-                line_type['info']['exc_lvl'] = np.nan if in_image else self.get_param('NMDA0147', frame=frame)[1]
-                line_type['info']['ac_gain'] = np.nan if in_image else self.get_param('NMDA0118', frame=frame)[1]
-                line_type['info']['xy_settle'] = np.nan if in_image else self.get_param('NMDA0271', frame=frame)[1]
-                line_type['info']['z_settle'] = np.nan if in_image else self.get_param('NMDA0270', frame=frame)[1]
-                line_type['info']['z_ret'] = np.nan if in_image else self.get_param('NMDA0188', frame=frame)[1]
+            if ignore_image and in_image:
+                continue
 
             if not info_only:
                 line_type['data'] = np.array(struct.unpack(">%iH" % (num_steps),pkt['data'][line_scan_size:line_scan_size+num_steps*2]))
 
             linescans.append(line_type)
+            pkt_idx.append(idx)
 
+        # pack data into a pandas dataframe
         cols = line_scan_names._fields
-        if expand_params:
-            cols += ('work_pt_per', 'work_pt', 'set_pt_per', 'set_pt', 'res_amp', 'fadj', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle', 'z_ret')
+        lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=pkt_idx) #line_scan_pkts.index)
+        if not info_only:
+            lines['data'] = [line['data'] for line in linescans]
 
-        lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=line_scan_pkts.index)
-
+        # Calibrate raw data
         lines['in_image'] = lines.sw_flags.apply( lambda flag: bool(flag & 1))
         lines['aborted'] = lines.sw_flags.apply( lambda flag: bool(flag >> 3 & 1))
         lines['anti_creep'] = lines.sw_flags.apply( lambda flag: bool(flag >> 1 & 0b11))
-
-        if not info_only:
-            lines['data'] = [line['data'] for line in linescans]
+        lines['obt'] = line_scan_pkts.obt
+        lines['tip_num'] += 1
+        lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
+        lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str),sep='.')
+        lines['sw_ver_num'] = lines.sw_ver.apply( lambda ver: int("".join(ver.split('.'))) )
+        lines['lin_pos'] = lines.lin_pos.apply( lambda pos: pos*20./65535.)
+        lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
+        lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
+        lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
+        lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
+        lines['target'] = lines.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
+        lines['x_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 4 & 1) )
+        lines['y_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 5 & 1) )
+        lines['z_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 6 & 1) )
+        lines['scan_algo'] = lines.mode_params.apply(lambda mode: common.scan_algo[mode & 0b1111] )
 
         if ignore_image:
             lines = lines[ (~lines.in_image) & (~lines.anti_creep) ]
@@ -3170,27 +3145,54 @@ class tm:
                 print('WARNING: ignore_image is set, but there are no lines not forming an image')
                 return None
 
-        lines['obt'] = line_scan_pkts.obt
-        lines['tip_num'] += 1
-        lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
-        lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str),sep='.')
-        lines['sw_ver_num'] = lines.sw_ver.apply( lambda ver: int("".join(ver.split('.'))) )
+        if expand_params:
+            cols = ('work_pt_per', 'work_pt', 'set_pt_per', 'set_pt', 'res_amp', 'fadj', 'exc_lvl', 'ac_gain', 'xy_settle', 'z_settle', 'z_ret')
+            # create new columns
+            for col in cols:
+                lines[col] = np.nan
 
-        if not expand_params:
+            for idx, line in lines.iterrows():
+
+                frame = hk2[hk2.obt>line.obt].index
+                if len(frame)==0:
+                    print('WARNING: no HK2 frame found after line scan at %s' % pkt.obt)
+                    in_image = True # hack to put NaNs in the table if no HK available
+                else:
+                    frame = frame[0]
+
+                sw_ver = int("".join(line.sw_ver.split('.')))
+
+                if line.scan_type=='CON':
+
+                    lines['work_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0287', frame=frame)[1]
+                    lines['set_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0298', frame=frame)[1]
+
+                    lines['res_amp'].loc[idx] = np.nan
+                    lines['work_pt_per'].loc[idx] = np.nan
+                    lines['set_pt_per'].loc[idx] = np.nan
+                    lines['fadj'].loc[idx] = np.nan
+                    lines['res_amp'].loc[idx] = np.nan
+
+                else:
+
+                    lines['res_amp'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0306', frame=frame)[1]
+                    lines['work_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0181', frame=frame)[1]
+                    lines['work_pt'].loc[idx] = np.nan if line.in_image else lines['res_amp'].loc[idx] * abs(lines['work_pt_per'].loc[idx]) / 100.
+                    lines['set_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0245', frame=frame)[1]
+                    lines['set_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0244', frame=frame)[1]
+                    lines['fadj'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0347', frame=frame)[1]
+
+                if sw_ver < 665:
+                    lines['z_step'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0231', frame=frame)[1]
+
+                lines['exc_lvl'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0147', frame=frame)[1]
+                lines['ac_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0118', frame=frame)[1]
+                lines['xy_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0271', frame=frame)[1]
+                lines['z_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0270', frame=frame)[1]
+                lines['z_ret'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0188', frame=frame)[1]
+
+        else:
             lines['z_step'][lines['sw_ver_num']<665] = np.nan
-
-        lines['lin_pos'] = lines.lin_pos.apply( lambda pos: pos*20./65535.)
-
-        lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
-        lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
-        lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
-        lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
-        lines['target'] = lines.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
-
-        lines['x_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 4 & 1) )
-        lines['y_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 5 & 1) )
-        lines['z_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 6 & 1) )
-        lines['scan_algo'] = lines.mode_params.apply(lambda mode: common.scan_algo[mode & 0b1111] )
 
         lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'sw_ver_num', 'spare2'], inplace=True, axis=1)
 

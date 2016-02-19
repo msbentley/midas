@@ -3394,7 +3394,7 @@ class tm:
         image_header_size = struct.calcsize(image_header_fmt)
         image_header_names = collections.namedtuple("img_header_names", "sid sw_minor sw_major start_time end_time \
             channel lin_pos wheel_pos tip_num x_orig y_orig x_step y_step xsteps_dir ysteps_dir scan_type \
-            dset_id scan_mode status sw_flags line_err_cnt scn_err_cnt z_ret mag_ret res_amp set_pt set_win fadj \
+            z_step scan_mode status sw_flags line_err_cnt scn_err_cnt z_ret mag_ret res_amp set_pt set_win fadj \
             dblock_start num_pkts checksum")
 
         image_header = []; filename = []
@@ -3573,7 +3573,11 @@ class tm:
         info['tip_num'] = info.tip_num+1
         info['sw_ver'] = info.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
         info['sw_ver'] = info['sw_ver'].str.cat(info['sw_minor'].values.astype(str),sep='.')
+        info['sw_ver_int'] = int("".join(info.sw_ver.iloc[0].split('.')))
         info['channel'] = info.channel.apply( lambda channel: common.data_channels[int(math.log10(channel)/math.log10(2))] )
+
+        # Remove data from z_step in older OBSW versions (was formerly data set ID)
+        info['z_step'][info['sw_ver_int']<665] = np.nan
 
         # Instrument status
         info['mtl_disabled'] = info.status.apply( lambda status: bool(status >> 15 & 1) )
@@ -3649,6 +3653,9 @@ class tm:
                     info['set_pt'].loc[indices] = self.get_param('NMDA0245', frame=frame)[1]
                     info['fadj'].loc[indices] = self.get_param('NMDA0347', frame=frame)[1]
 
+                if sw_ver < 665:
+                    info['z_step'].loc[indices] = self.get_param('NMDA0231', frame=frame)[1]
+
                 info['set_pt_per'].loc[indices] = self.get_param('NMDA0244', frame=frame)[1]
                 info['work_pt_per'].loc[indices] = self.get_param('NMDA0181', frame=frame)[1]
                 info['work_pt'].loc[indices] = info['res_amp'] * abs(info['work_pt_per'].loc[indices].iloc[0]) / 100.
@@ -3656,7 +3663,7 @@ class tm:
                 info['z_settle'].loc[indices] = self.get_param('NMDA0270', frame=frame)[1]
 
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
-            'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um','z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
+            'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um', 'z_step', 'z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
             'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj']
 
         if sw_flags: return_data.extend(sw_flags_names)

@@ -3083,7 +3083,7 @@ class tm:
         line_scan_size = struct.calcsize(line_scan_fmt)
         line_scan_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_pos \
             wheel_pos tip_num x_orig y_orig step_size num_steps scan_mode_dir line_cnt sw_flags \
-            mode_params spare1 spare2")
+            mode_params z_step spare2")
 
         line_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=132)
 
@@ -3098,14 +3098,15 @@ class tm:
 
 
         for idx,pkt in line_scan_pkts.iterrows():
+
             line_type = {}
             line_type['info'] = line_scan_names(*struct.unpack(line_scan_fmt,pkt['data'][0:line_scan_size]))
             num_steps = line_type['info'].num_steps
-
             in_image = bool(line_type['info'].sw_flags & 1)
 
             # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
             if expand_params:
+
                 line_type['info'] = line_type['info']._asdict()
                 frame = hk2[hk2.obt>pkt.obt].index
                 if len(frame)==0:
@@ -3114,12 +3115,9 @@ class tm:
                 else:
                     frame = frame[0]
 
-                if line_type['info']['scan_mode_dir'] & 0b11 == 1: # CON:
+                    sw_ver = int('%i%i%i' % (line_type['info']['sw_major'] >> 4, line_type['info']['sw_major'] & 0x0F, line_type['info']['sw_minor']))
 
-                    # work_pt -> NMDA0287 CantDcStart
-                    # work_pt_per -> NaN
-                    # set_pt -> NMDA0298 DcAmplSet
-                    # set_pt_per -> NaN
+                if line_type['info']['scan_mode_dir'] & 0b11 == 1: # CON:
 
                     line_type['info']['work_pt'] = np.nan if in_image else self.get_param('NMDA0287', frame=frame)[1]
                     line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0298', frame=frame)[1]
@@ -3138,6 +3136,9 @@ class tm:
                     line_type['info']['set_pt'] = np.nan if in_image else self.get_param('NMDA0245', frame=frame)[1]
                     line_type['info']['set_pt_per'] = np.nan if in_image else self.get_param('NMDA0244', frame=frame)[1]
                     line_type['info']['fadj'] = np.nan if in_image else self.get_param('NMDA0347', frame=frame)[1]
+
+                if sw_ver < 665:
+                    line_type['info']['z_step'] = np.nan if in_image else self.get_param('NMDA0231', frame=frame)[1]
 
                 line_type['info']['exc_lvl'] = np.nan if in_image else self.get_param('NMDA0147', frame=frame)[1]
                 line_type['info']['ac_gain'] = np.nan if in_image else self.get_param('NMDA0118', frame=frame)[1]
@@ -3169,13 +3170,14 @@ class tm:
                 print('WARNING: ignore_image is set, but there are no lines not forming an image')
                 return None
 
-
-
         lines['obt'] = line_scan_pkts.obt
         lines['tip_num'] += 1
         lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
         lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str),sep='.')
-        lines['sw_ver_num'] = lines.sw_ver.apply( lambda ver: "".join(ver.split('.')) )
+        lines['sw_ver_num'] = lines.sw_ver.apply( lambda ver: int("".join(ver.split('.'))) )
+
+        if not expand_params:
+            lines['z_step'][lines['sw_ver_num']<665] = np.nan
 
         lines['lin_pos'] = lines.lin_pos.apply( lambda pos: pos*20./65535.)
 
@@ -3190,7 +3192,7 @@ class tm:
         lines['z_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 6 & 1) )
         lines['scan_algo'] = lines.mode_params.apply(lambda mode: common.scan_algo[mode & 0b1111] )
 
-        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'sw_ver_num', 'spare1', 'spare2'], inplace=True, axis=1)
+        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'sw_ver_num', 'spare2'], inplace=True, axis=1)
 
         print('INFO: %i line scans extracted' % (len(lines)))
 

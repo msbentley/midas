@@ -1928,9 +1928,8 @@ class tm:
         # Due to a database change, the event with SID 42777 has changed from 1 to 2
         # Easiest fix is to change the substype here
         tlm.subtype.loc[ tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].index ] = 2
-        # Also EV_APP_ERROR with SID 42765 - changes in FS OBSW, not yet in DB
-        # TODO: this is a temporary fix until the latest database and OBSW are in sync!!
-        tlm.subtype.loc[ tlm[ (tlm.sid==42765) & (tlm.subtype==2) ].index ] = 1
+        # Also EV_APP_ERROR with SID 42765
+        tlm.subtype.loc[ tlm[ (tlm.sid==42765) & (tlm.subtype==1) ].index ] = 2
 
 
         # Merge with the packet list, adding spid and description, then sort by OBT

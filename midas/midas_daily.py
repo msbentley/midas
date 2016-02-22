@@ -74,10 +74,6 @@ def run_daily():
         # M.S.Bentley 02/09/2014 - the server has only 1GB of memory and indexing ALL packets
         # causes problems. Breaking down indexing here per file, to see if that helps...
 
-        # Generate tip images
-        print('\n\nINFO: generating tip images\n')
-        ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
-
         # Use this to write a binary file with all image data
         print('\n\nINFO: updating binary image index\n')
         image_pickle()
@@ -126,6 +122,10 @@ def run_daily():
         for target in range(1,65):
             history = tm.target_history(target=target, images=images, exposures=exposures,
                 html=os.path.join(target_dir, 'tgt_%02d_history.html' % target))
+
+        # Generate tip images
+        print('\n\nINFO: generating tip images\n')
+        ros_tm.show_tips(savefig=os.path.join(log_dir, 'tip_images.png'))
 
         # (Re-)build the packet index
         print('\n\nINFO: Updating packet index\n')

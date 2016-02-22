@@ -1305,6 +1305,10 @@ def show_tips(savefig=None, info=False):
     fig = plt.figure(figsize=(15,15))
 
     images = load_images(data=True)
+
+    if images is None:
+        return None
+
     tip_images = images[ (images.target==3) & (images.channel=='ZS') & (~images.aborted) ].copy()
     tip_images.sort_values(by='start_time', inplace=True)
 
@@ -4674,6 +4678,13 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
                     objs.append(pkl.load(f))
                 except EOFError:
                     break
+                else:
+                    print('ERROR: unknown error, cannot load image dataframe')
+                    return None
+
+            if len(objs)==0:
+                print('ERROR: file %s appears to be empty' % filename)
+                return None
 
             images = pd.concat(iter(objs), axis=0)
 

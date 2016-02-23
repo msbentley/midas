@@ -1930,7 +1930,8 @@ class tm:
         tlm.subtype.loc[ tlm[ (tlm.sid==42777) & (tlm.subtype==1) ].index ] = 2
         # Also EV_APP_ERROR with SID 42765
         tlm.subtype.loc[ tlm[ (tlm.sid==42765) & (tlm.subtype==1) ].index ] = 2
-
+        # And EV_APP_CONTACT with SID 42764
+        tlm.subtype.loc[ tlm[ (tlm.sid==42764) & (tlm.subtype==1) ].index ] = 2
 
         # Merge with the packet list, adding spid and description, then sort by OBT
         tlm = pd.merge(tlm,pid,how='left').sort_values(by='obt')
@@ -3786,13 +3787,13 @@ class tm:
         return images.sort_values(by=['start_time','channel'])
 
 
-    def get_freq_scans(self, printdata=False, cantilever=False, fit=False, info_only=False, get_thresh=False):
-        """Extracts frequency scans from TM packets. If cantilever= is set to a
-        cantilever number from 1-16, only fscans for that cantilever are extracted.
+    def get_freq_scans(self, printdata=False, fit=False, info_only=False, get_thresh=False):
+        """Extracts frequency scans from TM packets.
 
         fit=True fits a Lorentzian to all curves and returns the fit parameters.
         printdata=True displays the parameters
-        info_only=True returns the meta-data without the raw data"""
+        info_only=True returns the meta-data without the raw data
+        get_thresh=True returns extra parameters from HK"""
 
         # Define frequency packet format
         # M.S.Bentley 11/09/2014 - updating for latest OBSW
@@ -3800,7 +3801,7 @@ class tm:
         freq_scan_size = struct.calcsize(freq_scan_fmt)
         freq_scan_names = collections.namedtuple("freq_scan_names", "sid sw_minor sw_major start_time freq_start \
             freq_step max_amp freq_at_max num_scans fscan_cycle tip_num cant_block exc_lvl ac_gain fscan_type \
-            work_pt res_amp fadj spare5 spare6 spare7")
+            work_pt res_amp fadj threshold op_pt_delta spare")
 
         freq_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=131)
 
@@ -3815,24 +3816,12 @@ class tm:
             fscans.append(freq_scan_names(*struct.unpack(freq_scan_fmt,pkt['data'][0:freq_scan_size])))
         fscans = pd.DataFrame(fscans,columns=freq_scan_names._fields,index=freq_scan_pkts.index)
 
-        # if the cantilever keyword is set, filter the fscans
-        if cantilever:
-            if (cantilever >=1) and (cantilever <= 16):
-                block = 0 if cantilever <= 8 else 1
-                cant = (cantilever-1) % 8
-                fscans = fscans[ (fscans.tip_num==cant) & (fscans.cant_block==block)]
-                if len(fscans)==0:
-                    print('WARNING: no frequency scans found for cantilever %i' % (cantilever))
-                    return False
-            else:
-                print('ERROR: cantilever number must be between 1 and 16')
-
         # find the number of unique scans (unique start OBTs)
         start_times = fscans.start_time.unique()
 
         # Find the index of HK2 packets, used to extract anciliary info
         if get_thresh:
-            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+            hk2 = self.pkts.query('type==3 & subtype==25 & apid==1076 & sid==2')
 
         freqscans = []
         amp_scans = []
@@ -3875,6 +3864,8 @@ class tm:
                 else:
                     frame = frame[0]
 
+            sw_ver = int("%i%i%i" % (first_pkt.sw_major >> 4, first_pkt.sw_major & 0x0F, first_pkt.sw_minor))
+
             scan['info'] = {
                 'sw_ver': '%i.%i.%i' % (first_pkt.sw_major >> 4, first_pkt.sw_major & 0x0F, first_pkt.sw_minor),
                 'start_time': start_time,
@@ -3887,6 +3878,11 @@ class tm:
                 'cant_block': first_pkt.cant_block,
                 'excitation': first_pkt.exc_lvl,
                 'gain': first_pkt.ac_gain,
+                'res_amp': first_pkt.res_amp * (20./65535.) if sw_ver>=664 else np.nan,
+                'fadj': first_pkt.fadj * (20./65535.) if sw_ver>=664 else np.nan,
+                'work_pt': first_pkt.work_pt * (20./65535.) if sw_ver>=664 else np.nan,
+                'thresh_amp': first_pkt.threshold * (20./65535.) if sw_ver>=665 else np.nan,
+                'op_pt_delta': first_pkt.op_pt_delta * (20./65535.) if sw_ver>=665 else np.nan,
                 'is_phase': True if (first_pkt.fscan_type & 1) else False,
                 'above_thresh': False if (last_pkt.fscan_type >> 1 & 1) else True } # threshold scan flag (0=ok, 1=not found) }
 
@@ -3898,19 +3894,14 @@ class tm:
 
             if get_thresh:
 
-                # Recent versions of the OBSW return some of these parameters in the header - use them if possible!
-
-                sw_ver = int("".join(scan['info']['sw_ver'].split('.'))) # numeric version of the OBSW version
+                if sw_ver < 665:
+                    # scan['info']['thresh_amp'] = self.get_param('', frame=frame)[1] TODO!
+                    scan['info']['op_pt_delta'] = self.get_param('NMDA0242', frame=frame)[1]
                 if sw_ver < 664:
-                    scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
-                    scan['info']['set_pt'] = self.get_param('NMDA0245', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
-                    scan['info']['fadj'] = self.get_param('NMDA0347', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
-                    scan['info']['work_pt'] = (scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.)  if scan['info']['above_thresh'] else np.NaN
-                else: # (20./65535.)
-                    scan['info']['res_amp'] = first_pkt.res_amp * (20./65535.) if scan['info']['above_thresh'] else np.NaN
-                    scan['info']['set_pt'] = self.get_param('NMDA0245', frame=frame)[1] if scan['info']['above_thresh'] else np.NaN
-                    scan['info']['fadj'] = first_pkt.fadj * (20./65535.) if scan['info']['above_thresh'] else np.NaN
-                    scan['info']['work_pt'] = first_pkt.work_pt * (20./65535.) if scan['info']['above_thresh'] else np.NaN
+                    scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]
+                    scan['info']['set_pt'] = self.get_param('NMDA0245', frame=frame)[1]
+                    scan['info']['fadj'] = self.get_param('NMDA0347', frame=frame)[1]
+                    scan['info']['work_pt'] = (scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.)
 
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \
@@ -3975,7 +3966,6 @@ class tm:
             scans = pd.concat([scans,fits],axis=1)
 
         # Add the actual data
-        # TODO check if this slows down display in iPython as it seems to for images
         if not info_only:
             scans['frequency'] = pd.Series([scan['frequency'] for scan in freqscans])
             scans['amplitude'] = pd.Series([scan['amplitude'] for scan in freqscans])

@@ -277,7 +277,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
     if figure is None:
         plt.show()
 
-    return
+    return fig
 
 
 def plot_fscan_grid(fscans, cols=4):
@@ -2210,7 +2210,7 @@ class tm:
         exposures['duration'] = exposures.end - exposures.start
 
         # To find the target number we need to go to HK
-        hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+        hk2 = self.pkts.query('type==3 & subtype==25 & apid==1076 & sid==2')
         hk2.sort_values(by='obt', inplace=True, axis=0)
 
         # Loop through the OBTs and find the next HK2 packet, then extract parameters

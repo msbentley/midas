@@ -789,15 +789,12 @@ def to_bcr(images, outputdir='.'):
     return bcrs if len(bcrs) > 1 else bcrs[0]
 
 
-def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, pt_spec=False):
+def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
     """Accepts one or more sets of image data from get_images() and returns individual
     GWY files, with multiple channels combined in single files and all meta-data.
 
     If save_png=True and the image contains a topographic channel, a bitmap will be
-    produced after a polynominal plane subtraction and saved to pngdir.
-
-    pt_spec=True will check for control data packets acquired during the image and
-    write them to the GWY file as point spectra."""
+    produced after a polynominal plane subtraction and saved to pngdir."""
 
     import common, gwy, gwyutils, math
 
@@ -876,8 +873,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, pt_s
                 if len(m[m==1.])>0:
                     c.set_object_by_name('/%i/mask' % (chan_idx), mask)
 
-                if pt_spec:
-                    print('DEBUG: processing control data for file %s' % filename)
+                if channel.ctrl_image:
                     # check for control data packets sent between image start and image end (+/- 5 minutes)
                     if telem is None:
                         telem = tm(scan['filename'].iloc[0])
@@ -3618,7 +3614,7 @@ class tm:
         info['linefeed_last_min'] = info.sw_flags.apply( lambda flag: bool( flag >> 1 & 0b1 ) )
         info['fscan_phase'] = info.sw_flags.apply( lambda flag: bool( flag & 0b1 ) )
 
-        sw_flags_names = ['mag_phase', 'line_tx', 'auto_expose', 'anti_creep', 'ctrl_retract', 'ctrl_image', 'line_in_img',
+        sw_flags_names = ['mag_phase', 'line_tx', 'auto_expose', 'anti_creep', 'ctrl_retract', 'line_in_img',
             'linefeed_zero', 'linefeed_last_min', 'fscan_phase']
 
         # Calculate the real step size
@@ -3684,7 +3680,7 @@ class tm:
 
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um', 'z_step', 'z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
-            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj']
+            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj', 'ctrl_image']
 
         if sw_flags: return_data.extend(sw_flags_names)
         if expand_params: return_data.extend(expanded_names)

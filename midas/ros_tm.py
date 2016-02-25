@@ -256,7 +256,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
         if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())) and not scan.is_phase:
             # Also drawn lines showing the working point and set point
-            ax.axhline(scan.res_amp,color='r')
+            ax.axhline(scan.res_amp,color='k')
             ax.axhline(scan.work_pt,color='r')
             ax.axhline(scan.set_pt,color='g')
             ax.axhline(scan.fadj,color='g', ls='--')
@@ -3596,26 +3596,29 @@ class tm:
         # Remove data from z_step in older OBSW versions (was formerly data set ID)
         info['z_step'][info['sw_ver_int']<665] = np.nan
 
+        info['res_amp'] = info.res_amp * 20./65535.
+        info['set_pt'] = info.set_pt * 20./65535.
+        info['fadj'] = info.fadj * 20./65535.
+
         # Instrument status
         info['mtl_disabled'] = info.status.apply( lambda status: bool(status >> 15 & 1) )
         info['auto_expose_mode'] = info.status.apply( lambda status: bool(status >> 4 & 0b111 ) )
         info['tech_mode'] = info.status.apply( lambda status: bool(status & 0b1 ) )
 
         # Software flags
+        info['mag_phase'] = info.sw_flags.apply( lambda flag: bool( flag >> 13 & 0b1 ) )
+        info['line_tx'] = info.sw_flags.apply( lambda flag: bool( flag >> 12 & 0b1 ) )
         info['auto_expose'] = info.sw_flags.apply( lambda flag: bool( flag >> 8 & 0b1 ) )
         info['anti_creep'] = info.sw_flags.apply( lambda flag: bool( flag >> 7 & 0b1 ) )
         info['ctrl_retract'] = info.sw_flags.apply( lambda flag: bool( flag >> 6 & 0b1 ) )
         info['ctrl_image'] = info.sw_flags.apply( lambda flag: bool( flag >> 5 & 0b1 ) )
         info['line_in_img'] = info.sw_flags.apply( lambda flag: bool( flag >> 4 & 0b1 ) )
+        info['calc_zret'] = info.sw_flags.apply( lambda flag: bool( flag >> 3 & 0b1 ) )
         info['linefeed_zero'] = info.sw_flags.apply( lambda flag: bool( flag >> 2 & 0b1 ) )
         info['linefeed_last_min'] = info.sw_flags.apply( lambda flag: bool( flag >> 1 & 0b1 ) )
         info['fscan_phase'] = info.sw_flags.apply( lambda flag: bool( flag & 0b1 ) )
 
-        info['res_amp'] = info.res_amp * 20./65535.
-        info['set_pt'] = info.set_pt * 20./65535.
-        info['fadj'] = info.fadj * 20./65535.
-
-        sw_flags_names = ['auto_expose', 'anti_creep', 'ctrl_retract', 'ctrl_image', 'line_in_img',
+        sw_flags_names = ['mag_phase', 'line_tx', 'auto_expose', 'anti_creep', 'ctrl_retract', 'ctrl_image', 'line_in_img',
             'linefeed_zero', 'linefeed_last_min', 'fscan_phase']
 
         # Calculate the real step size
@@ -3801,7 +3804,7 @@ class tm:
         freq_scan_size = struct.calcsize(freq_scan_fmt)
         freq_scan_names = collections.namedtuple("freq_scan_names", "sid sw_minor sw_major start_time freq_start \
             freq_step max_amp freq_at_max num_scans fscan_cycle tip_num cant_block exc_lvl ac_gain fscan_type \
-            work_pt res_amp fadj threshold op_pt_delta spare")
+            set_pt res_amp fadj work_pt set_pt_delta spare")
 
         freq_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=131)
 
@@ -3881,8 +3884,8 @@ class tm:
                 'res_amp': first_pkt.res_amp * (20./65535.) if sw_ver>=664 else np.nan,
                 'fadj': first_pkt.fadj * (20./65535.) if sw_ver>=664 else np.nan,
                 'work_pt': first_pkt.work_pt * (20./65535.) if sw_ver>=664 else np.nan,
-                'thresh_amp': first_pkt.threshold * (20./65535.) if sw_ver>=665 else np.nan,
-                'op_pt_delta': first_pkt.op_pt_delta * (20./65535.) if sw_ver>=665 else np.nan,
+                'set_pt': first_pkt.set_pt * (20./65535.) if sw_ver>=665 else np.nan,
+                'set_pt_delta': first_pkt.set_pt_delta * (20./65535.) if sw_ver>=665 else np.nan,
                 'is_phase': True if (first_pkt.fscan_type & 1) else False,
                 'above_thresh': False if (last_pkt.fscan_type >> 1 & 1) else True } # threshold scan flag (0=ok, 1=not found) }
 
@@ -4667,9 +4670,6 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
                     objs.append(pkl.load(f))
                 except EOFError:
                     break
-                else:
-                    print('ERROR: unknown error, cannot load image dataframe')
-                    return None
 
             if len(objs)==0:
                 print('ERROR: file %s appears to be empty' % filename)

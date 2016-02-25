@@ -905,23 +905,17 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                                 for pt in range(num_pix):
                                     spec_data.set_val(pt, ctrl_data[pt])
 
-                                # TODO - control data points do not (yet!) uniquely identify their position, so we
-                                # need to calculate this from dimensions, open/closed loop and main scan direction
-                                # of the parent image. Update when the OBSW has been upgraded!
-
-                                # if channel.sw_ver
-
-                                # if ctrl_pt.scan_dir=='X':
                                 if channel.fast_dir=='X':
                                     xpos = ctrl_pt.main_cnt * ctrl_pt.step_size * xcal * 10**xy_power
                                     # ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
-                                    ypos = ((i // 32)+1) * channel.y_step * ycal * 10**xy_power
+                                    # ypos = ((i // 32)+1) * channel.y_step * ycal * 10**xy_power
+                                    ypos = ctrl_pt.line_cnt * channel.y_step * ycal * 10**xy_power
 
                                 else:
-                                    # ypos = (((ctrl_pt.main_cnt-1) * ctrl_pt.step_size * ycal) + ctrl_pt.step_size * ycal/2.  ) * 10**xy_power
                                     ypos = ctrl_pt.main_cnt * ctrl_pt.step_size * ycal * 10**xy_power
                                     # xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
-                                    xpos = ((i // 32)+1) * channel.x_step * xcal * 10**xy_power
+                                    # xpos = ((i // 32)+1) * channel.x_step * xcal * 10**xy_power
+                                    xpos = ctrl_pt.line_cnt * channel.x_step * xcal * 10**xy_power
 
                                 spec.add_spectrum(spec_data, xpos, ypos)
                                 i += 1

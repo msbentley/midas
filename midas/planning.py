@@ -2249,10 +2249,8 @@ class itl:
 
         return
 
-    def xy_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None, \
-        xlh=True, ylh=True, mainscan_x=True, at_surface=False, set_start=True, fadj_numscans=2,
-        ac_gain=False, exc_lvl=False, set_pt=False, op_amp=False, fadj=85.0, z_settle=50, xy_settle=50,
-        contact=False, threshold=False, dc_set=False, zapp_pos=1.5, safety_factor=4.0):
+    def xy_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None,
+        safety_factor=4.0, **kwargs):
         """XY calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         # set default steps according to open or closed loop mode
@@ -2264,19 +2262,14 @@ class itl:
             else:
                 ystep = 41
 
-        self.scan(cantilever=cantilever, facet=2, channels=channels, openloop=openloop, \
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, at_surface=at_surface, safety_factor=safety_factor, \
-            xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep,
-            ac_gain=ac_gain, exc_lvl=exc_lvl, set_start=set_start, z_settle=z_settle, xy_settle=xy_settle,
-            op_amp=op_amp, fadj=fadj,  set_pt=set_pt, fadj_numscans=fadj_numscans, contact=contact, threshold=threshold,
-            dc_set=dc_set, zapp_pos=zapp_pos)
+        self.scan(cantilever=cantilever, facet=2, openloop=openloop, safety_factor=safety_factor,
+            xpixels=xpixels, ypixels=ypixels, xstep=xstep, ystep=ystep, **kwargs)
 
         return
 
 
-    def z_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None, \
-        xlh=True, ylh=True, mainscan_x=True, zstep=4, contact=False, threshold=False, dc_set=False, zapp_pos=1.5,
-        safety_factor=4.0, z_settle=50, xy_settle=50,  op_amp=False, set_pt=False, fadj=85.0):
+    def z_cal(self, cantilever, openloop=True, xpixels=256, ypixels=256, xstep=None, ystep=None, \
+        safety_factor=4.0, **kwargs):
         """Z calibration - calls scan() with default cal parameters (which can be overriden)"""
 
         # set default steps according to open or closed loop mode
@@ -2288,18 +2281,13 @@ class itl:
             else:
                 ystep = 27
 
-        self.scan(cantilever=cantilever, facet=1, channels=channels, openloop=openloop, \
-            xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep, \
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor=safety_factor, contact=contact, threshold=threshold,
-            dc_set=dc_set, zapp_pos=zapp_pos, z_settle=z_settle, xy_settle=xy_settle,
-            op_amp=op_amp, set_pt=set_pt, fadj=fadj)
+        self.scan(cantilever=cantilever, facet=1, openloop=openloop, xpixels=xpixels,  ypixels=ypixels,
+        xstep=xstep, ystep=ystep, safety_factor=safety_factor, **kwargs)
 
         return
 
-    def tip_cal(self, cantilever, channels=['ZS', 'PH', 'ST'], openloop=True, xpixels=256, ypixels=256, xstep=False, ystep=False,
-        xlh=True, ylh=True, mainscan_x=True, zstep=4, xorigin=False, yorigin=False,
-        fadj=85.0, op_amp=False, set_pt=False, ac_gain=False, exc_lvl=False, num_fcyc=8, set_start=True, fadj_numscans=2,
-        z_settle=50, xy_settle=50, contact=False, threshold=False, dc_set=False, zapp_pos=1.5, safety_factor=4.0):
+    def tip_cal(self, cantilever, xpixels=256, ypixels=256, safety_factor=4.0, openloop=True,
+            xstep=False, ystep=False, **kwargs):
         """Tip calibration - calls scan() with default cal parameters (can be overridden)"""
 
         # set default steps according to open or closed loop mode
@@ -2311,15 +2299,10 @@ class itl:
             else:
                 ystep = 11
 
-        self.scan(cantilever=cantilever, facet=3, channels=channels, openloop=openloop,
-            xpixels=xpixels,  ypixels=ypixels, xstep=xstep, ystep=ystep, zstep=zstep,
-            xlh=xlh, ylh=ylh, mainscan_x=mainscan_x, safety_factor=safety_factor, xorigin=xorigin, yorigin=yorigin,
-            op_amp=op_amp, fadj=fadj, set_pt=set_pt, ac_gain=ac_gain, exc_lvl=exc_lvl, num_fcyc=num_fcyc,
-            set_start=set_start, fadj_numscans=fadj_numscans, z_settle=z_settle, xy_settle=xy_settle,
-            contact=contact, threshold=threshold, dc_set=dc_set, zapp_pos=zapp_pos)
+        self.scan(cantilever=cantilever, facet=3, openloop=openloop, xpixels=xpixels, ypixels=ypixels,
+            xstep=xstep, ystep=ystep, safety_factor=safety_factor, **kwargs)
 
         return
-
 
     def post_scan(self):
         """Retracts approach stage to minimum and switches off un-used subsystems"""

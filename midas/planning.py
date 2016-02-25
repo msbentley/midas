@@ -1990,6 +1990,20 @@ class itl:
         if pstp: at_surface = True
         if contact: set_start = False
 
+        # check for bad values!
+
+        if set_pt:
+            if common.is_bad(set_pt):
+                print('WARNING: set point value %3.2f%% is flagged as bad!' % set_pt)
+
+        if common.is_bad(fadj):
+            print('WARNING: frequency adjust value %3.2f%% is flagged as bad!' % fadj)
+
+        if op_amp:
+            if common.is_bad(op_amp, is_neg=True):
+                print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+
+
         # validate inputs
         if (cantilever<1) or (cantilever>16):
             print('ERROR: cantilever number must be between 1 and 16')
@@ -2409,6 +2423,16 @@ class itl:
         fscan = self.cantilever_select(cantilever)
         self.cantilever = cantilever
 
+        if common.is_bad(set_pt):
+            print('WARNING: set point value %3.2f%% is flagged as bad!' % set_pt)
+
+        if common.is_bad(fadj):
+            print('WARNING: frequency adjust value %3.2f%% is flagged as bad!' % fadj)
+
+        if common.is_bad(op_amp, is_neg=True):
+            print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+
+
         # calculate start frequency based on step size and number of scans
         res_freq = fscan['res_freq']
         fstep_coarse = fscan['fstep_coarse'] if type(fstep_coarse) == bool else fstep_coarse
@@ -2591,6 +2615,9 @@ class itl:
             print('WARNING: invalid height threshold, must be between 0 and 100%')
             height_thresh = 50.0
 
+        if common.is_bad(height_thresh):
+            print('WARNING: height threshold value %3.2f%% is flagged as bad!' % height_thresh)
+
         # SetFvectRatioPar (%) - <pix_area_ratio>
         if 0.0 >= pix_area <= 100.0:
             print('WARNING: invalid pixel/area ratio, must be between 0 and 100%')
@@ -2654,6 +2681,18 @@ class itl:
                 proc['template'] = 'LINE_SCAN'
 
         # validate inputs
+
+        if set_pt:
+            if common.is_bad(set_pt):
+                print('WARNING: set point value %3.2f%% is flagged as bad!' % set_pt)
+
+        if common.is_bad(fadj):
+            print('WARNING: frequency adjust value %3.2f%% is flagged as bad!' % fadj)
+
+        if op_amp:
+            if common.is_bad(op_amp, is_neg=True):
+                print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+
         if (cantilever<1) or (cantilever>16):
             print('ERROR: cantilever number must be between 1 and 16')
             return False

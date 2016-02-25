@@ -106,6 +106,28 @@ ac_v = (20.0/65535.)        # -10.0 - +10.0 V
 dc_v = (20.0/65535.)        # -10.0 - +10.0 V
 phase_deg = (360./65535.)   # -180.0 - +180.0 deg
 
+# "bad" values due to OBSW sign bit issue12-16
+# 13 ... 15% (raw 0x2000-0x27FF)
+# 38 ... 40% (raw 0x6000-0x67FF)
+# 63 ...65% (raw 0xA000-0xA7FF)
+ #88 ... 90% (raw 0xE000-0xE7FF)
+badvals = [ (0x2000,0x27FF), (0x6000,0x67FF), (0xA000,0xA7FF), (0xE000,0xE7FF) ]
+
+def is_bad(value, is_neg=False):
+
+    cal = 65535./200. if is_neg else 65535./100.
+    offset = 100 if is_neg else 0.
+    calval = (value+offset) * cal
+
+    for valset in badvals:
+        if valset[0] < calval < valset[1]:
+            return True
+        else:
+            continue
+
+    return False
+
+
 def fscan_duration(num_scans):
 
     from datetime import timedelta

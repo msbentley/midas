@@ -909,6 +909,8 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                                 # need to calculate this from dimensions, open/closed loop and main scan direction
                                 # of the parent image. Update when the OBSW has been upgraded!
 
+                                # if channel.sw_ver
+
                                 # if ctrl_pt.scan_dir=='X':
                                 if channel.fast_dir=='X':
                                     xpos = ctrl_pt.main_cnt * ctrl_pt.step_size * xcal * 10**xy_power
@@ -3125,9 +3127,8 @@ class tm:
         lines['anti_creep'] = lines.sw_flags.apply( lambda flag: bool(flag >> 1 & 0b11))
         lines['obt'] = line_scan_pkts.obt
         lines['tip_num'] += 1
-        lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
-        lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str),sep='.')
-        lines['sw_ver_num'] = lines.sw_ver.apply( lambda ver: int("".join(ver.split('.'))) )
+        lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i%i' % (major >> 4, major & 0x0F))
+        lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str)).astype(int)
         lines['lin_pos'] = lines.lin_pos.apply( lambda pos: pos*20./65535.)
         lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
         lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
@@ -3164,8 +3165,6 @@ class tm:
                 else:
                     frame = frame[0]
 
-                sw_ver = int("".join(line.sw_ver.split('.')))
-
                 if line.scan_type=='CON':
 
                     lines['work_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0287', frame=frame)[1]
@@ -3187,7 +3186,7 @@ class tm:
                     lines['set_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0244', frame=frame)[1]
                     lines['fadj'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0347', frame=frame)[1]
 
-                if sw_ver < 665: # have to get these from HK
+                if line.sw_ver < 665: # have to get these from HK
                     lines['z_step'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0231', frame=frame)[1]
                     lines['exc_lvl'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0147', frame=frame)[1]
                     lines['ac_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0118', frame=frame)[1]
@@ -3201,9 +3200,9 @@ class tm:
 
         else:
             # if expanded params NOT requested, set z_step to NaN (not in header)
-            lines['z_step'][lines['sw_ver_num']<665] = np.nan
+            lines['z_step'][lines['sw_ver']<665] = np.nan
 
-        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'sw_ver_num', 'spare2'], inplace=True, axis=1)
+        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'spare2'], inplace=True, axis=1)
 
         print('INFO: %i line scans extracted' % (len(lines)))
 
@@ -3238,8 +3237,8 @@ class tm:
         ctrl_data['obt'] = ctrl_data_pkts.obt
         ctrl_data['z_retract'] = ctrl_data.block_addr.apply( lambda block: bool(block & 1) )
         ctrl_data['block_addr'] = ctrl_data.block_addr.apply( lambda block: block >> 1 )
-        ctrl_data['sw_ver'] = ctrl_data.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
-        ctrl_data['sw_ver'] = ctrl_data['sw_ver'].str.cat(ctrl_data['sw_minor'].values.astype(str),sep='.')
+        ctrl_data['sw_ver'] = ctrl_data.sw_major.apply( lambda major: '%i%i' % (major >> 4, major & 0x0F))
+        ctrl_data['sw_ver'] = ctrl_data['sw_ver'].str.cat(ctrl_data['sw_minor'].values.astype(str)).astype(int)
         ctrl_data['lin_pos'] = ctrl_data.lin_pos.apply( lambda pos: pos*20./65535.)
         ctrl_data['tip_num'] += 1
         # Scan mode and direction:
@@ -3291,7 +3290,7 @@ class tm:
             # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
             if expand_params:
 
-                sw_ver = int("".join(ctrl_data.ix[idx].sw_ver.split('.'))) # numeric version of the OBSW version
+                sw_ver = ctrl_data.ix[idx].sw_ver
                 frame = hk2[hk2.obt>pkt.obt].index[0]
 
                 if sw_ver < 664:
@@ -3584,13 +3583,12 @@ class tm:
         info['target'] = info.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
         info['target_type'] = info.target.apply( lambda tgt: common.target_type(tgt) )
         info['tip_num'] = info.tip_num+1
-        info['sw_ver'] = info.sw_major.apply( lambda major: '%i.%i' % (major >> 4, major & 0x0F) )
-        info['sw_ver'] = info['sw_ver'].str.cat(info['sw_minor'].values.astype(str),sep='.')
-        info['sw_ver_int'] = int("".join(info.sw_ver.iloc[0].split('.')))
+        info['sw_ver'] = info.sw_major.apply( lambda major: '%i%i' % (major >> 4, major & 0x0F))
+        info['sw_ver'] = info['sw_ver'].str.cat(info['sw_minor'].values.astype(str)).astype(int)
         info['channel'] = info.channel.apply( lambda channel: common.data_channels[int(math.log10(channel)/math.log10(2))] )
 
         # Remove data from z_step in older OBSW versions (was formerly data set ID)
-        info['z_step'][info['sw_ver_int']<665] = np.nan
+        info['z_step'][info['sw_ver']<665] = np.nan
 
         info['res_amp'] = info.res_amp * 20./65535.
         info['set_pt'] = info.set_pt * 20./65535.
@@ -3661,7 +3659,7 @@ class tm:
                 indices = info[info.start_time==time].index
 
                 # numeric version of the OBSW version
-                sw_ver = int("".join(info[info.start_time==time].sw_ver.iloc[0].split('.')))
+                sw_ver = info[info.start_time==time].sw_ver.iloc[0]
 
                 if sw_ver < 664:
 
@@ -3866,7 +3864,7 @@ class tm:
             sw_ver = int("%i%i%i" % (first_pkt.sw_major >> 4, first_pkt.sw_major & 0x0F, first_pkt.sw_minor))
 
             scan['info'] = {
-                'sw_ver': '%i.%i.%i' % (first_pkt.sw_major >> 4, first_pkt.sw_major & 0x0F, first_pkt.sw_minor),
+                'sw_ver': sw_ver,
                 'start_time': start_time,
                 'freq_start': first_pkt.freq_start * 0.0006984, # 00021065027,
                 'freq_step': first_pkt.freq_step * 0.0006984, # 00021065027,

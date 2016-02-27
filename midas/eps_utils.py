@@ -118,7 +118,13 @@ def parse_itl(filename, header=True):
     itlparse.ignore(source_line)
     itlparse.ignore(continuation)
 
-    itl = itlparse.parseString(open(filename, 'U').read())
+    try:
+        itl = itlparse.parseString(open(filename, 'U').read())
+    except ParseException, err:
+        print 'ERROR: ITL parse failed at line: \n: ' + err.line
+        print " "*(err.column-1) + "^"
+        print err
+        return None
 
     print('INFO: Timeline file %s read successfully with %i entries' %
           (os.path.basename(filename), len(itl.timeline)))

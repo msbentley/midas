@@ -760,8 +760,25 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
     event_list = event_list.rename(columns={"time": "event_time"})
 
     seqs = []
-    seqs= pd.DataFrame( [(seq.name,seq.time,seq.label,int(seq.options.val)) for seq in itl.timeline], \
+    seqs = pd.DataFrame(
+        [(seq.name, seq.time, seq.label, int(seq.options.val)) for seq in itl.timeline if type(seq.time)==timedelta],
         columns=['sequence', 'reltime', 'event', 'cnt'] )
+
+    # add the absolute time for each sequence according to event and count
+    seqs = pd.merge(left=seqs,right=event_list,on=['event','cnt'],how='left')
+
+    # absolute time is simply the event time plus the ITL relative time
+    seqs['abs_time']=seqs.reltime+seqs.event_time
+
+    # remove unused columns
+    seqs.drop(['reltime', 'event', 'cnt', 'event_time'], inplace=True, axis=1)
+
+    # add any absolute sequences
+    abs_seq = []
+    abs_seqs = pd.DataFrame(
+            [(seq.name, seq.time) for seq in itl.timeline if type(seq.time)==datetime], columns=['sequence', 'abs_time'] )
+
+    seqs = seqs.append(abs_seqs, ignore_index=True).sort_values(by='abs_time')
 
     # Get the description of each sequence from the command sequence file (csf.dat)
     csf_file = os.path.join(common.s2k_path, 'csf.dat')
@@ -773,19 +790,13 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
     csp = ros_tm.read_csp()
 
     # merge frames to add sequence names
-    seqs = pd.merge(left=seqs,right=csf,on='sequence',how='left').sort_values( by=['cnt','reltime'] )
-
-    # add the absolute time for each sequence according to event and count
-    seqs = pd.merge(left=seqs,right=event_list,on=['event','cnt'],how='left')
-
-    # absolute time is simply the event time plus the ITL relative time
-    seqs['abs_time']=seqs.reltime+seqs.event_time
+    seqs = pd.merge(left=seqs,right=csf,on='sequence',how='left')
 
     # RMOC often uses "Day of Year", so also calculate the DOY
     seqs['doy']= seqs.abs_time.apply( lambda x: x.dayofyear )
 
     # Only return the useful content for now
-    seqs = seqs[ ['abs_time', 'doy', 'sequence','description','event','cnt','reltime'] ]
+    # seqs = seqs[ ['abs_time', 'doy', 'sequence','description','event','cnt','reltime'] ]
 
     if expand_params:
         param_list = []

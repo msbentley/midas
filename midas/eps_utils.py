@@ -43,8 +43,7 @@ def parse_itl(filename, header=True):
 
     header = pp.Group(pp.OneOrMore(header_entry)).setResultsName('header')
 
-    # Define the timeline, a series of TC SQs with corresponding timing, mode
-    # etc.
+    # Define the timeline, a series of TC SQs with corresponding timing, mode etc.
 
     # Event label
     eventLabel = pp.Word(pp.alphanums + '_-')
@@ -57,7 +56,7 @@ def parse_itl(filename, header=True):
     # Relative time (positive or negative)
     plusminus = pp.oneOf('+ -')
     relTime = pp.Combine(pp.Optional(plusminus) + pp.Optional(num('days') +
-                                                              ('_')) + pp.Combine(num + ":" + num + ":" + num)('hhmmss'))
+        ('_')) + pp.Combine(num + ":" + num + ":" + num)('hhmmss'))
 
     def validateRelTime(tokens):
         try:
@@ -67,12 +66,28 @@ def parse_itl(filename, header=True):
             hours, minutes, seconds = map(int, (hours, minutes, seconds))
             negator = -1 if negative else 1
             return timedelta(0, negator * (days * 24 * 60 * 60 + hours * 60 * 60 + minutes * 60 + seconds))
-            # time.strptime(tokens[0], "%m/%d/%Y")
-
         except ValueError:
             raise pp.ParseException("Invalid date string (%s)" % tokens[0])
 
     relTime.setParseAction(validateRelTime)
+
+    # Absolute time can also be used, e.g. 24-Feb-2016_04:55:00
+    # absTime = pp.Combine(alphanum('date') + '_' + alphanum('time'))
+    absTime = pp.Combine(num('day') + '-' + alphanum('mon') + '-' + num('year') +
+        ('_') + pp.Combine(num + ":" + num + ":" + num)('hhmmss'))
+
+    def validateAbsTime(tokens):
+        try:
+            date = tokens[0]
+            hours, minutes, seconds = date.hhmmss.split(':')
+            hours, minutes, seconds = map(int, (hours, minutes, seconds))
+            datestring = '%s-%s-%s %d:%d:%d' % (date.year, date.mon, date.day, hours, minutes, seconds)
+            print datestring
+            return parser.parse(datestring)
+        except ValueError:
+            raise pp.ParseException("Invalid date string (%s)" % tokens[0])
+
+    absTime.setParseAction(validateAbsTime)
 
     # Instrument name
     instrument = word
@@ -100,13 +115,13 @@ def parse_itl(filename, header=True):
                                  pp.Suppress('=') + pp.OneOrMore(zrec_detail)))
 
     sequence = alphanumunder('name') + pp.Optional(pp.Suppress('(') +
-                                                   seqParams('params') + pp.Optional(zrec('zrec')) + pp.Suppress(')'))
+        seqParams('params') + pp.Optional(zrec('zrec')) + pp.Suppress(')'))
 
-    timeline_entry = pp.Group(eventLabel('label') + pp.Optional(eventOptions('options')) + relTime('time') +
-                              instrument('instrument') + mode('mode') + sequence('sequence'))
+    timeline_entry = pp.Group(pp.Or(
+        [ eventLabel('label') + pp.Optional(eventOptions('options')) + relTime('time'),
+        absTime('time')]) + instrument('instrument') + mode('mode') + sequence('sequence'))
 
-    timeline = pp.Group(pp.OneOrMore(timeline_entry)
-                        ).setResultsName('timeline')
+    timeline = pp.Group(pp.OneOrMore(timeline_entry)).setResultsName('timeline')
 
     # M.S.Bentley 28/08/2014 - not all ITL files (especially those used by MAPPS) have a header, so making
     # it an option (set by header=True)
@@ -120,7 +135,7 @@ def parse_itl(filename, header=True):
 
     try:
         itl = itlparse.parseString(open(filename, 'U').read())
-    except ParseException, err:
+    except pp.ParseException, err:
         print 'ERROR: ITL parse failed at line: \n: ' + err.line
         print " "*(err.column-1) + "^"
         print err

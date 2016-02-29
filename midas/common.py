@@ -110,7 +110,7 @@ phase_deg = (360./65535.)   # -180.0 - +180.0 deg
 # 13 ... 15% (raw 0x2000-0x27FF)
 # 38 ... 40% (raw 0x6000-0x67FF)
 # 63 ...65% (raw 0xA000-0xA7FF)
- #88 ... 90% (raw 0xE000-0xE7FF)
+# 88 ... 90% (raw 0xE000-0xE7FF)
 badvals = [ (0x2000,0x27FF), (0x6000,0x67FF), (0xA000,0xA7FF), (0xE000,0xE7FF) ]
 
 def is_bad(value, is_neg=False):
@@ -181,9 +181,10 @@ s2_channels = ['RD', 'CF']
 retr_channel = ['RT']
 data_channels = channels + status_channels + s2_channels + retr_channel
 
-cal_factors = [ zcal, 20./65535., 1, 360./65535., 220./65535., 280./65535., 280./65535., 80./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 1,1,1,1,1,1,1,1,1, zcal]
-offsets = [0., 0., 0., 0., 0., 100., 100., 100., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,0.]
-units = ['nm', 'V', 'none', 'deg', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'V', 'none', 'none','none','none','none','none','none','none','none','nm' ]
+#               ZS       AC       S2    PH           DC          XH            YH           ZH           M1          YP           ZP         M2          YE         ZE          M3         ST      status channels
+cal_factors = [ zcal, 20./65535.,  1, 360./65535., 20./65535., 280./65535., 280./65535., 280./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535., 20./65535.,      1, 1,1,1,1,1,1,1,1,1, zcal]
+offsets =     [   0.,         0.,  0,          0.,         0.,        100.,        100.,        100.,         0.,         0.,         0.,         0.,         0.,         0.,         0.,     0., 0,0,0,0,0,0,0,0,0., 0]
+units = [       'nm',        'V', 'none',   'deg',        'V',         'V',         'V',         'V',        'V',        'V',        'V',         'V',       'V',        'V',        'V', 'none', 'none','none','none','none','none','none','none','none','nm' ]
 channel_names = [
     'Topography (Z piezo position set value)', # ZS
     'Cantilever AC signal', # AC
@@ -208,8 +209,8 @@ channel_names = [
     'Point aborted', # PA
     'Point converged', # PC
     'Retraction distance', # RD
-     'Contact flag',
-     'Retraction exceeded'] # RT
+    'Contact flag',
+    'Retraction exceeded'] # RT
 
 ctrl_channels = ['ac','dc','phase','zpos']
 ctrl_names = ['Cantilever AC', 'Cantilever DC', 'Phase', 'Z position']

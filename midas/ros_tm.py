@@ -848,11 +848,23 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
             xlen = channel.xsteps*channel.x_step*xcal*10**xy_power
             ylen = channel.ysteps*channel.y_step*ycal*10**xy_power
 
-            cal_factor = common.cal_factors[chan_idx]
-            offset = int(round(common.offsets[chan_idx] / common.cal_factors[chan_idx]))
-            z_unit, z_power = gwy.gwy_si_unit_new_parse(common.units[chan_idx])
+            # Default calibration needs to be changed if we requested phase data in M1, M2 or M3
+            # M1 = 256, M2 = 2048, M3 = 16384
+            mag_chans = ['M1','M2','M3']
+            if (channel.channel in mag_chans) and channel.mag_phase:
+                phase_idx = common.data_channels.index('PH')
+                cal_factor = common.cal_factors[phase_idx]
+                offset = int(round(common.offsets[phase_idx] / common.cal_factors[phase_idx]))
+                z_unit, z_power = gwy.gwy_si_unit_new_parse(common.units[phase_idx])
+                phase_title = common.channel_names[chan_idx]
+                phase_title = phase_title.replace('RMS signal', 'Phase')
+                c.set_string_by_name('/%i/data/title' % (chan_idx), phase_title)
+            else:
+                cal_factor = common.cal_factors[chan_idx]
+                offset = int(round(common.offsets[chan_idx] / common.cal_factors[chan_idx]))
+                z_unit, z_power = gwy.gwy_si_unit_new_parse(common.units[chan_idx])
+                c.set_string_by_name('/%i/data/title' % (chan_idx),common.channel_names[chan_idx])
 
-            c.set_string_by_name('/%i/data/title' % (chan_idx),common.channel_names[chan_idx])
             datafield = gwy.DataField(int(channel.xsteps), int(channel.ysteps), xlen, ylen, True)
             datafield.set_si_unit_xy(xy_unit)
             datafield.set_si_unit_z(z_unit)
@@ -3136,6 +3148,9 @@ class tm:
         lines['ac_gain'] = lines.mode_params.apply( lambda mode: (mode >> 10) & 0b111 )
         lines['dc_gain'] = lines.mode_params.apply( lambda mode: (mode >> 13) & 0b111 )
 
+        # correct scans in early OBSW versions prior to re-centering
+        # lines['tip_offset'][lines.obsw_ver<645] += (0.243/common.linearcal)
+
         lines['scan_algo'] = lines.mode_params.apply(lambda mode: common.scan_algo[mode & 0b1111] )
 
         if ignore_image:
@@ -3447,9 +3462,11 @@ class tm:
                 if debug: print('DEBUG: image packet %i of %i' % (idx, len(img_pkts)))
                 image = {}
                 image['header'] = image_names(*struct.unpack(image_fmt,pkt['data'][0:image_size]))
-                if image['header'].channel in [1, 4, 32768]:
+                if image['header'].channel in [1, 4, 32768]: # ZS, S2, ST
+                    # unsigned
                     image['data'] = struct.unpack(">1024H",pkt['data'][image_size:image_size+2048])
                 else:
+                    # signed
                     image['data'] = struct.unpack(">1024h",pkt['data'][image_size:image_size+2048])
                 image_data.append(image)
 
@@ -3606,7 +3623,7 @@ class tm:
         info['linefeed_last_min'] = info.sw_flags.apply( lambda flag: bool( flag >> 1 & 0b1 ) )
         info['fscan_phase'] = info.sw_flags.apply( lambda flag: bool( flag & 0b1 ) )
 
-        sw_flags_names = ['mag_phase', 'line_tx', 'auto_expose', 'anti_creep', 'ctrl_retract', 'line_in_img',
+        sw_flags_names = ['line_tx', 'auto_expose', 'anti_creep', 'ctrl_retract', 'line_in_img',
             'linefeed_zero', 'linefeed_last_min', 'fscan_phase']
 
         # Calculate the real step size
@@ -3672,7 +3689,7 @@ class tm:
 
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um', 'z_step', 'z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
-            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj', 'ctrl_image']
+            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj', 'ctrl_image', 'mag_phase']
 
         if sw_flags: return_data.extend(sw_flags_names)
         if expand_params: return_data.extend(expanded_names)

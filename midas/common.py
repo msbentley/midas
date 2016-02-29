@@ -197,10 +197,10 @@ channel_names = [
     'RMS signal at position 1 (magnetic mode)', # M1
     'Y piezo position (capacitive sensor)', # YP
     'Z piezo position (strain gauge)', # ZP
-    'RMS signal at position 1 (magnetic mode)', # M2
+    'RMS signal at position 2 (magnetic mode)', # M2
     'Y piezo offset error (capacitive sensor)', # YE
     'Z piezo offset error (strain gauge)', # ZE
-    'RMS signal at position 1 (magnetic mode)', # M3
+    'RMS signal at position 3 (magnetic mode)', # M3
     'Status', # ST
     'Number of cycles', # NC
     'Retraction after point advance', # RP

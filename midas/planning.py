@@ -2072,6 +2072,9 @@ class itl:
         else:
             scan_mode='DYN'
 
+        if 'ZS' not in channels:
+            print('WARNING: topography channel not requested, are you sure you intended this?')
+
         #  This is an analogue value in the range +5V (minimum; Z piezo fully retracted) to -5V (maximum; Z piezo fully elongated)
         # defining the Z piezo start position to be set after an successful approach.
         # A value of 0.0 V (default) centers the Z piezo after an successful approach.

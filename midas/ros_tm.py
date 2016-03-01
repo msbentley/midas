@@ -662,6 +662,66 @@ def calibrate_amplitude(ctrl, return_data=False):
         return (z_nm,cal_amp)
 
 
+def image_from_lines(lines, slow_dir='L_H'):
+
+    lines = lines.query('in_image')
+    if len(lines)==0:
+        print('ERROR: no image-forming line scans')
+        return None
+
+    if lines.line_cnt.max()!=len(lines):
+        print('WARNING: %d lines available, but maximum line count is %d' % (len(lines),lines.line_cnt.max()))
+
+    slow_dir = slow_dir.upper()
+    if slow_dir not in ['L_H','H_L']:
+        print('ERROR: slow_dir must be either L_H or H_L')
+        return None
+
+    # Do a few sanity checks on the provided lines
+    cols = lines.columns.tolist()
+    dropcols = ['obt', 'line_cnt', 'aborted', 'data'] # these are necessarily difference, even in a single image scan
+    cols = [col for col in cols if col not in dropcols]
+    if lines.duplicated(subset=cols).sum()+1 != len(lines):
+        print('ERROR: some metadata is different, make sure lines are from the same image scan!')
+        return None
+
+    # extract line scan data into an array
+    data = []
+    lines = lines.sort_values(by='line_cnt')
+    [data.append(line['data']) for idx,line in lines.iterrows()]
+    image = np.array(data)
+
+    # take meta-data from first line (should all be identical)
+    line = lines.iloc[0].squeeze()
+
+    # invert for piezo extension -> height and -> signed
+    #image = 32767 - image
+
+    # re-shape array according to main scan direction
+    ysteps = line.num_steps if line.fast_dir=='Y' else len(lines)
+    xsteps = line.num_steps if line.fast_dir=='X' else len(lines)
+
+    # flip if necessary to account for piezo direction
+    if line.fast_dir=='Y':
+        image = np.transpose(image.reshape( (xsteps,ysteps) ))
+    else:
+        image = image.reshape( (ysteps,xsteps) )
+
+    if line.fast_dir=='Y':
+        if line.dir=='H_L':
+            image = np.flipud(image)
+        if slow_dir=='H_L':
+            image = np.fliplr(image)
+
+    if line.fast_dir=='X':
+        if line.dir=='H_L':
+            image = np.flipud(image)
+        if slow_dir=='H_L':
+            image = np.fliplr(image)
+
+
+    return image
+
 
 def combine_linescans(linescans, bcr=False):
     """Accepts a DataFrame containing linescans and simply returns a numpy array of the lines
@@ -669,9 +729,7 @@ def combine_linescans(linescans, bcr=False):
 
     If bcr= is set to a filename, a minimal BCR file is produced - note that the
     line data are assumed to be in the X direction, and the Y step is assumed
-    to be the same as the X!
-
-    Note also that open loop operation is assumed!"""
+    to be the same as the X!"""
 
     data = []
     [data.append(line['data']) for idx,line in linescans.iterrows()]
@@ -742,7 +800,8 @@ def to_bcr(images, outputdir='.'):
         bcrdata['xoffset'] = xoffset
         bcrdata['ylength'] = image.y_step * ycal * bcrdata['ypixels']
         bcrdata['yoffset'] = yoffset
-        bcrdata['data'] = images.data.iloc[idx].ravel()
+
+        bcrdata['data'] = images.data.iloc[idx].ravel() - 32768
 
         chan_idx = common.data_channels.index(image.channel)
 
@@ -879,8 +938,8 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                 m = gwyutils.data_field_data_as_array(mask)
                 # Set all points to unmasked, then flag pixels with min and max extension
                 m[:] = 0.
-                m[a==32767] = 1.
-                m[a==-32768] = 1.
+                m[a==0] = 1.
+                m[a==65535] = 1.
                 # if there are bad pixels, add the max - otherwise don't
                 if len(m[m==1.])>0:
                     c.set_object_by_name('/%i/mask' % (chan_idx), mask)
@@ -3536,7 +3595,8 @@ class tm:
                         continue
 
                     # Need to invert for Z piezo/topography since 0=piezo retracted (image max height).
-                    if image.channel==1: image_array = 32767-image_array
+                    # if image.channel==1: image_array = 32767-image_array
+                    if image.channel==1: image_array = 65535 - image_array
 
                     # re-shape the array according to the image size and scan direction
                     if main_y:
@@ -3704,8 +3764,8 @@ class tm:
 
         # Remove dummy scans
         if len(images)>0:
-            dummy = images[ (images.x_orig==0) & (images.y_orig==0) & (images.exc_lvl==0) & (images.ac_gain==0) ]
-            dummy = images[ (images.exc_lvl==0) & (images.ac_gain==0) & (images.lin_pos>-0.0005) & (images.lin_pos<0.0005) & (images.tip_num.isin([1,16])) ]
+            dummy = images.query('x_orig==0 & y_orig==0 & exc_lvl==0 & ac_gain==0')
+            dummy = images.query('exc_lvl==0 & ac_gain==0 & lin_pos>-0.0005 & lin_pos<0.0005 & tip_num==[1,16]')
             images.drop(dummy.index, inplace=True)
             images = images[ ~images.dummy ]
 

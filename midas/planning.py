@@ -78,7 +78,8 @@ other_templates = {
     'COMMENT': 'ITLS_MD_COMMENT.itl',
     'WHEEL': 'ITLS_MD_WHEEL_MOVE.itl',
     'HK_RATE': 'ITLS_MD_HK_RATE.itl',
-    'CLEAR_ALL': 'ITLS_MD_CLEAR_ALL.itl' }
+    'CLEAR_ALL': 'ITLS_MD_CLEAR_ALL.itl',
+    'SEL_DSET': 'ITLS_MD_SELECT_DSET.itl' }
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
 
@@ -1826,7 +1827,33 @@ class itl:
         self.generate({'template': 'CLEAR_ALL', 'params': {}}, timedelta(minutes=1))
         return
 
+    def select_dset(self, dset_id=16384):
+        """Selects a specified data set - choose 32768 for oldest, 16384 for newest"""
 
+        # specify dataset ID, or
+        # bit 15 set = oldest = 32768
+        # bit 14 set = newest = 16384
+        if 0<= dset_id <= 32768:
+            if dset_id==16384:
+                print('INFO: selecting newest data set')
+            elif dset_id==32768:
+                print('INFO: selecting oldest data set')
+            else:
+                print('INFO: selecting dataset %d' % dset_id)
+
+            proc = {}
+            proc['template'] = 'SEL_DSET'
+
+            proc['params'] = {
+                'dset_id': dset_id }
+
+            self.generate(proc, duration=timedelta(minutes=1))
+
+        else:
+            print('ERROR: dataset ID %d is invalid!' % dset_id)
+            return None
+
+        return
 
     def wheel_move(self, segment, pwidth=147):
 
@@ -1997,7 +2024,7 @@ class itl:
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=0, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
-        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5, magnetic=False, retr_m1=0):
+        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5, magnetic=False, retr_m1=0, clear_ram=True):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -2135,6 +2162,10 @@ class itl:
             print('INFO: Control data in image requested - InstrumentSetup must be sent as well!')
 
         data_rate = (data_bytes*8/duration_s)
+
+        # If memory clear is requested, schedule this first!
+        if clear_ram:
+            self.clear_ram()
 
         # Set up the list of parameters for this template - these will be replaced in the template
         proc['params'] = {}
@@ -2576,8 +2607,8 @@ class itl:
 
 
     def feature(self, trend=True, median=True, count_pix=True, pix_gt=True, pix_lt=False, check_height=True,
-            set_zoom=False, zoom_max=False, check_shape=False,
-            height_thresh=50.0, x_marg=(0,0), y_marg=(0,0), num_points=20, avg_height=40, pix_area=50.0, zoom=100.0):
+            set_zoom=False, zoom_max=False, check_shape=False, height_thresh=50.0, x_marg=(0,0), y_marg=(0,0),
+            num_points=20, avg_height=40, pix_area=50.0, zoom=100.0, dset_id=None):
 
         proc = {}
         proc['template'] = 'FEATURE'
@@ -2645,6 +2676,13 @@ class itl:
             'avg_height': avg_height,
             'pix_area_ratio': pix_area,
             'zoom_factor': zoom }
+
+        if dset_id is not None:
+            if 0<= dset_id <= 32768:
+                self.select_dset(dset_id)
+            else:
+                print('ERROR: dataset ID %d is invalid!' % dset_id)
+                return None
 
         self.generate(proc, timedelta(minutes=5))
 

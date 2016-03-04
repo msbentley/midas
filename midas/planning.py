@@ -79,7 +79,8 @@ other_templates = {
     'WHEEL': 'ITLS_MD_WHEEL_MOVE.itl',
     'HK_RATE': 'ITLS_MD_HK_RATE.itl',
     'CLEAR_ALL': 'ITLS_MD_CLEAR_ALL.itl',
-    'SEL_DSET': 'ITLS_MD_SELECT_DSET.itl' }
+    'SEL_DSET': 'ITLS_MD_SELECT_DSET.itl',
+    'ZOOM_FEAT': 'ITLS_MD_ZOOM_FEATURE.itl' }
 
 scan_status_url = 'https://docs.google.com/spreadsheets/d/1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI/export?format=csv&id=1tfgKcdYqeNnCtOAEl2_QOQZZK8p004EsLV-xLYD2BWI&gid=645126966'
 
@@ -1825,6 +1826,24 @@ class itl:
     def clear_ram(self):
         """Clear all memory"""
         self.generate({'template': 'CLEAR_ALL', 'params': {}}, timedelta(minutes=1))
+        return
+
+    def select_feature(self, feature):
+        """Selects a feature (rank 1 to rank n) for subsequent zoom scan"""
+
+        if feature<1:
+            print('ERROR: feature number must be >1 (1 is highest ranking feature)')
+            return None
+        elif feature==1:
+            print('INFO: highest ranking (default) feature selected - did you want to do this?')
+
+        proc = {}
+        proc['template'] = 'ZOOM_FEAT'
+
+        proc['params'] = {
+            'feature': feature }
+
+        self.generate(proc, duration=timedelta(minutes=1))
         return
 
     def select_dset(self, dset_id=16384):

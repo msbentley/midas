@@ -2690,7 +2690,7 @@ class itl:
             'fvec_mode': mode,
             'height_thresh': height_thresh,
             'x_margin': x_marg[1]*256+x_marg[0],
-            'y_margin': y_marg[1]*256+x_marg[0],
+            'y_margin': y_marg[1]*256+y_marg[0],
             'num_points': num_points,
             'avg_height': avg_height,
             'pix_area_ratio': pix_area,

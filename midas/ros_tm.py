@@ -1310,14 +1310,20 @@ def show_grid(images, cols=2, planesub='poly'):
     return
 
 
-def show_facets(facet_select=None, savefig=None, cols=3,  show_stripes=True, zoom_out=False, title=True):
+def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_stripes=True, zoom_out=False, title=True):
     """Show the coverage to date of all facets if facet_select=None
     or show a single, or list of facets"""
 
     import matplotlib.gridspec as gridspec
 
     images = load_images(data=True)
-    images = images[ images.channel=='ZS' ]
+    if query is not None:
+        images = images.query(query)
+
+    if len(images)==0:
+        print('ERROR: no images matching query')
+        return None
+
     facets = sorted(images.target.unique())
 
     if facet_select is not None:

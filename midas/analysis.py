@@ -694,3 +694,47 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=None, savefile=None,
     plt.show()
 
     return
+
+def exposure_summary(start='2014-08-06', print_stats=False, fontsize=14):
+    """Produces a summary plot of all exposures and their targets, as well as printing
+    some optional statistics."""
+
+    from midas import spice_utils
+    import matplotlib.patches as mpatch
+    import matplotlib.dates as md
+
+    start = pd.Timestamp(start)
+    exposures = ros_tm.load_exposures().query('start>=@start')
+    targets = sorted(exposures.target.unique())
+    start = exposures.start.min()
+    end = exposures.end.max()
+    geom = spice_utils.get_geometry(start, end)
+
+    fig, ax = plt.subplots()
+    ax.plot(geom.index, geom.sc_dist, 'k', linewidth=2)
+    fig.autofmt_xdate()
+    ax.set_ylabel('Altitude (km)', fontsize=fontsize)
+    xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+    ax.grid(True)
+    ax.tick_params(labelsize=fontsize)
+
+    num_tgts = len(targets)
+    # colours = cm.get_cmap('gist_rainbow')
+    colours = cm.get_cmap('jet')
+    colour_list = [colours(1.*i/num_tgts) for i in range(num_tgts)]
+
+    index = 0
+    for target in targets:
+        for idx, exp in exposures[exposures.target==target].iterrows():
+            ax.axvspan(exp.start, exp.end, alpha=0.5, color=colour_list[index])
+        index += 1
+
+    artists = [mpatch.Circle((0,0),fc=colour_list[idx], ec=colour_list[idx]) for idx in range(num_tgts)]
+    fig.legend(artists, targets,title=u'Targets',loc="upper center", ncol=num_tgts, fontsize=14);
+
+    plt.show()
+
+    if print_stats:
+        print('Fraction of time exposing: %3.2f%%' % (100.*(exposures.duration.sum()/(end-start)))  )
+
+    return fig, ax

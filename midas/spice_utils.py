@@ -9,7 +9,7 @@ import os, dateutil
 import numpy as np
 import spiceypy as spice
 
-debug = True
+debug = False
 km_to_au = (1/149598000.)
 kernel_path = common.kernel_path
 
@@ -98,11 +98,10 @@ def load_default_kernels(kernel_path=kernel_path):
                 'ik/ROS_MIDAS_V10.TI',
                 'lsk/NAIF0011.TLS',
                 'pck/PCK00010.TPC',
-                # 'RS_ROT_PARAM_500m.tpc'
-                'sclk/ros_triv.tsc',
-                # 'sclk/ROS_141113_STEP.TSC',
+                # 'sclk/ros_triv.tsc',
+                'sclk/ROS_160302_STEP.TSC',
                 'fk/ROS_CHURYUMOV_V01.TF',
-                # 'fk/ROS_AUX.TF',
+                'fk/ROS_AUX.TF',
                 'fk/ROS_CGS_AUX_V01.TF',
                 'spk/DE405.BSP',
                 'spk/NEW_NORCIA.BSP'
@@ -121,6 +120,7 @@ def load_kernels(kernels, kernel_path=kernel_path, load_defaults=True):
     result = [spice.furnsh(os.path.join(kernel_path,kernel)) for kernel in kernels]
     if load_defaults: load_default_kernels(kernel_path)
 
+    return
 
 def unload_kernels():
     """Looks up all currently loaded kernels and unloads them"""
@@ -239,9 +239,9 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
         old_list = ['ratt_old', 'catt_old', 'rorb_old', 'corb_old']
         for old_kern in old_list:
             if old_kern in kernels.keys():
-                load_kernels(kernels[old_kern])
+                load_kernels(kernels[old_kern], load_defaults=False)
                 kernels.pop(old_kern)
-        load_kernels(operational_kernels(no_ck=no_ck).values(), load_defaults=True)
+        load_kernels(kernels, load_defaults=True)
     else:
         load_kernels(kernels, load_defaults=True)
 
@@ -265,6 +265,8 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
         geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed]), index=times,
             columns=['cometdist','sc_dist','speed' ])
 
+    unload_kernels()
+
     return geom
 
 
@@ -285,7 +287,7 @@ def get_geometry_at_times(times, kernels=None):
         load_kernels(operational_kernels(no_ck=no_ck).values(), load_defaults=True)
     else:
         load_kernels(kernels, load_defaults=True)
-        
+
     # all(isinstance(x,int) for x in times)
 
     ets = [spice.str2et(tm.isoformat()) for tm in times]
@@ -296,6 +298,8 @@ def get_geometry_at_times(times, kernels=None):
     sun_angle = nadir_sun(ets)
     distance, speed = trajectory(ets, speed=True)
     offpointing = off_nadir(ets)
+
+    unload_kernels()
 
     geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
         columns=['cometdist','sc_dist','speed','latitude','longitude','offnadir','phase','sun_angle'])
@@ -322,7 +326,7 @@ def get_timesteps(start, end, timestep=60.):
     times = np.arange(timesteps)*timestep + start_time_et
 
     # also back-calculate an ISO format time for each step, for plotting and filtering
-    times_real = np.array([dateutil.parser.parse(spice.et2utc(time,'ISOC',0,20)) for time in times])
+    times_real = np.array([dateutil.parser.parse(spice.et2utc(time,'ISOC',0)) for time in times])
 
     return times, times_real
 

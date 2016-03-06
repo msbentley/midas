@@ -420,7 +420,7 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
         return data[ (data.index>start) & (data.index<end) ]
 
 
-def plot(param, start=None, end=None, max_pts=10000):
+def plot(param, start=None, end=None, max_pts=10000, **kwargs):
 
     import matplotlib.pyplot as plt
     import matplotlib.dates as md
@@ -474,7 +474,7 @@ def plot(param, start=None, end=None, max_pts=10000):
     param_name = ros_tm.pcf[ros_tm.pcf.param_name==param].description.squeeze()
     ax.set_ylabel(param_name)
 
-    d.line, = ax.plot(xdata, ydata)
+    d.line, = ax.plot(xdata, ydata, **kwargs)
     ax.set_autoscale_on(False)  # Otherwise, infinite loop
     ax.callbacks.connect('xlim_changed', d.update)
 

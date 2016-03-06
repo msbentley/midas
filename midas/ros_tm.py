@@ -250,9 +250,9 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
                         scan.res_freq, scan.half_width),label='Lorentzian fit')
 
     if len(fscans)==1 and title:
-        fig.suptitle('Cantilever: %i, Ex/Gn: %i/%i, Freq start/step: %3.2f/%3.2f, Peak amp %3.2f V @ %3.2f Hz' % \
-            (scan.tip_num, scan.excitation, scan.gain, scan.freq_start, scan.freq_step, scan.max_amp, scan.max_freq),
-            fontsize=11 )
+        #  Freq start/step: %3.2f/%3.2f % scan.freq_start, scan.freq_step
+        ax.set_title('Tip %i, Ex/Gn: %i/%i, peak %3.2f V @ %3.2f Hz' % \
+            (scan.tip_num, scan.excitation, scan.gain, scan.max_amp, scan.max_freq), fontsize=10 )
 
         if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())) and not scan.is_phase:
             # Also drawn lines showing the working point and set point
@@ -261,7 +261,6 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
             ax.axhline(scan.set_pt,color='g')
             ax.axhline(scan.fadj,color='g', ls='--')
 
-    # ax.set_ylim(0)
     if legend:
         leg = ax.legend(loc=0, prop={'size':10}, fancybox=True)
         leg.get_frame().set_alpha(0.7)
@@ -280,7 +279,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
     return fig
 
 
-def plot_fscan_grid(fscans, cols=4):
+def plot_fscan_grid(fscans, cols=4, title=False):
     """Simply calls plot_fscan over a grid, typically for showing
     the results of a frequency scan survey"""
 
@@ -290,15 +289,21 @@ def plot_fscan_grid(fscans, cols=4):
     rows = num_fscans / cols
     if num_fscans % cols != 0:
         rows += 1
+    if num_fscans<cols:
+        cols=num_fscans
+
+    def onresize(event):
+        plt.tight_layout()
 
     gs = gridspec.GridSpec(rows, cols)
     fig = plt.figure()
+    cid = fig.canvas.mpl_connect('resize_event', onresize)
     grid = 0
 
     for idx, fscan in fscans.iterrows():
 
         ax = plt.subplot(gs[grid])
-        plot_fscan(fscan, legend=False, ymax=10.0, figure=fig, axis=ax, title=False)
+        plot_fscan(fscan, legend=False, ymax=10.0, figure=fig, axis=ax, title=title)
         plt.setp(ax.get_xticklabels(), rotation=45)
         grid += 1
 

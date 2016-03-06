@@ -161,6 +161,8 @@ def plot_line_scans(lines, units='real', label=None, align=False, title=None):
             print('WARNING: requested label (%s) not found - disabling legend' % label)
             label = None
             lab = ''
+    else:
+        lab = ''
 
     for idx, line in lines.iterrows():
 

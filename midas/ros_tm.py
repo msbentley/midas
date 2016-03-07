@@ -3719,6 +3719,27 @@ class tm:
         # Add the filename
         info['scan_file'] = info.apply( lambda row: src_file_to_img_file(os.path.basename(row.filename), row.start_time, row.target), axis=1 )
 
+        # Check for OBSW version < 663 in which tip number was incorrectly calculated
+        if len(info.query('sw_ver<663'))>0:
+            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+            old_images = info.query('sw_ver<663')
+            for idx, img in old_images.iterrows():
+                frame = hk2[hk2.obt>img.start_time].index
+                if len(frame)==0:
+                    print('WARNING: no HK2 frame found after scan start at %s' % time)
+                    continue
+                else:
+                    frame = frame[0]
+                    # NMDA0127 (CanSelect) 0-7
+                    cant_num = self.get_param('NMDA0127', frame=frame)[1]
+                    # NMDA0128 (CanBlockSelect)
+                        #  <660: 1 - 2
+                        # >=660: 0 - 1
+                    block_num = self.get_param('NMDA0128', frame=frame)[1]
+                    if img.sw_ver < 660:
+                        block_num -= 1
+                    info['tip_num'].loc[idx] = block_num*8 + cant_num+1
+
         if expand_params:
             # If requested, extract additional data from HK - note that this will make the routine SLOOOOOW!
             #

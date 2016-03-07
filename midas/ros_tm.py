@@ -956,11 +956,11 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                     if telem is None:
                         telem = tm(scan['filename'].iloc[0])
                     ctrl = telem.get_ctrl_data()
-                    ctrl = ctrl[ (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
-                        (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
-                        (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
-
                     if len(ctrl)>0:
+                        
+                        ctrl = ctrl[ (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
+                            (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
+                            (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
 
                         for ctrl_chan in range(len(common.ctrl_channels)): # GWY stores point per channel, so loop over this first
 

@@ -957,7 +957,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                         telem = tm(scan['filename'].iloc[0])
                     ctrl = telem.get_ctrl_data()
                     if len(ctrl)>0:
-                        
+
                         ctrl = ctrl[ (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
                             (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
                             (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
@@ -3333,8 +3333,8 @@ class tm:
         ctrl_data['scan_dir'] = ctrl_data.scan_mode.apply( lambda xdir: 'H_L' if (xdir >> 8 & 1) else 'L_H')
         ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
 
-        ctrl_data['hires'] = ctrl_data.sw_flags.apply( lambda flags: bool(flags >> 1 & 1))
-        ctrl_data['in_image'] = ctrl_data.sw_flags.apply( lambda flag: bool(flag & 1))
+        ctrl_data['hires'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 1 & 1) if row.sw_ver>=664 else False )
+        ctrl_data['in_image'] = ctrl_data.apply( lambda row: bool(row.sw_flags & 1) if row.sw_ver>=664 else False )
 
         ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode'], inplace=True, axis=1)
 
@@ -3380,7 +3380,7 @@ class tm:
                     point_data['exc_lvl'] = self.get_param('NMDA0147', frame=frame)[1]
                     point_data['ac_gain'] = self.get_param('NMDA0118', frame=frame)[1]
 
-                else: # ctrl_data['hires'] = ctrl_data.sw_flags.apply( lambda flags: bool(flags >> 1 & 1))
+                elif sw_ver == 664:
                     # Software flags:
                     # Bits  11-8: Excitation level (since version 6.6.4)
                     # Bits   7-4: AC gain level (since version 6.6.4)
@@ -3389,6 +3389,10 @@ class tm:
 
                     point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 8 & 0b111
                     point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >> 4 & 0b111
+
+                elif sw_ver > 664:
+                    point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 10 & 0b111
+                    point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >>  7 & 0b111
 
             control.append(point_data)
 

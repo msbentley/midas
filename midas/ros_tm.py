@@ -956,7 +956,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                     if telem is None:
                         telem = tm(scan['filename'].iloc[0])
                     ctrl = telem.get_ctrl_data()
-                    if len(ctrl)>0:
+                    if ctrl is not None:
 
                         ctrl = ctrl[ (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
                             (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
@@ -1736,9 +1736,9 @@ class tm:
         self.pkts = None
 
         self.model = model.upper()
-
         if self.model=='FM':
             self.lin_centre_pos = common.lin_centre_pos_fm
+            self.tcorr = read_timecorr(os.path.join(common.tlm_path,'TLM__MD_TIMECORR.DAT'))
             if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=dedupe, simple=simple, dds_header=dds_header, sftp=sftp)
         elif self.model=='FS':
             self.lin_centre_pos = common.lin_centre_pos_fs
@@ -1890,10 +1890,6 @@ class tm:
             sftp = dds_utils.sftp()
             sftp.open()
 
-        # Load the time correlation file
-        if self.model=='FM':
-            tcorr = read_timecorr(os.path.join(common.tlm_path, 'TLM__MD_TIMECORR.DAT'))
-
         for fl in filelist:
 
             print('INFO: indexing TLM file %s' % fl)
@@ -1933,15 +1929,11 @@ class tm:
                 if pkt_header.pkt_len == 0:
                     continue
 
-                # Use the appropriate line in the time correlation packet to correct
-                # UTC = gradient * OBT + offset
                 obt_s = pkt_header.obt_sec + pkt_header.obt_frac / 2.**16
-                obt = obt_epoch + timedelta(seconds=obt_s)
-
                 if self.model=='FM':
-                    tcp = tcorr[tcorr.index<obt].iloc[-1]
-                    utc_s = tcp.gradient * obt_s + tcp.offset
-                    obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
+                    obt = self.correlate_time(obt_s)
+                else:
+                    obt = obt_epoch + timedelta(seconds=obt_s)
 
                 # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
                 # of the 32 bit coarse time (= seconds since reference date) is set to "1".
@@ -1953,7 +1945,7 @@ class tm:
                 pkt['subtype'] = pkt_header.pkt_subtype
                 pkt['apid'] = pkt_header.pkt_id & 0x7FF
                 pkt['seq'] = pkt_header.pkt_seq & 0x3FFF
-                pkt['obt'] = obt_corr if self.model=='FM' else obt
+                pkt['obt'] = obt
                 pkt['filename'] = os.path.abspath(fl)
 
                 # print('DEBUG: pkt %i/%i has declared length %i, real len %i' % (pkt_header.pkt_type,pkt_header.pkt_subtype,pkt_header.pkt_len,offsets[idx+1]-offsets[idx]))
@@ -3303,7 +3295,7 @@ class tm:
 
         if len(ctrl_data_pkts)==0:
             print('WARNING: no control data packets found')
-            return False
+            return None
 
         # M.S.Bentley 23/09/2014 - using df to collect ctrl data meta info
 
@@ -3332,9 +3324,8 @@ class tm:
         ctrl_data['fast_dir'] = ctrl_data.scan_mode.apply( lambda fast: 'X' if (fast >> 12 & 1)==0 else 'Y')
         ctrl_data['scan_dir'] = ctrl_data.scan_mode.apply( lambda xdir: 'H_L' if (xdir >> 8 & 1) else 'L_H')
         ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
-
-        ctrl_data['hires'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 1 & 1) if row.sw_ver>=664 else False )
-        ctrl_data['in_image'] = ctrl_data.apply( lambda row: bool(row.sw_flags & 1) if row.sw_ver>=664 else False )
+        ctrl_data['hires'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 1 & 1) if row.sw_ver>=661 else False, axis=1 )
+        ctrl_data['in_image'] = ctrl_data.apply( lambda row: bool(row.sw_flags & 1) if row.sw_ver>=661 else False, axis=1 )
 
         ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode'], inplace=True, axis=1)
 
@@ -3694,6 +3685,7 @@ class tm:
         info['anti_creep'] = info.sw_flags.apply( lambda flag: bool( flag >> 7 & 0b1 ) )
         info['ctrl_retract'] = info.sw_flags.apply( lambda flag: bool( flag >> 6 & 0b1 ) )
         info['ctrl_image'] = info.sw_flags.apply( lambda flag: bool( flag >> 5 & 0b1 ) )
+        info['ctrl_image'][info['sw_ver']<660] = False
         info['line_in_img'] = info.sw_flags.apply( lambda flag: bool( flag >> 4 & 0b1 ) )
         info['calc_zret'] = info.sw_flags.apply( lambda flag: bool( flag >> 3 & 0b1 ) )
         info['linefeed_zero'] = info.sw_flags.apply( lambda flag: bool( flag >> 2 & 0b1 ) )
@@ -4249,6 +4241,17 @@ class tm:
 
         return merged
 
+
+    def correlate_time(self, obt_s):
+        """Apply time correlation to obt, given as a datetime."""
+        # Use the appropriate line in the time correlation packet to correct
+        # UTC = gradient * OBT + offset
+        obt = obt_epoch + timedelta(seconds=obt_s)
+        tcp = self.tcorr[self.tcorr.index<obt].iloc[-1]
+        utc_s = tcp.gradient * obt_s + tcp.offset
+        obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
+
+        return obt_corr
 
 #----- end of TM class
 

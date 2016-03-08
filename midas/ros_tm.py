@@ -3705,15 +3705,6 @@ class tm:
         info['ylen_um'] = info.ysteps * info.y_step_nm /1000.
         info['z_ret_nm'] = info.z_ret * common.zcal
 
-        # Calculate the tip offset from the wheel centre
-        info['tip_offset'] = info.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
-
-        # Apply corrections due to relative tip offsets
-        info['tip_offset'] = info.apply( lambda row: (row.tip_offset - common.tip_offset[row.tip_num-1]), axis=1 )
-
-        # Add the filename
-        info['scan_file'] = info.apply( lambda row: src_file_to_img_file(os.path.basename(row.filename), row.start_time, row.target), axis=1 )
-
         # Check for OBSW version < 663 in which tip number was incorrectly calculated
         if len(info.query('sw_ver<663'))>0:
             hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
@@ -3734,6 +3725,15 @@ class tm:
                     if img.sw_ver < 660:
                         block_num -= 1
                     info['tip_num'].loc[idx] = block_num*8 + cant_num+1
+
+        # Calculate the tip offset from the wheel centre
+        info['tip_offset'] = info.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
+
+        # Apply corrections due to relative tip offsets
+        info['tip_offset'] = info.apply( lambda row: (row.tip_offset - common.tip_offset[row.tip_num-1]), axis=1 )
+
+        # Add the filename
+        info['scan_file'] = info.apply( lambda row: src_file_to_img_file(os.path.basename(row.filename), row.start_time, row.target), axis=1 )
 
         if expand_params:
             # If requested, extract additional data from HK - note that this will make the routine SLOOOOOW!

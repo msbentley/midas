@@ -3798,6 +3798,7 @@ class tm:
         # Remove dummy scans
         if len(images)>0:
             dummy = images.query('x_orig==0 & y_orig==0 & exc_lvl==0 & ac_gain==0')
+            images.drop(dummy.index, inplace=True)
             dummy = images.query('exc_lvl==0 & ac_gain==0 & lin_pos>-0.0005 & lin_pos<0.0005 & tip_num==[1,16]')
             images.drop(dummy.index, inplace=True)
             images = images[ ~images.dummy ]

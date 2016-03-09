@@ -1574,7 +1574,6 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     return figure, axis
 
 
-
 def locate_scans(images):
     """Accepts a list of scans returned by get_images() and calculates the origin of each scan,
     relative to the wheel/target centre. These are added to the images DataFrame and returned."""
@@ -1616,7 +1615,7 @@ def locate_scans(images):
     return images
 
 def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False,
-    figure=None, axis=None, labels=True, title=True, font=None):
+    figure=None, axis=None, labels=True, title=True, font=None, interactive=False):
     """Plot the location of a series of images"""
 
     if font is None:
@@ -1643,6 +1642,9 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         return None
 
     from matplotlib.patches import Rectangle
+
+    def onpick(event):
+        print(event.artist.aname)
 
     if figure is None:
         fig = plt.figure()
@@ -1674,7 +1676,8 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
 
     for idx, scan in images.iterrows():
         edgecolor=closedcolor if scan.y_closed else opencolor
-        ax.add_patch(Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor))
+        rect = ax.add_patch(Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor, picker=True))
+        rect.aname = scan.scan_file
 
     if show_stripes:
         for seg_off in range(-7,8):
@@ -1694,6 +1697,9 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     else:
         ax.set_xlim(images.x_orig_um.min()-50.,images.x_orig_um.max()+images[images.x_orig_um==images.x_orig_um.max()].xlen_um.max()+50.)
         ax.set_ylim(images.y_orig_um.min()-50.,images.y_orig_um.max()+images[images.y_orig_um==images.y_orig_um.max()].ylen_um.max()+50.)
+
+    if interactive:
+        cid = fig.canvas.mpl_connect('pick_event', onpick)
 
     if figure is None:
         plt.show()

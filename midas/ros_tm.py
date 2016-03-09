@@ -4763,7 +4763,7 @@ def strfdelta(tdelta, fmt):
     return fmt.format(**d)
 
 
-def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only=True):
+def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only=True, exclude_bad=True):
     """Load a messagepack file containing all image meta-data"""
 
     if filename is None:
@@ -4792,6 +4792,10 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
 
     if topo_only:
         images = images[ images.channel=='ZS' ]
+
+    if exclude_bad:
+        badlist = pd.read_table(os.path.join(common.config_path,'bad_scans.txt'), header=None)[0].tolist()
+        images = images.query('scan_file!=@badlist')
 
     images.sort_values(by='start_time', inplace=True)
     images.reset_index(inplace=True, drop=True)

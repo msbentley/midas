@@ -738,3 +738,39 @@ def exposure_summary(start='2014-08-06', print_stats=False, fontsize=14):
         print('Fraction of time exposing: %3.2f%%' % (100.*(exposures.duration.sum()/(end-start)))  )
 
     return fig, ax
+
+def usage_stats(start='2014-05-12 14:30:00', end=None):
+    """Calculates the duration of all image scans and all exposures, and
+    plots a pie chart of this and the remaining 'other' time"""
+
+    images = ros_tm.load_images(data=False, topo_only=True, exclude_bad=False)
+    exposures = ros_tm.load_exposures()
+    start = pd.Timestamp(start)
+    if end is None:
+        end = pd.to_datetime('now')
+    else:
+        end = pd.Timestamp(end)
+
+    total = end - start
+    exp = exposures.query('start>@start & end<@end').duration.sum()
+    scan = images.query('start_time>@start & end_time<@end').duration.sum()
+    other = total - (exp + scan)
+
+    exp_per = (exp/total)*100.
+    scan_per = (scan/total)*100.
+    other_per = 100. - (exp_per + scan_per)
+    values = [exp, scan, other]
+
+    fig, ax = plt.subplots()
+
+    labels = 'scan', 'expose', 'other'
+    sizes = [scan_per, exp_per, other_per]
+    colors = ['yellowgreen', 'gold', 'lightskyblue'] # , 'lightcoral']
+    explode = (0, 0.1, 0)
+
+    ax.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%', shadow=True, startangle=90)#
+    ax.set_aspect('equal')
+
+    plt.show()
+
+    return

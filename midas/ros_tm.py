@@ -1320,7 +1320,7 @@ def show_grid(images, cols=2, planesub='poly'):
     return
 
 
-def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_stripes=True, zoom_out=False, title=True):
+def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_stripes=True, zoom_out=False, title=True, exp_only=False):
     """Show the coverage to date of all facets if facet_select=None
     or show a single, or list of facets"""
 
@@ -1340,6 +1340,12 @@ def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_strip
         if type(facet_select)!=list:
             facet_select = [facet_select]
         facets = list(set(facets) & set(facet_select))
+
+    if exp_only:
+        start = pd.Timestamp('2014-01-01')
+        exposures = load_exposures()
+        exp_facets = sorted(exposures.query('start>@start').target.unique())
+        facets = sorted(set(facets) & set(exp_facets))
 
     num_facets = len(facets)
     if num_facets==0:

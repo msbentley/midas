@@ -1320,7 +1320,8 @@ def show_grid(images, cols=2, planesub='poly'):
     return
 
 
-def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_stripes=True, zoom_out=False, title=True, exp_only=False):
+def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_stripes=True, zoom_out=False,
+        title=True, exp_only=False, fontsize=8):
     """Show the coverage to date of all facets if facet_select=None
     or show a single, or list of facets"""
 
@@ -1367,10 +1368,15 @@ def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_strip
         plt.setp(ax.get_xticklabels(), rotation=45)
 
         # def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False):
-        show_loc( images[ images.target==facet ], figure=fig, axis=ax, labels=False, title=title, font=8,
+        show_loc( images[ images.target==facet ], figure=fig, axis=ax, labels=False, title=title, font=fontsize,
             show_stripes=show_stripes, zoom_out=zoom_out)
 
     fig.tight_layout(h_pad=5.0)
+
+    def onresize(event):
+        plt.tight_layout()
+
+    cid = fig.canvas.mpl_connect('resize_event', onresize)
 
     if savefig is None:
         plt.show()
@@ -1624,6 +1630,8 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     figure=None, axis=None, labels=True, title=True, font=None, interactive=False):
     """Plot the location of a series of images"""
 
+    import subprocess
+
     if font is None:
         font = mpl.rcParams['font.size']
 
@@ -1650,7 +1658,20 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     from matplotlib.patches import Rectangle
 
     def onpick(event):
-        print(event.artist.aname)
+        scan_file = event.artist.aname
+        print('Select scan: %s' % scan_file)
+
+        if event.mouseevent.dblclick: # open the Gwyddion file
+            gwyfile = os.path.join(common.gwy_path,scan_file+'.gwy')
+
+            try:
+                subprocess.check_output(['gwyddion', '--remote-query'])
+            except subprocess.CalledProcessError:
+                gwycall = ['gwyddion', '--remote-new']
+            else:
+                gwycall = ['gwyddion', '--remote-existing']'
+
+            subprocess.Popen(gwycall + [gwyfile])
 
     if figure is None:
         fig = plt.figure()

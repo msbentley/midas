@@ -1626,7 +1626,7 @@ class itl:
 
         return
 
-    def tech_cmd(self, cmds):
+    def tech_cmd(self, cmds, as_hex=False):
         """Sends one or more TCMDs to MIDAS. Input should be a list of commands (up to 20)"""
 
         proc = {}
@@ -1637,8 +1637,14 @@ class itl:
             print('ERROR: max 20 TCMDs can be given')
             return None
 
+        if as_hex:
+            cmds = ["0x%04X" % com for com in cmds]
+
         # Remaining TCMDs are filled with 0x8F35 (NOOP)
-        noop = 0x8F35
+        if as_hex:
+            noop = "0x8F35"
+        else:
+            noop = 0x8F35
         num_noops = 20 - len(cmds)
         tcmds = [noop] * num_noops
 

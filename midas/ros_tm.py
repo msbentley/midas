@@ -2918,6 +2918,8 @@ class tm:
                 # 42655 - EvLineScanStarted
                 # 42611 - EvLineScanFinished
                 scan_events = [42655, 42611]
+                events = events[events.sid.isin(scan_events)]
+
             elif label_events=='approach':
                 # 42662 - EvApproachStarted
                 # 42664 - EvApproachFinished

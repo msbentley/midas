@@ -3417,9 +3417,12 @@ class tm:
                     point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >> 4 & 0b111
 
                 elif sw_ver > 664:
+                    # Bits 15-13: Excitation level (since v6.6.5)
+                    # Bits 12-10: DC gain level (since v6.6.5)
+                    # Bits   9-7: AC gain level (since v6.6.5)
                     point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
                     point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
-                    point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 10 & 0b111
+                    point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 13 & 0b111
                     point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >>  7 & 0b111
 
             control.append(point_data)

@@ -3244,9 +3244,9 @@ class tm:
         lines['x_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 4 & 1) )
         lines['y_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 5 & 1) )
         lines['z_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 6 & 1) )
-        lines['exc_lvl'] = lines.mode_params.apply( lambda mode: (mode >>  7) & 0b111 )
+        lines['ac_gain'] = lines.mode_params.apply( lambda mode: (mode >>  7) & 0b111 )
         lines['dc_gain'] = lines.mode_params.apply( lambda mode: (mode >> 10) & 0b111 )
-        lines['ac_gain'] = lines.mode_params.apply( lambda mode: (mode >> 13) & 0b111 )
+        lines['exc_lvl'] = lines.mode_params.apply( lambda mode: (mode >> 13) & 0b111 )
 
         # correct scans in early OBSW versions prior to re-centering
         # lines['tip_offset'][lines.obsw_ver<645] += (0.243/common.linearcal)

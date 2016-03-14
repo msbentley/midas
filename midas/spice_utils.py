@@ -9,7 +9,7 @@ import os, dateutil
 import numpy as np
 import spiceypy as spice
 
-debug = False
+debug = True
 km_to_au = (1/149598000.)
 kernel_path = common.kernel_path
 
@@ -326,7 +326,7 @@ def get_timesteps(start, end, timestep=60.):
     times = np.arange(timesteps)*timestep + start_time_et
 
     # also back-calculate an ISO format time for each step, for plotting and filtering
-    times_real = np.array([dateutil.parser.parse(spice.et2utc(time,'ISOC',0)) for time in times])
+    times_real = np.array([parser.parse(spice.et2utc(time,'ISOC',0)) for time in times])
 
     return times, times_real
 

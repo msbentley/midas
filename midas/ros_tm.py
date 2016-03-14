@@ -1669,7 +1669,7 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
             except subprocess.CalledProcessError:
                 gwycall = ['gwyddion', '--remote-new']
             else:
-                gwycall = ['gwyddion', '--remote-existing']'
+                gwycall = ['gwyddion', '--remote-existing']
 
             subprocess.Popen(gwycall + [gwyfile])
 
@@ -3368,13 +3368,13 @@ class tm:
         if info_only:
             return ctrl_data
 
-        control = []
-
         if expand_params:
             hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
+        control = []
+
         # Now extract actual data
-        for idx,pkt in ctrl_data_pkts.iterrows():
+        for idx, pkt in ctrl_data_pkts.iterrows():
 
             num_steps = ctrl_data.num_meas.ix[idx]
             point_data = {}
@@ -3407,7 +3407,7 @@ class tm:
                     point_data['exc_lvl'] = self.get_param('NMDA0147', frame=frame)[1]
                     point_data['ac_gain'] = self.get_param('NMDA0118', frame=frame)[1]
 
-                elif sw_ver == 664:
+                elif sw_ver >= 664:
                     # Software flags:
                     # Bits  11-8: Excitation level (since version 6.6.4)
                     # Bits   7-4: AC gain level (since version 6.6.4)
@@ -3417,9 +3417,9 @@ class tm:
                     point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 8 & 0b111
                     point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >> 4 & 0b111
 
-                elif sw_ver > 664:
-                    point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 10 & 0b111
-                    point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >>  7 & 0b111
+                # elif sw_ver > 664:
+                #     point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 10 & 0b111
+                #     point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >>  7 & 0b111
 
             control.append(point_data)
 

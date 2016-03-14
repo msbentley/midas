@@ -3983,7 +3983,11 @@ class tm:
             # take the scan info from the first packet where generic to entire scan
             scan = {}
             scan['info'] = {}
-            start_time = obt_epoch + timedelta(seconds=first_pkt.start_time)
+
+            # apply time correlation here also!
+
+            # start_time = obt_epoch + timedelta(seconds=first_pkt.start_time)
+            start_time = self.correlate_time(first_pkt.start_time)
 
             # Look at HK2 data to retrieve the resonance amplitude, working point, frequency
             # adjust point and set-point derived from this scan...

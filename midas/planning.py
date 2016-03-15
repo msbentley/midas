@@ -3046,7 +3046,7 @@ def load_fecs(filename=fecs_evf_file):
     # 'DELTA_DOR_START', 'DELTA_DOR_END']
 
     cols = ['time','event','cnt']
-    fecs = pd.read_table(filename,delim_whitespace=True,names=cols,usecols=[0,1,4],header=None,skiprows=3)
+    fecs = pd.read_table(filename,delim_whitespace=True,names=cols,usecols=[0,1,4],header=None,comment='#')
 
     # remove brackets and make new column an integer
     fecs.cnt=fecs.cnt.apply( lambda x: int(x.split(')')[0]) )

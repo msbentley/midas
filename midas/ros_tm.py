@@ -254,7 +254,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
     if len(fscans)==1 and title:
         #  Freq start/step: %3.2f/%3.2f % scan.freq_start, scan.freq_step
         ax.set_title('Tip %i, Ex/Gn: %i/%i, peak %3.2f V @ %3.2f Hz' % \
-            (scan.tip_num, scan.excitation, scan.gain, scan.max_amp, scan.max_freq), fontsize=10 )
+            (scan.tip_num, scan.exc_lvl, scan.ac_gain, scan.max_amp, scan.max_freq), fontsize=10 )
 
         if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())) and not scan.is_phase:
             # Also drawn lines showing the working point and set point
@@ -305,7 +305,12 @@ def plot_fscan_grid(fscans, cols=4, title=False):
     for idx, fscan in fscans.iterrows():
 
         ax = plt.subplot(gs[grid])
-        plot_fscan(fscan, legend=False, ymax=10.0, figure=fig, axis=ax, title=title)
+
+        if len(fscans.query('~is_phase'))==len(fscans): # all amplitude
+            plot_fscan(fscan, legend=False, ymax=10.0, figure=fig, axis=ax, title=title)
+        else:
+            plot_fscan(fscan, legend=False, figure=fig, axis=ax, title=title)
+
         plt.setp(ax.get_xticklabels(), rotation=45)
         grid += 1
 
@@ -4047,18 +4052,22 @@ class tm:
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \
                     (scan['info']['cant_block'], scan['info']['tip_num'], \
-                    scan['info']['gain'], scan['info']['excitation'], \
+                    scan['info']['ac_gain'], scan['info']['exc_lvl'], \
                     scan['info']['max_amp'], scan['info']['max_freq']) )
 
             # loop through the packets and add the fscan data
             if not info_only:
                 scan['amplitude'] = []
                 for idx in single_scan.index:
-                    scan['amplitude'].extend(struct.unpack(">256H",freq_scan_pkts.data.loc[idx]\
-                    [freq_scan_size:freq_scan_size+512]))
+                    if scan['info']['is_phase']:
+                        scan['amplitude'].extend(struct.unpack(">256h",freq_scan_pkts.data.loc[idx]\
+                            [freq_scan_size:freq_scan_size+512]))
+                    else:
+                        scan['amplitude'].extend(struct.unpack(">256H",freq_scan_pkts.data.loc[idx]\
+                            [freq_scan_size:freq_scan_size+512]))
 
                 if first_pkt.fscan_type==1:
-                    scan['amplitude'] = np.array(scan['amplitude']) * (180./65535.)-180.
+                    scan['amplitude'] = np.array(scan['amplitude']) * (360./65535.)#-180.
                 else:
                     scan['amplitude'] = np.array(scan['amplitude']) * (20./65535.)
 

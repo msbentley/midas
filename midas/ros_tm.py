@@ -1659,20 +1659,15 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     from matplotlib.patches import Rectangle
 
     def onpick(event):
-        scan_file = event.artist.aname
-        print('Select scan: %s' % scan_file)
+        ind = event.ind.tolist()
 
         if event.mouseevent.dblclick: # open the Gwyddion file
-            gwyfile = os.path.join(common.gwy_path,scan_file+'.gwy')
-
-            try:
-                subprocess.check_output(['gwyddion', '--remote-query'])
-            except subprocess.CalledProcessError:
-                gwycall = ['gwyddion', '--remote-new']
-            else:
-                gwycall = ['gwyddion', '--remote-existing']
-
-            subprocess.Popen(gwycall + [gwyfile])
+            gwyfiles = [scan_names[idx] for idx in ind]
+            gwyfiles = [os.path.join(common.gwy_path, scan+'.gwy') for scan in gwyfiles]
+            gwycall = ['gwyddion', '--remote-new']
+            subprocess.Popen(gwycall + gwyfiles)
+        else:
+            print('Select scans: %s' % "\n".join([scan_names[idx] for idx in ind]))
 
     if figure is None:
         fig = plt.figure()
@@ -1702,10 +1697,19 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         ax.set_xlabel('Offset from wheel centre (microns)', fontsize=font)
         ax.set_ylabel('Offset from segment centre (microns)', fontsize=font)
 
+    # Use now a patch collection
+    import matplotlib.collections as mcoll
+    patches = []
+    scan_names = []
+
     for idx, scan in images.iterrows():
         edgecolor=closedcolor if scan.y_closed else opencolor
-        rect = ax.add_patch(Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor, picker=True))
-        rect.aname = scan.scan_file
+        rect = Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor, picker=True)
+        patches.append(rect)
+        scan_names.append(scan.scan_file)
+
+    collection = mcoll.PatchCollection(patches,  match_original=True, picker=True)
+    ax.add_collection(collection)
 
     if show_stripes:
         for seg_off in range(-7,8):

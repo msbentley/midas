@@ -1638,7 +1638,10 @@ class itl:
             return None
 
         if as_hex:
-            cmds = ["0x%04X" % com for com in cmds]
+            hex_cmds = []
+            for com in cmds:
+                hex_cmds.append("0x%04X" % com if type(com)!=str else com)
+            cmds = hex_cmds
 
         # Remaining TCMDs are filled with 0x8F35 (NOOP)
         if as_hex:

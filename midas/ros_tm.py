@@ -208,7 +208,7 @@ def plot_line_scans(lines, units='real', label=None, align=False, title=None):
 
 
 def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, xmax=False, ymin=False, ymax=False,
-        figure=None, axis=None, title=True):
+        figure=None, axis=None, title=True, marker=None):
     """Plots one or more frequency scan (read previously with get_freq_scans()). Optionally
     plot a Lorentzian fit"""
 
@@ -242,7 +242,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
         else:
             ax.set_ylabel('Amplitude (V)')
 
-        ax.plot(scan['frequency'],scan['amplitude'], label='%s' % scan.start_time)
+        ax.plot(scan['frequency'],scan['amplitude'], label='%s' % scan.start_time, marker=marker)
 
         if showfit and ~scan.is_phase:
             if not 'offset' in scan.index:
@@ -274,6 +274,9 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
     ax.set_xlim(xmin,xmax)
     ax.set_ylim(ymin,ymax)
+
+    plt.setp(ax.get_xticklabels(), rotation=45)
+    ax.xaxis.get_major_formatter().set_useOffset(False)
 
     if figure is None:
         plt.show()

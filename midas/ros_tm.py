@@ -4053,6 +4053,9 @@ class tm:
                     scan['info']['fadj'] = self.get_param('NMDA0347', frame=frame)[1]
                     scan['info']['work_pt'] = (scan['info']['res_amp'] * abs(self.get_param('NMDA0181', frame=frame)[1]) / 100.)
 
+                scan['info']['set_pt_per'] = self.get_param('NMDA0244', frame=frame)[1]
+                scan['info']['work_pt_per'] = self.get_param('NMDA0181', frame=frame)[1]
+
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \
                     (scan['info']['cant_block'], scan['info']['tip_num'], \

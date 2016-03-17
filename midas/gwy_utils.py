@@ -251,8 +251,8 @@ def get_meta(gwyfile):
     """Returns all meta-data from a Gwyddion file. Note that all returned data
     will be in strings, and the user must ensure correct type conversion!"""
 
-    if not os.path.isfile(gwy_file):
-        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+    if not os.path.isfile(gwyfile):
+        print('ERROR: Gwyddion file %s does not exist!' % gwyfile)
         return None
 
     C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)

@@ -106,21 +106,42 @@ ac_v = (20.0/65535.)        # -10.0 - +10.0 V
 dc_v = (20.0/65535.)        # -10.0 - +10.0 V
 phase_deg = (360./65535.)   # -180.0 - +180.0 deg
 
-# "bad" values due to OBSW sign bit issue12-16
-# 13 ... 15% (raw 0x2000-0x27FF)
-# 38 ... 40% (raw 0x6000-0x67FF)
-# 63 ...65% (raw 0xA000-0xA7FF)
-# 88 ... 90% (raw 0xE000-0xE7FF)
+# "bad" values due to OBSW sign bit issue
+#
+# PMDDE252 (FAdjustPercPar)
+# PMDD2082 (OpPointPercPar)
+# PMDD20F2 (DeltaOpPercPar)
+# PMDD2352 (OpPointPcontPercPar; never used)
+# PMDDE162 (FvectLpercPar):
+#
+# 12.5 ... 15.6 % (raw 0x2000-0x27FF)
+# 37.5 ... 40.6 % (raw 0x6000-0x67FF)
+# 62.5 ... 65.6 % (raw 0xA000-0xA7FF)
+# 87.5 ... 90.6 % (raw 0xE000-0xE7FF)
+#
+# PMDD30A2 (PercentOpAmplPar):
+#
+# -81.2 ... -75.0 % (raw 0x97FF-0xA000)
+# -31.2 ... -25.0 % (raw 0xD7FF-0xE000)
+# +25.0 ... +31.2 % (raw 0x2000-0x27FF)
+# +75.0 ... +81.2 % (raw 0x6000-0x67FF)
+
 badvals = [ (0x2000,0x27FF), (0x6000,0x67FF), (0xA000,0xA7FF), (0xE000,0xE7FF) ]
+badnegvals = [ (0x97FF,0xA000), (0xD7FF, 0xE000), (0x2000, 0x27FF), (0x6000, 0x67FF) ]
 
 def is_bad(value, is_neg=False):
 
-    cal = 65535./200. if is_neg else 65535./100.
-    offset = 100 if is_neg else 0.
-    calval = (value+offset) * cal
+    import bitstring
 
-    for valset in badvals:
-        if valset[0] < calval < valset[1]:
+    cal = 65535./200. if is_neg else 65535./100.
+    calval = int(round(value * cal))
+    if is_neg:
+        calval = bitstring.BitArray('int:16=%d'%calval).uint
+
+    vals = badnegvals if is_neg else badvals
+
+    for valset in vals:
+        if valset[0] <= calval <= valset[1]:
             return True
         else:
             continue

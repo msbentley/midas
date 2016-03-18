@@ -110,7 +110,7 @@ def list_chans(gwy_file, filter=None, log=False, masked=False, info=False):
             if filter not in chan_name:
                 del(channels[chan_num])
 
-    # Also check if they contain masks
+    # Also check if they contain log data
     if log:
         for chan_num in channels.keys():
             if not C.contains_by_name('/%d/data/log' % chan_num):
@@ -327,6 +327,32 @@ def write_meta(gwyfile, metadata, channel=None):
         meta.set_string_by_name(key, str(metadata[key]))
 
     C.set_object_by_name('/%d/meta' % selected, meta)
+
+    gwy.gwy_file_save(C, gwyfile, gwy.RUN_NONINTERACTIVE)
+
+    return
+
+
+def rename_channels(gwyfile, search, replace):
+    """Accepts a search string and looks for all channels
+    in gwyfile containing this string. Replaces this substring
+    with the value given in replace"""
+
+    if not os.path.isfile(gwyfile):
+        print('ERROR: Gwyddion file %s does not exist!' % gwyfile)
+        return None
+
+    channels = list_chans(gwyfile, filter=search)
+
+    if len(channels)==0:
+        print('ERROR: no channels matching %s in file %s' % (search, gwyfile))
+        return None
+
+    C = gwy.gwy_file_load(gwyfile,gwy.RUN_NONINTERACTIVE)
+
+    for key in channels:
+        channels[key] = channels[key].replace(search, replace)
+        C.set_string_by_name('/%i/data/title' % key, channels[key])
 
     gwy.gwy_file_save(C, gwyfile, gwy.RUN_NONINTERACTIVE)
 

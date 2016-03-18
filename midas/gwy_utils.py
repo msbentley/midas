@@ -246,10 +246,12 @@ def get_data(gwy_file, chan_name=None):
     return xlen, ylen, data
 
 
-
-def get_meta(gwyfile):
+def get_meta(gwyfile, channel=None):
     """Returns all meta-data from a Gwyddion file. Note that all returned data
-    will be in strings, and the user must ensure correct type conversion!"""
+    will be in strings, and the user must ensure correct type conversion!
+
+    If channel=None, channel IDs will be checked (in numerical order) and
+    meta data for the first channel will be returned."""
 
     if not os.path.isfile(gwyfile):
         print('ERROR: Gwyddion file %s does not exist!' % gwyfile)
@@ -257,15 +259,79 @@ def get_meta(gwyfile):
 
     C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
 
+    channels = list_chans(gwyfile, filter=channel)
+
+    selected = None
+
+    if len(channels)==0:
+        print('ERROR: no channels matching %s in file %s' % (channel, gwyfile))
+        return None
+    elif len(channels)>1 and channel is not None:
+        print('ERROR: more than one channel matching %s in file %s' % (channel, gwyfile))
+        return None
+    elif channel is None: # find first channel
+        for key in sorted(channels.keys()):
+            if not C.contains_by_name('/%d/meta' % key):
+                continue
+            else:
+                selected = key
+                break
+    else:
+        selected = channels.keys()[0]
+
     metadata = {}
 
-    meta = C.get_value_by_name('/0/meta')
+    if not C.contains_by_name('/%d/meta' % selected):
+        print('ERROR: channel contains no meta data')
+        return None
+
+    meta = C.get_value_by_name('/%d/meta' % selected)
     keys = meta.keys_by_name()
 
     for key in keys:
         metadata.update({ key: meta.get_value_by_name(key) })
 
     return pd.Series(metadata) #.convert_objects(convert_numeric=True, convert_dates=True)
+
+
+def write_meta(gwyfile, metadata, channel=None):
+    """Writes a pandas Series of meta-data to a Gwyddion file. If channel=None
+    meta data are written to the first channel, otherwise to the
+    named channel."""
+
+    if not os.path.isfile(gwyfile):
+        print('ERROR: Gwyddion file %s does not exist!' % gwyfile)
+        return None
+
+    C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
+
+    channels = list_chans(gwyfile, filter=channel)
+    selected = None
+
+    if len(channels)==0 and channel is not None:
+        print('ERROR: no channels matching %s in file %s' % (channel, gwyfile))
+        return None
+    elif len(channels)>1 and channel is not None:
+        print('ERROR: more than one channel matching %s in file %s' % (channel, gwyfile))
+        return None
+    elif channel is None: # find first channel
+        selected = min(channels.keys())
+    else:
+        selected = channels.keys()[0]
+
+    # Meta channel returns a container, which itself has each meta
+    # point as a key/value set
+
+    meta = gwy.Container()
+    for key in metadata.keys():
+        meta.set_string_by_name(key, str(metadata[key]))
+
+    C.set_object_by_name('/%d/meta' % selected, meta)
+
+    gwy.gwy_file_save(C, gwyfile, gwy.RUN_NONINTERACTIVE)
+
+    return
+
 
 
 def gwy_to_bcr(gwy_file, channel, bcrfile=None):

@@ -2049,12 +2049,13 @@ class tm:
         tlm = pd.merge(tlm,pid,how='left').sort_values(by='obt')
         tlm.spid = tlm.spid.astype(np.int64)
 
-
         # Deal with the fact that MIDAS uses private SIDs that are not in the RMIB
         if 'midsid' in tlm.columns:
             idx = tlm[tlm.midsid.notnull()].index
             tlm.sid.ix[idx]=tlm.midsid[idx]
             tlm.drop('midsid', axis=1, inplace=True)
+
+        tlm.sid = tlm.sid.astype(np.int64)
 
         num_pkts = len(tlm)
 

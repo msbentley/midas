@@ -348,12 +348,9 @@ def rename_channels(gwyfile, search, replace):
         print('ERROR: no channels matching %s in file %s' % (search, gwyfile))
         return None
 
-    C = gwy.gwy_file_load(gwyfile,gwy.RUN_NONINTERACTIVE)
-
+    C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
     for key in channels:
-        channels[key] = channels[key].replace(search, replace)
-        C.set_string_by_name('/%i/data/title' % key, channels[key])
-
+        C.set_string_by_name('/%i/data/title' % key, channels[key].replace(search, replace))
     gwy.gwy_file_save(C, gwyfile, gwy.RUN_NONINTERACTIVE)
 
     return

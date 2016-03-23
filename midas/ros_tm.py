@@ -4034,7 +4034,6 @@ class tm:
                     frame = frame[0]
 
             sw_ver = int("%i%i%i" % (first_pkt.sw_major >> 4, first_pkt.sw_major & 0x0F, first_pkt.sw_minor))
-
             scan['info'] = {
                 'sw_ver': sw_ver,
                 'start_time': start_time,
@@ -4047,11 +4046,11 @@ class tm:
                 'cant_block': first_pkt.cant_block,
                 'exc_lvl': first_pkt.exc_lvl,
                 'ac_gain': first_pkt.ac_gain,
-                'res_amp': first_pkt.res_amp * (20./65535.) if sw_ver>=664 else np.nan,
-                'fadj': first_pkt.fadj * (20./65535.) if sw_ver>=664 else np.nan,
-                'work_pt': first_pkt.work_pt * (20./65535.) if sw_ver>=664 else np.nan,
-                'set_pt': first_pkt.set_pt * (20./65535.) if sw_ver>=665 else np.nan,
-                'set_pt_delta': first_pkt.set_pt_delta * (20./65535.) if sw_ver>=665 else np.nan,
+                'res_amp': last_pkt.res_amp * (20./65535.) if sw_ver>=664 else np.nan,
+                'fadj': last_pkt.fadj * (20./65535.) if sw_ver>=664 else np.nan,
+                'work_pt': last_pkt.work_pt * (20./65535.) if sw_ver>=664 else np.nan,
+                'set_pt': last_pkt.set_pt * (20./65535.) if sw_ver>=665 else np.nan,
+                'set_pt_delta': last_pkt.set_pt_delta * (20./65535.) if sw_ver>=665 else np.nan,
                 'is_phase': True if (first_pkt.fscan_type & 1) else False,
                 'above_thresh': False if (last_pkt.fscan_type >> 1 & 1) else True } # threshold scan flag (0=ok, 1=not found) }
 
@@ -4064,7 +4063,6 @@ class tm:
             if get_thresh:
 
                 if sw_ver < 665:
-                    # scan['info']['thresh_amp'] = self.get_param('', frame=frame)[1] TODO!
                     scan['info']['op_pt_delta'] = self.get_param('NMDA0242', frame=frame)[1]
                 if sw_ver < 664:
                     scan['info']['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]

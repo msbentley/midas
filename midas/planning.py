@@ -2052,7 +2052,7 @@ class itl:
     def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=0, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
-        contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5, magnetic=False, retr_m1=0, clear_ram=True):
+        op_delta=1., contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5, magnetic=False, retr_m1=0, clear_ram=True):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -2264,7 +2264,8 @@ class itl:
             'fstep_fine': fscan_params['fstep_fine'],
             'fstep_coarse': fscan_params['fstep_coarse'],
             'op_amp_per': -90 if type(op_amp)==bool else op_amp,
-            'set_pt_amp': 80 if type(set_pt)==bool else set_pt }
+            'set_pt_amp': 80 if type(set_pt)==bool else set_pt,
+            'op_delta': op_delta }
 
         fullscan_params = { \
 
@@ -2481,7 +2482,7 @@ class itl:
 
 
     def freq_scan(self, cantilever, ac_gain=False, excitation=False, fstep_coarse=False, fstep_fine=False, num_scans=8, \
-        op_amp=-90, set_pt=80, fadj=85, params_only=False, set_start=False):
+        op_amp=-90, set_pt=80, fadj=85, op_delta=1., params_only=False, set_start=False):
 
         proc = {}
         proc['template'] = 'FSCAN'
@@ -2538,7 +2539,8 @@ class itl:
             'num_scans': num_scans,
             'op_amp_per': op_amp,
             'set_pt_amp': set_pt,
-            'freq_adj': fadj }
+            'freq_adj': fadj,
+            'op_delta': op_delta }
 
         if params_only:
             return proc['params']
@@ -2731,7 +2733,7 @@ class itl:
 
     def line_scan(self, cantilever, facet, openloop=True, xpixels=128, ypixels=128, xstep=15, ystep=15, \
         xorigin=False, yorigin=False, xlh=True, ylh=True, mainscan_x=True, fadj=85.0, safety_factor=2.0, zstep=4,
-        ac_gain=False, exc_lvl=False, op_amp=False, set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
+        ac_gain=False, exc_lvl=False, op_amp=False, op_delta=1., set_pt=False, num_fcyc=8, fadj_numscans=2, set_start=True,
         at_surface=False, ctrl_data=False, tip_offset=0, app_max=-6.0, z_settle=50, xy_settle=50, threshold=False, contact=False,
         segment=None, dc_set=False, zapp_pos=1.5,  magnetic=False, retr_m1=0):
 
@@ -2870,6 +2872,7 @@ class itl:
             'fstep_fine': fscan_params['fstep_fine'],
             'fstep_coarse': fscan_params['fstep_coarse'],
             'op_amp_per': -90 if type(op_amp)==bool else op_amp,
+            'op_delta': op_delta,
             'set_pt_amp': 80 if type(set_pt)==bool else set_pt,
             'num_scans': num_fcyc,
 

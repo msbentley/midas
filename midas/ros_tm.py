@@ -3259,6 +3259,12 @@ class tm:
         lines['dc_gain'] = lines.mode_params.apply( lambda mode: (mode >> 10) & 0b111 )
         lines['exc_lvl'] = lines.mode_params.apply( lambda mode: (mode >> 13) & 0b111 )
 
+        # Add start time from event history if possible
+        events = self.get_events(verbose=False)
+        start_times = events.query('sid==42655').obt
+        lines['start_time'] = lines.apply( lambda row: start_times[start_times<row.obt].iloc[-1] if
+                len(start_times[start_times<row.obt])>0 else pd.NaT, axis=1)
+
         # correct scans in early OBSW versions prior to re-centering
         # lines['tip_offset'][lines.obsw_ver<645] += (0.243/common.linearcal)
 
@@ -3278,7 +3284,15 @@ class tm:
 
             for idx, line in lines.iterrows():
 
-                frame = hk2[hk2.obt>line.obt].index
+                # line_start = line.obt if line.start_time is pd.NaT else line.start_time
+                if line.start_time is pd.NaT:
+                    line_start = line.obt
+                    print 'Using OBT: %s' % line_start
+                else:
+                    line_start = line.start_time
+                    print 'Using line start: %s' % line_start
+
+                frame = hk2[hk2.obt>line_start].index
                 if len(frame)==0:
                     print('WARNING: no HK2 frame found after line scan at %s' % pkt.obt)
                     in_image = True # hack to put NaNs in the table if no HK available
@@ -3316,6 +3330,7 @@ class tm:
                 lines['xy_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0271', frame=frame)[1]
                 lines['z_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0270', frame=frame)[1]
                 lines['z_ret'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0188', frame=frame)[1]
+
             lines['z_ret_nm'] = lines.z_ret * common.zcal
 
         else:
@@ -4059,6 +4074,10 @@ class tm:
 
                 scan['info']['set_pt_per'] = self.get_param('NMDA0244', frame=frame)[1]
                 scan['info']['work_pt_per'] = self.get_param('NMDA0181', frame=frame)[1]
+
+                # NMDA0247 (OpLo) and NMDA0246 (OpUp)
+                scan['info']['op_pt_lo'] = self.get_param('NMDA0247', frame=frame)[1]
+                scan['info']['op_pt_hi'] = self.get_param('NMDA0246', frame=frame)[1]
 
             if printdata:
                 print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \

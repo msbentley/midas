@@ -384,6 +384,11 @@ def plot_ctrl_data(ctrldata, interactive=True, fix_scale=False, channels=['AC', 
 
                 if 'AC' in channels:
                     self.line_ac, =  axes['AC'].plot(xdata, self.ctrl.ac,'x-')
+                    # draw the set point and set point up/dn limits if possible
+                    axes['AC'].axhline(self.ctrl.set_pt, color='g', ls='-')
+                    axes['AC'].axhline(self.ctrl.op_pt_lo, color='r', ls='--')
+                    axes['AC'].axhline(self.ctrl.op_pt_hi, color='r', ls='--')
+
                 if 'DC' in channels:
                     self.line_dc, = axes['DC'].plot(xdata, self.ctrl.dc,'x-')
                 if 'PH' in channels:
@@ -3428,7 +3433,7 @@ class tm:
                 frame = hk2[hk2.obt>pkt.obt].index[0]
 
                 if sw_ver < 664:
-                    point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
+                    point_data['work_pt_per'] = self.get_param('NMDA0181', frame=frame)[1]
                     point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
                     point_data['exc_lvl'] = self.get_param('NMDA0147', frame=frame)[1]
                     point_data['ac_gain'] = self.get_param('NMDA0118', frame=frame)[1]
@@ -3437,8 +3442,9 @@ class tm:
                     # Software flags:
                     # Bits  11-8: Excitation level (since version 6.6.4)
                     # Bits   7-4: AC gain level (since version 6.6.4)
-                    point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
-                    point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
+                    point_data['work_pt_per'] = self.get_param('NMDA0181', frame=frame)[1]
+                    point_data['set_pt'] = self.get_param('NMDA0245', frame=frame)[1]
+                    point_data['set_pt_per'] = self.get_param('NMDA0244', frame=frame)[1]
                     point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 8 & 0b111
                     point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >> 4 & 0b111
 
@@ -3446,10 +3452,17 @@ class tm:
                     # Bits 15-13: Excitation level (since v6.6.5)
                     # Bits 12-10: DC gain level (since v6.6.5)
                     # Bits   9-7: AC gain level (since v6.6.5)
-                    point_data['op_pt'] = self.get_param('NMDA0181', frame=frame)[1]
-                    point_data['set_pt'] = self.get_param('NMDA0244', frame=frame)[1]
+                    point_data['work_pt_per'] = self.get_param('NMDA0181', frame=frame)[1]
+                    point_data['set_pt'] = self.get_param('NMDA0245', frame=frame)[1]
+                    point_data['set_pt_per'] = self.get_param('NMDA0244', frame=frame)[1]
                     point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 13 & 0b111
                     point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >>  7 & 0b111
+
+                point_data['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]
+                point_data['work_pt'] = point_data['res_amp'] * abs(point_data['work_pt_per']) / 100.
+                point_data['op_pt_lo'] = self.get_param('NMDA0247', frame=frame)[1]
+                point_data['op_pt_hi'] = self.get_param('NMDA0246', frame=frame)[1]
+
 
             control.append(point_data)
 
@@ -3459,10 +3472,15 @@ class tm:
         ctrl_data['zpos'] = [data['zpos'] for data in control]
 
         if expand_params:
-            ctrl_data['op_pt'] = [data['op_pt'] for data in control]
+            ctrl_data['res_amp'] = [data['res_amp'] for data in control]
+            ctrl_data['work_pt_per'] = [data['work_pt_per'] for data in control]
+            ctrl_data['work_pt'] = [data['work_pt'] for data in control]
             ctrl_data['set_pt'] = [data['set_pt'] for data in control]
+            ctrl_data['set_pt_per'] = [data['set_pt_per'] for data in control]
             ctrl_data['exc_lvl'] = [data['exc_lvl'] for data in control]
             ctrl_data['ac_gain'] = [data['ac_gain'] for data in control]
+            ctrl_data['op_pt_lo'] = [data['op_pt_lo'] for data in control]
+            ctrl_data['op_pt_hi'] = [data['op_pt_hi'] for data in control]
 
         print('INFO: %i control data scans extracted' % (len(ctrl_data)))
 

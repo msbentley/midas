@@ -342,7 +342,8 @@ def ltp_from_mtp(mtp):
         5: range(14,18+1),
         6: range(19,21+1),
         7: range(22,24+1),
-        8: range(25,28+1) }
+        8: range(25,27+1),
+        9: range(28,31+1), }
 
     return [ltp for (ltp,mtps) in ltps.iteritems() if mtp in mtps][0]
 

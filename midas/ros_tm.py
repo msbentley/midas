@@ -4154,6 +4154,7 @@ class tm:
 
         # Convert to a DataFrame for return
         scans = pd.DataFrame( [scan['info'] for scan in freqscans], columns=freqscans[0]['info'].keys())
+        scans = scans[ scans.columns.sort_values() ]
 
         # Include fit parameters if calculated
         if fit:

@@ -385,9 +385,10 @@ def plot_ctrl_data(ctrldata, interactive=True, fix_scale=False, channels=['AC', 
                 if 'AC' in channels:
                     self.line_ac, =  axes['AC'].plot(xdata, self.ctrl.ac,'x-')
                     # draw the set point and set point up/dn limits if possible
-                    axes['AC'].axhline(self.ctrl.set_pt, color='g', ls='-')
-                    axes['AC'].axhline(self.ctrl.op_pt_lo, color='r', ls='--')
-                    axes['AC'].axhline(self.ctrl.op_pt_hi, color='r', ls='--')
+                    if set(['set_pt', 'op_pt_lo', 'op_pt_hi']).issubset( self.ctrl.keys() ):
+                        axes['AC'].axhline(self.ctrl.set_pt, color='g', ls='-')
+                        axes['AC'].axhline(self.ctrl.op_pt_lo, color='r', ls='--')
+                        axes['AC'].axhline(self.ctrl.op_pt_hi, color='r', ls='--')
 
                 if 'DC' in channels:
                     self.line_dc, = axes['DC'].plot(xdata, self.ctrl.dc,'x-')

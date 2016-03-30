@@ -74,7 +74,7 @@ def extract_masks(gwy_file, channel=None, return_df=False):
     return mask_data
 
 
-def list_chans(gwy_file, filter=None, log=False, masked=False, info=False):
+def list_chans(gwy_file, filter=None, log=False, masked=False, info=False, matchstart=False):
     """Lists the data channels in a Gwyddion file.
 
     If filter is given, only channels whose names contain this substring will be returned.
@@ -107,8 +107,12 @@ def list_chans(gwy_file, filter=None, log=False, masked=False, info=False):
         matching = channels
     else:
         for chan_num, chan_name in channels.items():
-            if filter not in chan_name:
-                del(channels[chan_num])
+            if matchstart:
+                if not chan_name.startswith(filter):
+                    del(channels[chan_num])
+            else:
+                if filter not in chan_name:
+                    del(channels[chan_num])
 
     # Also check if they contain log data
     if log:

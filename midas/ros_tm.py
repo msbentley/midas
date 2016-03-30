@@ -256,12 +256,14 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
         ax.set_title('Tip %i, Ex/Gn: %i/%i, peak %3.2f V @ %3.2f Hz' % \
             (scan.tip_num, scan.exc_lvl, scan.ac_gain, scan.max_amp, scan.max_freq), fontsize=10 )
 
-        if set(['res_amp','work_pt', 'set_pt', 'fadj']).issubset(set(scan.keys())) and not scan.is_phase:
+        if set(['res_amp','work_pt', 'set_pt', 'fadj', 'op_pt_hi', 'op_pt_lo']).issubset(set(scan.keys())) and not scan.is_phase:
             # Also drawn lines showing the working point and set point
             ax.axhline(scan.res_amp,color='k')
             ax.axhline(scan.work_pt,color='r')
             ax.axhline(scan.set_pt,color='g')
             ax.axhline(scan.fadj,color='g', ls='--')
+            ax.axhline(scan.op_pt_hi,color='g', ls='-.')
+            ax.axhline(scan.op_pt_lo,color='g', ls='-.')
 
     if legend:
         leg = ax.legend(loc=0, prop={'size':10}, fancybox=True)

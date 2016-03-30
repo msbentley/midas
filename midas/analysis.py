@@ -7,7 +7,7 @@ Mark S. Bentley (mark@lunartech.org), 2015
 A module containing various routines related to the analysis of MIDAS data,
 including investigating particle statistics, exposure geometries etc."""
 
-import os, math
+import os, glob
 import pandas as pd
 from midas import common, ros_tm
 import matplotlib.pyplot as plt
@@ -126,8 +126,6 @@ def find_followup(same_tip=True, image_index=None, sourcepath=common.tlm_path):
     """Similar to find_exposures() - reads a list of scans containing grains and for
     each grain finds all later scans containing this region, within a window."""
 
-    import glob
-
     cat = read_grain_cat()
     pcle_imgs = cat.groupby('scan_file')
     scan_files = pcle_imgs.groups.keys()
@@ -200,8 +198,6 @@ def find_followup(same_tip=True, image_index=None, sourcepath=common.tlm_path):
 def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=common.tlm_path):
     """Reads a list of scans containing grains from the catalogue and
     finds exposures between this and the previous scan"""
-
-    import glob
 
     cat = read_grain_cat()
     pcle_imgs = cat.groupby('scan_file')
@@ -331,7 +327,6 @@ def read_lap_file(filename):
 def read_lap(directory, geom=False):
     """Read a directory of LAP data files and append to a dataframe, optionally adding SPICE geometry."""
 
-    import glob
     import spice_utils
 
     lap_files = sorted(glob.glob(os.path.join(directory, 'RPCLAP*.TAB')))
@@ -376,7 +371,6 @@ def plot_lap(lap):
 
 def read_grain_stats(basename, path='.'):
 
-    import glob
     files = sorted(glob.glob(os.path.join(path, basename+'*')))
 
 
@@ -474,9 +468,6 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 
     pcle_data.drop(['pcle'], axis=1, inplace=True)
-
-    # pcle_data = pcle_data[ ['id', 'name', 'left', 'right', 'up', 'down', 'tot_min_z', 'tot_max_z', 'tot_z_diff', 'a_pix', 'a_pcle', 'r_eq',
-    #     'z_min', 'z_max', 'z_mean', 'z_diff', 'major', 'minor', 'eccen', 'compact', 'sphericity', 'orient', 'pdata'] ]
 
     return pcle_data
 
@@ -774,3 +765,109 @@ def usage_stats(start='2014-05-12 14:30:00', end=None):
     plt.show()
 
     return
+
+
+def get_pcles(gwyfile, chan='particle_'):
+    """Reads channel data corresponding to chan= (or all, if None) and
+    containing a mask."""
+
+    from midas import gwy_utils
+    from skimage import measure
+
+    # Get all masked channels matching the particle filter
+    channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True, matchstart=True)
+    if len(channels)==0:
+        print('ERROR: no channels found matching: %s' % chan)
+        return None
+
+    # Get meta-data from topography channel
+    meta = gwy_utils.get_meta(gwyfile, channel='Topography (Z piezo position set value)')
+    if meta is None:
+        print('ERROR: no meta-data available')
+        return None
+
+    # Calculate the pixel area (simply x_step*y_step)
+    pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
+    pix_len = np.sqrt(pix_area) #  in the case of non-uniform steps!
+
+    pcle_data = []
+
+    for idx, channel in channels.iterrows():
+
+        # for each channel extract the mask and the actual data
+        mask = gwy_utils.extract_masks(gwyfile, channel['name'])
+        xlen, ylen, data = gwy_utils.get_data(gwyfile, channel['name'])
+
+        labmask = measure.label(mask)
+        regions = measure.regionprops(labmask)
+
+        for region in regions:
+
+            up, left, down, right = region.bbox
+            parray = ma.masked_array(data[up:down, left:right], mask=~region.image)
+
+            pcle = {
+                'id': int(channel.id),
+                'name': channel['name'],
+                'left': left,
+                'right': right,
+                'up': up,
+                'down': down,
+                'centre_x': region.centroid[0],
+                'centre_y': region.centroid[1],
+                'a_pix': region.area,
+                'a_pcle': region.area * pix_area,
+                'r_eq': np.sqrt(region.area * pix_area / np.pi),
+                'z_min': parray.min(),
+                'z_max': parray.max(),
+                'z_mean': parray.mean(),
+                'major': region.major_axis_length * pix_len,
+                'minor': region.minor_axis_length * pix_len,
+                'eccen': region.eccentricity,
+                'orient': np.degrees(region.orientation),
+                'pdata': parray
+                }
+            pcle_data.append(pcle)
+
+    pcle_data = pd.DataFrame.from_records(pcle_data)
+    pcle_data.sort_values(by='id', inplace=True)
+
+    return pcle_data
+
+
+
+def dbase_build(dbase='particles.msg', gwy_path='.', gwy_pattern='*.gwy'):
+    """Accepts a path and file pattern matching a set of Gwyddion files
+    containing particles marked with masks. This can either be one particle
+    per channel, or a single masked channel showing all particles (when well
+    separated).
+
+    Required supplementary material can be added through the dbase_suppl()
+    routine"""
+
+    gwy_files = sorted(glob.glob(os.path.join(gwy_path, gwy_pattern)))
+    if len(gwy_files)==0:
+        print('ERROR: no files matching pattern %s found in folder %s' % (gwy_pattern, gwy_path))
+
+    for idx, gwyfile in enumerate(gwy_files):
+
+        pcles = get_pcles(gwyfile, chan='particle_')
+        if pcles is None:
+            print('WARNING: Gwyddion file %s contains no particles!' % gwyfile)
+            continue
+
+        if 'database' not in locals() and 'database' not in globals():
+            database = pcles
+        else:
+            database.append(pcles)
+
+    database.to_msgpack(dbase)
+
+    print('INFO: particle database created with %d particles' % len(database))
+
+    return
+
+def dbase_load(dbase='particles.msg'):
+    """Loads the particle database (dataframe)"""
+
+    return pd.read_msgpack(dbase)

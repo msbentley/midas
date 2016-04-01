@@ -1378,7 +1378,10 @@ class itl:
         self.abs_time = None
         self.shut_open = shut_open
 
-        print('INFO: default shutter state is OPEN! Remember to close if necessary')
+        if self.shut_open:
+            print('INFO: shutter state is OPEN! Remember to close if necessary')
+        else:
+            print('INFO: shutter state is CLOSED!')
 
         model_list = ['QM', 'FS', 'FM']
         model = model.upper()
@@ -2050,7 +2053,7 @@ class itl:
         return
 
 
-    def scan(self, cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
+    def scan(self, cantilever, facet, channels=['ZS','PH','ST', 'S2'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
         xlh=True, ylh=True, mainscan_x=True, tip_offset=0, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
         op_delta=1., contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5, magnetic=False, retr_m1=0, clear_ram=True):

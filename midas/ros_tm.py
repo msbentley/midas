@@ -428,7 +428,7 @@ def plot_ctrl_data(ctrldata, interactive=True, fix_scale=False, channels=['AC', 
                 [axes[chan].yaxis.set_major_locator(MaxNLocator(nbins=5, prune='both')) for chan in channels]
 
                 self.title = plt.suptitle('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' %
-                    ( self.ctrl.wheel_posn, self.ctrl.tip_num, self.ctrl.x_orig, self.ctrl.y_orig, self.ctrl.main_cnt, self.ctrl.num_steps))
+                    ( self.ctrl.wheel_pos, self.ctrl.tip_num, self.ctrl.x_orig, self.ctrl.y_orig, self.ctrl.main_cnt, self.ctrl.num_steps))
 
             else:
 
@@ -446,7 +446,7 @@ def plot_ctrl_data(ctrldata, interactive=True, fix_scale=False, channels=['AC', 
                     self.line_zpos.set_ydata(self.ctrl.zpos-self.ctrl.zpos.min())
 
                 self.title.set_text('Wheel seg %i, tip #%i, origin (%i,%i), step %i/%i' %
-                    ( self.ctrl.wheel_posn, self.ctrl.tip_num, self.ctrl.x_orig, self.ctrl.y_orig, self.ctrl.main_cnt, self.ctrl.num_steps))
+                    ( self.ctrl.wheel_pos, self.ctrl.tip_num, self.ctrl.x_orig, self.ctrl.y_orig, self.ctrl.main_cnt, self.ctrl.num_steps))
 
                 if fix_scale:
                     if 'AC' in channels:
@@ -970,7 +970,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                     ctrl = telem.get_ctrl_data()
                     if ctrl is not None:
 
-                        ctrl = ctrl[ (ctrl.wheel_posn==channel.wheel_pos) &
+                        ctrl = ctrl[ (ctrl.wheel_pos==channel.wheel_pos) &
                             (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
                             (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
                             (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
@@ -3358,7 +3358,7 @@ class tm:
         ctrl_data_fmt = ">H2Bh6H3H3H"
         ctrl_data_size = struct.calcsize(ctrl_data_fmt)
         ctrl_data_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_pos \
-            wheel_posn tip_num x_orig y_orig step_size num_steps scan_mode main_cnt \
+            wheel_pos tip_num x_orig y_orig step_size num_steps scan_mode main_cnt \
             num_meas block_addr sw_flags line_cnt")
 
         ctrl_data_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=133)
@@ -3396,6 +3396,7 @@ class tm:
         ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
         ctrl_data['hires'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 1 & 1) if row.sw_ver>=661 else False, axis=1 )
         ctrl_data['in_image'] = ctrl_data.apply( lambda row: bool(row.sw_flags & 1) if row.sw_ver>=661 else False, axis=1 )
+        ctrl_data['target'] = ctrl_data.wheel_pos.apply( lambda pos: common.seg_to_facet(pos) )
 
         ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode'], inplace=True, axis=1)
 

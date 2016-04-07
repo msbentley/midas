@@ -681,7 +681,7 @@ def calibrate_amplitude(ctrl, return_data=False):
         return (z_nm,cal_amp)
 
 
-def image_from_lines(lines, slow_dir='L_H'):
+def image_from_lines(lines, slow_dir='L_H', get_hk=False):
 
     lines = lines.query('in_image')
     if len(lines)==0:
@@ -691,11 +691,6 @@ def image_from_lines(lines, slow_dir='L_H'):
     if lines.line_cnt.max()!=len(lines):
         print('WARNING: %d lines available, but maximum line count is %d' % (len(lines),lines.line_cnt.max()))
 
-    slow_dir = slow_dir.upper()
-    if slow_dir not in ['L_H','H_L']:
-        print('ERROR: slow_dir must be either L_H or H_L')
-        return None
-
     # Do a few sanity checks on the provided lines
     cols = lines.columns.tolist()
     dropcols = ['obt', 'line_cnt', 'aborted', 'data'] # these are necessarily difference, even in a single image scan
@@ -704,17 +699,29 @@ def image_from_lines(lines, slow_dir='L_H'):
         print('ERROR: some metadata is different, make sure lines are from the same image scan!')
         return None
 
+    # take meta-data from first line (should all be identical)
+    line = lines.iloc[0].squeeze()
+
+    if not get_hk:
+        slow_dir = slow_dir.upper()
+        if slow_dir not in ['L_H','H_L']:
+            print('ERROR: slow_dir must be either L_H or H_L')
+            return None
+    else:
+        tlm = tm(lines.filename.unique()[0])
+        meta = tlm.meta_from_hk(lines.obt.min(), lines.obt.max())
+        # extracting linear position from line data is better
+        meta.lin_pos = line.lin_pos
+        meta.tip_offset = (meta.lin_pos - common.lin_centre_pos_fm[meta.tip_num-1]) / common.linearcal
+        meta.tip_offset = meta.tip_offset - common.tip_offset[meta.tip_num-1]
+        slow_dir = meta.x_dir if meta.fast_dir=='Y' else meta.y_dir
+        meta.duration = meta.end_time - meta.start_time
+
     # extract line scan data into an array
     data = []
     lines = lines.sort_values(by='line_cnt')
     [data.append(line['data']) for idx,line in lines.iterrows()]
     image = np.array(data)
-
-    # take meta-data from first line (should all be identical)
-    line = lines.iloc[0].squeeze()
-
-    # invert for piezo extension -> height and -> signed
-    #image = 32767 - image
 
     # re-shape array according to main scan direction
     ysteps = line.num_steps if line.fast_dir=='Y' else len(lines)
@@ -738,8 +745,11 @@ def image_from_lines(lines, slow_dir='L_H'):
         if slow_dir=='H_L':
             image = np.fliplr(image)
 
-
-    return image
+    if get_hk:
+        meta['data'] = image
+        return meta
+    else:
+        return image
 
 
 def combine_linescans(linescans, bcr=False):
@@ -1298,7 +1308,7 @@ def img_polysub(image, order=3):
     return image
 
 
-def show_grid(images, cols=2, planesub='poly'):
+def show_grid(images, cols=2, **kwargs):
     """Plots multiple images in a grid with a given column width"""
 
     import matplotlib.gridspec as gridspec
@@ -1317,7 +1327,7 @@ def show_grid(images, cols=2, planesub='poly'):
     for idx, image in images.iterrows():
 
         axes.append(plt.subplot(gs[grid]))
-        show(image, fig=fig, ax=axes[grid], planesub=planesub)
+        show(image, fig=fig, ax=axes[grid], **kwargs)
         grid += 1
 
     # fig.subplots_adjust(bottom = 0)
@@ -1325,7 +1335,7 @@ def show_grid(images, cols=2, planesub='poly'):
     # fig.subplots_adjust(right = 1)
     # fig.subplots_adjust(left = 0)
 
-    # plt.tight_layout() #fig, axes)
+    plt.tight_layout() #fig, axes)
 
     plt.show()
 
@@ -1603,6 +1613,9 @@ def locate_scans(images):
     relative to the wheel/target centre. These are added to the images DataFrame and returned."""
 
     x_orig_um = []; y_orig_um = []
+
+    if type(images)==pd.core.series.Series:
+        images = images.to_frame().T
 
     for idx, scan in images.iterrows():
 
@@ -3220,6 +3233,7 @@ class tm:
 
         linescans = []
         pkt_idx = []
+        filename = []
 
         if expand_params:
             hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
@@ -3239,10 +3253,12 @@ class tm:
 
             linescans.append(line_type)
             pkt_idx.append(idx)
+            filename.append(pkt.filename)
 
         # pack data into a pandas dataframe
         cols = line_scan_names._fields
-        lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=pkt_idx) #line_scan_pkts.index)
+        lines = pd.DataFrame([line['info'] for line in linescans],columns=cols,index=pkt_idx)
+        lines['filename'] = filename
         if not info_only:
             lines['data'] = [line['data'] for line in linescans]
 
@@ -3295,10 +3311,10 @@ class tm:
                 # line_start = line.obt if line.start_time is pd.NaT else line.start_time
                 if line.start_time is pd.NaT:
                     line_start = line.obt
-                    print 'Using OBT: %s' % line_start
+                    # print 'Using OBT: %s' % line_start
                 else:
                     line_start = line.start_time
-                    print 'Using line start: %s' % line_start
+                    # print 'Using line start: %s' % line_start
 
                 frame = hk2[hk2.obt>line_start].index
                 if len(frame)==0:
@@ -4355,6 +4371,149 @@ class tm:
         obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
 
         return obt_corr
+
+
+    def meta_from_hk(self, start_obt, end_obt, get_times=True, time_win=120):
+        """Retrieves image meta-data (as is usually given in the image packet header)
+        from housekeeping. Data are taken from the first packet after start_obt. The event
+        history is queried within time_win before start_obt and after end_obt to look for a
+        scan start/end event.
+
+        If get_times=True the event history is queried to fine start and end times.
+        Otherwise the passed start and end OBTs are used."""
+
+        hk1 = self.pkts.query('type==3 & subtype==25 & apid==1076 & sid==1')
+        hk2 = self.pkts.query('type==3 & subtype==25 & apid==1076 & sid==2')
+        time_win = pd.Timedelta(minutes=time_win)
+
+        if type(start_obt) != pd.Timestamp:
+            start_obt = pd.Timestamp(start_obt)
+
+        if type(end_obt) != pd.Timestamp:
+            end_obt = pd.Timestamp(end_obt)
+
+        hk1_frame = hk1[hk1.obt > start_obt].index
+        hk2_frame = hk2[hk2.obt > start_obt].index
+
+        if len(hk1_frame)==0:
+            print('WARNING: no HK1 frame found after OBT %s' % obt)
+            return None
+        else:
+            hk1_frame = hk1_frame[0]
+
+        if len(hk2_frame)==0:
+            print('WARNING: no HK2 frame found after OBT %s' % obt)
+            return None
+        else:
+            hk2_frame = hk2_frame[0]
+
+        events = self.get_events(ignore_giada=True, verbose=False)
+
+        meta = {
+            'channel': 'ZS',
+            'dummy': False }
+
+        # NMDD0024       SwKernelVersion
+        # NMDD0020        SwMajorVersion
+        # NMDD0028        SwMinorVersion
+        kernel = self.get_param('NMDD0024', frame=hk2_frame)[1]
+        major = self.get_param('NMDD0020', frame=hk2_frame)[1]
+        minor = self.get_param('NMDD0028', frame=hk2_frame)[1]
+        meta.update({'sw_ver': int('%d%d%d' % (kernel, major, minor))})
+
+        # NMDA0128        CanBlockSelect (0-1)
+        # NMDA0127             CanSelect (0-7)
+        block = self.get_param('NMDA0128', frame=hk2_frame)[1]
+        cant = self.get_param('NMDA0127', frame=hk2_frame)[1]
+        meta.update({'tip_num': block*8 + cant+1})
+
+        if get_times:
+
+            # get from event history
+            start_ev = events[ (events.sid==42656) & (events.obt>(start_obt-time_win)) & (events.obt<start_obt) ]  # EvFullScanStarted
+            if len(start_ev)==0:
+                print('ERROR: no start time found within %d seconds' % time_win.seconds)
+            elif len(start_ev)>1:
+                print('WARNING: more than one start event in window - selecting last')
+                meta.update({'start_time': start_ev.iloc[-1].obt})
+            else:
+                meta.update({'start_time': start_ev.iloc[0].obt})
+
+            end_ev = events[  (events.sid==42513) & (events.obt>(end_obt)) & (events.obt<(end_obt+time_win)) ]  # EvScanFinished
+            if len(end_ev)==0:
+                print('ERROR: no end time found within %d seconds' % time_win.seconds)
+            elif len(end_ev)>1:
+                print('WARNING: more than one end event in window - selecting first')
+                meta.update({'end_time': end_ev.iloc[0].obt})
+            else:
+                meta.update({'end_time': end_ev.iloc[0].obt})
+
+        else:
+
+            meta.update( {
+                'start_time': start_obt,
+                'end_time': end_obt })
+
+        # deal with linear position and tip offset
+        meta.update({'lin_pos': self.get_param('NMDA0248', frame=hk2_frame)[1] })
+
+        meta.update({'wheel_pos': self.get_param('NMDA0196', frame=hk2_frame)[1]})
+        meta.update({'target': common.seg_to_facet(meta['wheel_pos'])})
+        meta.update({'target_type': common.target_type(meta['target'])})
+
+        meta.update({
+            'x_orig': self.get_param('NMDA0218', frame=hk2_frame)[1],
+            'y_orig': self.get_param('NMDA0228', frame=hk2_frame)[1],
+            'xsteps': self.get_param('NMDA0219', frame=hk2_frame)[1],
+            'ysteps': self.get_param('NMDA0230', frame=hk2_frame)[1],
+            'x_step': self.get_param('NMDA0221', frame=hk2_frame)[1],
+            'y_step': self.get_param('NMDA0227', frame=hk2_frame)[1],
+            'z_step': self.get_param('NMDA0231', frame=hk2_frame)[1],
+            'z_ret': self.get_param('NMDA0188', frame=hk2_frame)[1],
+            'fast_dir': self.get_param('NMDA0171', frame=hk2_frame)[1],
+            'x_dir': self.get_param('NMDA0220', frame=hk2_frame)[1],
+            'y_dir': self.get_param('NMDA0229', frame=hk2_frame)[1],
+            'scan_type': common.scan_type[ self.get_param('NMDA0189', frame=hk2_frame)[1] ],
+            'x_closed': True if self.get_param('NMDD0015', frame=hk1_frame)[1]=='ON' else False,
+            'y_closed': True if self.get_param('NMDD0014', frame=hk1_frame)[1]=='ON' else False,
+            'xy_settle': self.get_param('NMDA0271', frame=hk2_frame)[1],
+            'z_settle': self.get_param('NMDA0270', frame=hk2_frame)[1],
+            'exc_lvl': self.get_param('NMDA0147', frame=hk2_frame)[1],
+            'ac_gain': self.get_param('NMDA0118', frame=hk2_frame)[1],
+            'aborted': True if self.get_param('NMDA0116', frame=hk2_frame)[1]==1 else False,
+            'res_amp': self.get_param('NMDA0306', frame=hk2_frame)[1],
+            'set_pt': self.get_param('NMDA0245', frame=hk2_frame)[1],
+            'fadj': self.get_param('NMDA0347', frame=hk2_frame)[1],
+            'work_pt_per': self.get_param('NMDA0181', frame=hk2_frame)[1],
+            'set_pt_per': self.get_param('NMDA0244', frame=hk2_frame)[1] })
+
+        sw_flags = self.get_param('NMDA0349', frame=hk2_frame)[1]
+        meta.update({
+            'mag_phase': bool(sw_flags >> 13 & 0b1),
+            'ctrl_image': bool(sw_flags >> 5 & 0b1) })
+
+        meta = pd.Series(meta)
+
+        src_file = os.path.basename(hk2.loc[hk2_frame].filename)
+        meta['filename'] = src_file
+        meta['scan_file'] = src_file_to_img_file(src_file, meta.start_time, meta.target)
+
+        # calculated properties
+        meta['x_step_nm'] = (meta['x_step'] * common.xycal['closed']) if meta['x_closed'] else (meta['x_step'] * common.xycal['open'])
+        meta['y_step_nm'] = (meta['y_step'] * common.xycal['closed']) if meta['y_closed'] else (meta['y_step'] * common.xycal['open'])
+        meta['xlen_um'] = meta.x_step_nm * meta.xsteps / 1.e3
+        meta['ylen_um'] = meta.y_step_nm * meta.ysteps / 1.e3
+        meta['z_ret_nm'] = meta.z_ret * common.zcal
+        meta['work_pt'] = meta.res_amp * abs(meta.work_pt_per) / 100.
+        meta['tip_offset'] = (meta.lin_pos - self.lin_centre_pos[meta.tip_num-1]) / common.linearcal
+        meta['tip_offset'] = meta.tip_offset - common.tip_offset[meta.tip_num-1]
+        meta['duration'] = meta.end_time - meta.start_time
+
+        # 'x_orig_um' and 'y_orig_um' added by locate_scans()
+        meta = locate_scans(meta).squeeze()
+
+
+        return meta
 
 #----- end of TM class
 

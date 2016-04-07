@@ -2082,6 +2082,8 @@ class itl:
         if op_amp:
             if common.is_bad(op_amp, is_neg=True):
                 print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+            if fadj > abs(op_amp):
+                print('WARNING: frequency adjust > working point (will trigger every line) - is this intended?')
 
 
         # validate inputs
@@ -2774,6 +2776,8 @@ class itl:
         if op_amp:
             if common.is_bad(op_amp, is_neg=True):
                 print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+            if fadj > abs(op_amp):
+                print('WARNING: frequency adjust > working point (will trigger every line) - is this intended?')
 
         if (cantilever<1) or (cantilever>16):
             print('ERROR: cantilever number must be between 1 and 16')

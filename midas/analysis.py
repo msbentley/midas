@@ -686,6 +686,59 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=None, savefile=None,
 
     return
 
+
+def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False):
+    """Plot particles in the passed data frame on their respective facets."""
+
+    import matplotlib.collections as mcoll
+    from matplotlib.patches import Rectangle
+
+
+    for tgt in pcles.target.unique():
+
+        fig, ax = plt.subplots()
+        ax.set_aspect('equal')
+
+        # plot each individual pixel as a rectangular patch in a patch collection
+        patches = []
+        for idx, pcle in pcles.iterrows():
+
+            xs, ys = np.nonzero(~pcle.pdata.mask)
+            for x,y in zip(xs,ys):
+                x_um = pcle.pcle_xorig_um + x * pcle.x_step_nm /1.e3
+                y_um = pcle.pcle_yorig_um + y * pcle.y_step_nm /1.e3
+                rect = Rectangle((x_um, y_um), pcle.x_step_nm/1.e3, pcle.y_step_nm/1.e3, fill=True, linewidth=0, facecolor='k')
+                patches.append(rect)
+
+        collection = mcoll.PatchCollection(patches, match_original=True)
+        ax.add_collection(collection)
+
+    if zoom_out:
+        ax.set_xlim(-700.,700.)
+        ax.set_ylim(-1400., 1400.)
+    else:
+        # scale plot to show all pcles
+        xmin = pcles.pcle_xorig_um.min()
+        xmax = (pcles.pcle_xorig_um + pcles.bb_width).max()
+        ymin = pcles.pcle_yorig_um.min()
+        ymax = (pcles.pcle_yorig_um + pcles.bb_height).max()
+        ax.set_xlim(xmin,xmax)
+        ax.set_ylim(ymin,ymax)
+
+    if show_stripes:
+        for seg_off in range(-7,8):
+            offset = common.seg_off_to_pos(seg_off)
+            ax.axhspan(offset-50., offset+50., facecolor='g', alpha=0.2)
+
+    plt.setp(ax.get_xticklabels(), rotation=45)
+    ax.set_xlabel('X position (microns)')
+    ax.set_ylabel('Y position (microns)')
+
+    plt.show()
+
+    return
+
+
 def exposure_summary(start='2014-08-06', print_stats=False, fontsize=14):
     """Produces a summary plot of all exposures and their targets, as well as printing
     some optional statistics."""
@@ -767,7 +820,7 @@ def usage_stats(start='2014-05-12 14:30:00', end=None):
     return
 
 
-def get_pcles(gwyfile, chan='particle_'):
+def get_pcles(gwyfile, chan='particle'):
     """Reads channel data corresponding to chan= (or all, if None) and
     containing a mask."""
 
@@ -776,7 +829,7 @@ def get_pcles(gwyfile, chan='particle_'):
 
     # Get all masked channels matching the particle filter
     channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True, matchstart=True)
-    if len(channels)==0:
+    if channels is None:
         print('ERROR: no channels found matching: %s' % chan)
         return None
 
@@ -807,8 +860,9 @@ def get_pcles(gwyfile, chan='particle_'):
             parray = ma.masked_array(data[up:down, left:right], mask=~region.image)
 
             pcle = {
-                'id': int(channel.id),
-                'name': channel['name'],
+                'scan_file': meta.scan_file,
+                # 'id': int(channel.id),
+                'chan_name': channel['name'],
                 'left': left,
                 'right': right,
                 'up': up,
@@ -817,41 +871,47 @@ def get_pcles(gwyfile, chan='particle_'):
                 'centre_y': region.centroid[1],
                 'a_pix': region.area,
                 'a_pcle': region.area * pix_area,
-                'r_eq': np.sqrt(region.area * pix_area / np.pi),
-                'z_min': parray.min(),
-                'z_max': parray.max(),
-                'z_mean': parray.mean(),
-                'major': region.major_axis_length * pix_len,
-                'minor': region.minor_axis_length * pix_len,
-                'eccen': region.eccentricity,
-                'orient': np.degrees(region.orientation),
+                'x_offset_um': float(meta.x_step_nm)*1.e-3 * left,
+                'y_offset_um': float(meta.y_step_nm)*1.e-3 * up,
+                # 'r_eq': np.sqrt(region.area * pix_area / np.pi),
+                # 'z_min': parray.min(),
+                # 'z_max': parray.max(),
+                # 'z_mean': parray.mean(),
+                # 'major': region.major_axis_length * pix_len,
+                # 'minor': region.minor_axis_length * pix_len,
+                # 'eccen': region.eccentricity,
+                # 'orient': np.degrees(region.orientation),
                 'pdata': parray
                 }
             pcle_data.append(pcle)
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
-    pcle_data.sort_values(by='id', inplace=True)
+    pcle_data.sort_values(by='a_pix', inplace=True)
+
+    print('INFO: Gwyddion file %s processed with %d particles' % (gwyfile, len(pcle_data)))
 
     return pcle_data
 
 
 
-def dbase_build(dbase='particles.msg', gwy_path='.', gwy_pattern='*.gwy'):
+def dbase_build(dbase='particles.msg', gwy_path='.', gwy_pattern='*.gwy', chan='particle'):
     """Accepts a path and file pattern matching a set of Gwyddion files
     containing particles marked with masks. This can either be one particle
     per channel, or a single masked channel showing all particles (when well
-    separated).
+    separated).particles
 
     Required supplementary material can be added through the dbase_suppl()
     routine"""
 
+    import cPickle as pkl
+
     gwy_files = sorted(glob.glob(os.path.join(gwy_path, gwy_pattern)))
-    if len(gwy_files)==0:
+    if len(gwy_files) == 0:
         print('ERROR: no files matching pattern %s found in folder %s' % (gwy_pattern, gwy_path))
 
     for idx, gwyfile in enumerate(gwy_files):
 
-        pcles = get_pcles(gwyfile, chan='particle_')
+        pcles = get_pcles(gwyfile, chan=chan)
         if pcles is None:
             print('WARNING: Gwyddion file %s contains no particles!' % gwyfile)
             continue
@@ -859,15 +919,139 @@ def dbase_build(dbase='particles.msg', gwy_path='.', gwy_pattern='*.gwy'):
         if 'database' not in locals() and 'database' not in globals():
             database = pcles
         else:
-            database.append(pcles)
+            database = database.append(pcles)
 
-    database.to_msgpack(dbase)
+    if os.path.exists(dbase):
+        os.remove(dbase)
+
+    pkl_f = open(dbase, 'wb')
+    pkl.dump(database, file=pkl_f, protocol=pkl.HIGHEST_PROTOCOL)
 
     print('INFO: particle database created with %d particles' % len(database))
 
     return
 
-def dbase_load(dbase='particles.msg'):
-    """Loads the particle database (dataframe)"""
 
-    return pd.read_msgpack(dbase)
+
+def dbase_load(dbase='particles.msg', pcle_only=False):
+    """Loads the particle dataframe and looks up anciliary information from other
+    tables to return the fully searchable database"""
+
+    import cPickle as pkl
+
+    f = open(dbase, 'rb')
+
+    objs = []
+    while 1:
+        try:
+            objs.append(pkl.load(f))
+        except EOFError:
+            break
+
+    if len(objs)==0:
+        print('ERROR: file %s appears to be empty' % dbase)
+        return None
+
+    pcles = pd.concat(iter(objs), axis=0)
+
+    if pcle_only:
+        return pcles
+
+    # Load the image meta-data frame and merge key meta data for each particle
+    images = ros_tm.load_images(data=False)
+    cols = ['scan_file', 'tip_num', 'target', 'wheel_pos', 'scan_type', 'aborted', 'x_orig_um', 'y_orig_um', 'x_step_nm', 'y_step_nm']
+    images = images[ cols ]
+    pcles = pcles.merge(images, how='left', on='scan_file')
+
+    # calculate the offset in microns of the corner of each bounding box
+    pcles['pcle_xorig_um'] = pcles.x_orig_um + pcles.x_offset_um
+    pcles['pcle_yorig_um'] = pcles.y_orig_um + pcles.y_offset_um
+
+    pcles['bb_width'] = (pcles.right-pcles.left)*pcles.x_step_nm/1.e3
+    pcles['bb_height'] = (pcles.down-pcles.up)*pcles.y_step_nm/1.e3
+
+    print('INFO: particle database restored with %d particles' % len(pcles))
+
+    return pcles
+
+
+
+
+#------ test routines
+
+# def plot_pcles2(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False):
+#     """Plot particles in the passed data frame on their respective facets."""
+#
+#     for tgt in pcles.target.unique():
+#
+#         fig, ax = plt.subplots()
+#         ax.get_yaxis().set_visible(False)
+#         ax.get_xaxis().set_visible(False)
+#
+#         # find the smallest pixel size and create an array with this as unit size
+#         # then scale other sizes accordingly - note that this may result in cases
+#         # where the sizes are not precisely proportional!
+#
+#         smallest = min(pcles.x_step_nm.min(), pcles.y_step_nm.min())/1.e3
+#         xmin = pcles.pcle_xorig_um.min()
+#         xmax = (pcles.pcle_xorig_um + pcles.bb_width).max()
+#         ymin = pcles.pcle_yorig_um.min()
+#         ymax = (pcles.pcle_yorig_um + pcles.bb_height).max()
+#
+#         new_array = np.zeros( (pcles.down.max()+1, pcles.right.max()+1), dtype=np.float64)
+#
+#         for idx, pcle in pcles.iterrows():
+#
+#             new_array[pcle.up:pcle.down+1, pcle.left:pcle.right+1][~pcle['pdata'].mask] = pcle['pdata'][ ~pcle['pdata'].mask ]
+#
+#         cmap = cm.afmhot
+#         cmap.set_bad('c', alpha=1.0)
+#
+#     im = ax.imshow(new_array, cmap=cmap, interpolation='nearest', vmin=0, vmax=new_array.max())
+#
+#     plt.show()
+#
+#     return im
+#
+# def plot_pcles3(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False):
+#     """Plot particles in the passed data frame on their respective facets."""
+#
+#     import matplotlib.collections as mcoll
+#     from matplotlib.patches import Rectangle
+#
+#     for tgt in pcles.target.unique():
+#
+#         fig, ax = plt.subplots()
+#         ax.set_aspect('equal')
+#
+#         # find the vertices of a polygon describing each particle mask
+#         # then add as an mpl polygon
+#
+#         patches = []
+#         for idx, pcle in pcles.iterrows():
+#
+#
+#
+#
+#
+#             xs, ys = np.nonzero(~pcle.pdata.mask)
+#             for x,y in zip(xs,ys):
+#                 x_um = pcle.pcle_xorig_um + x * pcle.x_step_nm /1.e3
+#                 y_um = pcle.pcle_yorig_um + y * pcle.y_step_nm /1.e3
+#                 rect = Rectangle((x_um, y_um), pcle.x_step_nm/1.e3, pcle.y_step_nm/1.e3, fill=True, linewidth=0, facecolor='k')
+#                 patches.append(rect)
+#
+#         collection = mcoll.PatchCollection(patches, match_original=True)
+#         ax.add_collection(collection)
+#
+#         # scale plot to show all pcles
+#         xmin = pcles.pcle_xorig_um.min()
+#         xmax = (pcles.pcle_xorig_um + pcles.bb_width).max()
+#         ymin = pcles.pcle_yorig_um.min()
+#         ymax = (pcles.pcle_yorig_um + pcles.bb_height).max()
+#         ax.set_xlim(xmin,xmax)
+#         ax.set_ylim(ymin,ymax)
+#
+#     plt.show()
+#
+#     return

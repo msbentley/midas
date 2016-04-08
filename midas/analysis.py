@@ -886,7 +886,7 @@ def get_pcles(gwyfile, chan='particle'):
             pcle_data.append(pcle)
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
-    pcle_data.sort_values(by='a_pix', inplace=True)
+    # pcle_data.sort_values(by='a_pix', inplace=True)
 
     print('INFO: Gwyddion file %s processed with %d particles' % (gwyfile, len(pcle_data)))
 

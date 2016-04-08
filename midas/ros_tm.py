@@ -4455,7 +4455,7 @@ class tm:
                 'end_time': end_obt })
 
         # deal with linear position and tip offset
-        meta.update({'lin_pos': self.get_param('NMDA0248', frame=hk2_frame)[1] })
+        meta.update({'lin_pos': self.get_param('NMDA0139', frame=hk2_frame)[1] }) # NMDA0139
 
         meta.update({'wheel_pos': self.get_param('NMDA0196', frame=hk2_frame)[1]})
         meta.update({'target': common.seg_to_facet(meta['wheel_pos'])})

@@ -716,8 +716,7 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False)
     if zoom_out:
         ax.set_xlim(-700.,700.)
         ax.set_ylim(-1400., 1400.)
-    else:
-        # scale plot to show all pcles
+    else: # scale plot to show all pcles
         xmin = pcles.pcle_xorig_um.min()
         xmax = (pcles.pcle_xorig_um + pcles.bb_width).max()
         ymin = pcles.pcle_yorig_um.min()
@@ -874,8 +873,8 @@ def get_pcles(gwyfile, chan='particle'):
                 'x_offset_um': float(meta.x_step_nm)*1.e-3 * left,
                 'y_offset_um': float(meta.y_step_nm)*1.e-3 * up,
                 # 'r_eq': np.sqrt(region.area * pix_area / np.pi),
-                # 'z_min': parray.min(),
-                # 'z_max': parray.max(),
+                'z_min': parray.min(),
+                'z_max': parray.max(),
                 # 'z_mean': parray.mean(),
                 # 'major': region.major_axis_length * pix_len,
                 # 'minor': region.minor_axis_length * pix_len,
@@ -886,7 +885,6 @@ def get_pcles(gwyfile, chan='particle'):
             pcle_data.append(pcle)
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
-    # pcle_data.sort_values(by='a_pix', inplace=True)
 
     print('INFO: Gwyddion file %s processed with %d particles' % (gwyfile, len(pcle_data)))
 

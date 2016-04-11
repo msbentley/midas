@@ -4432,7 +4432,8 @@ class tm:
             # get from event history
             start_ev = events[ (events.sid==42656) & (events.obt>(start_obt-time_win)) & (events.obt<start_obt) ]  # EvFullScanStarted
             if len(start_ev)==0:
-                print('ERROR: no start time found within %d seconds' % time_win.seconds)
+                print('ERROR: no start time found within %d seconds, using OBT %s' % (time_win.seconds, start_obt))
+                meta.update({'start_time': start_obt})
             elif len(start_ev)>1:
                 print('WARNING: more than one start event in window - selecting last')
                 meta.update({'start_time': start_ev.iloc[-1].obt})
@@ -4442,6 +4443,7 @@ class tm:
             end_ev = events[  (events.sid==42513) & (events.obt>(end_obt)) & (events.obt<(end_obt+time_win)) ]  # EvScanFinished
             if len(end_ev)==0:
                 print('ERROR: no end time found within %d seconds' % time_win.seconds)
+                meta.update({'end_time': end_obt})
             elif len(end_ev)>1:
                 print('WARNING: more than one end event in window - selecting first')
                 meta.update({'end_time': end_ev.iloc[0].obt})
@@ -5022,8 +5024,13 @@ def strfdelta(tdelta, fmt):
     return fmt.format(**d)
 
 
-def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only=True, exclude_bad=True):
-    """Load a messagepack file containing all image meta-data"""
+def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only=True, exclude_bad=True, manual=True):
+    """Load a messagepack file containing all image meta-data.
+
+    data=True/False - is only meta-data returned, or are binary images included?
+    topo_only=True - only ZS channels will be returned
+    exclude_bad=True - bad images described in bad_scans.txt will be removed
+    manual=True - manual images will be appended, and de-duplication performed (on scan_file) """
 
     if filename is None:
         if data:
@@ -5044,17 +5051,21 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
                 return None
 
             images = pd.concat(iter(objs), axis=0)
-
         else:
             filename = os.path.join(common.tlm_path, 'all_images.pkl')
             images = pd.read_pickle(filename)
 
-    if topo_only:
-        images = images[ images.channel=='ZS' ]
-
     if exclude_bad:
         badlist = pd.read_table(os.path.join(common.config_path,'bad_scans.txt'), header=None)[0].tolist()
         images = images.query('scan_file!=@badlist')
+
+    if manual:
+        man_imgs = load_manual_scans()
+        images = images.append(man_imgs, ignore_index=True)
+        images.drop_duplicates(subset=['scan_file','channel'], keep='last', inplace=True)
+
+    if topo_only:
+        images = images[ images.channel=='ZS' ]
 
     images.sort_values(by='start_time', inplace=True)
     images.reset_index(inplace=True, drop=True)
@@ -5063,6 +5074,31 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
         images.filename = images.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
 
     return images
+
+
+def load_manual_scans(filename=os.path.join(common.config_path, 'manual_images.pkl')):
+    """Loads a dataframe containing manually (re-)packed image files, i.e. scans that
+    required manual attention. These can be appended to or overwrite existing data"""
+
+    import cPickle as pkl
+
+    f = open(filename, 'rb')
+
+    objs = []
+    while 1:
+        try:
+            objs.append(pkl.load(f))
+        except EOFError:
+            break
+
+    if len(objs)==0:
+        print('ERROR: file %s appears to be empty' % filename)
+        return None
+
+    images = pd.concat(iter(objs), axis=0)
+
+    return images
+
 
 
 def read_timecorr(tcorr_file='TLM__MD_TIMECORR.DAT'):

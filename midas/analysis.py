@@ -860,7 +860,6 @@ def get_pcles(gwyfile, chan='particle'):
 
             pcle = {
                 'scan_file': meta.scan_file,
-                # 'id': int(channel.id),
                 'chan_name': channel['name'],
                 'left': left,
                 'right': right,
@@ -872,14 +871,14 @@ def get_pcles(gwyfile, chan='particle'):
                 'a_pcle': region.area * pix_area,
                 'x_offset_um': float(meta.x_step_nm)*1.e-3 * left,
                 'y_offset_um': float(meta.y_step_nm)*1.e-3 * up,
-                # 'r_eq': np.sqrt(region.area * pix_area / np.pi),
+                'r_eq': np.sqrt(region.area * pix_area / np.pi),
                 'z_min': parray.min(),
                 'z_max': parray.max(),
-                # 'z_mean': parray.mean(),
-                # 'major': region.major_axis_length * pix_len,
-                # 'minor': region.minor_axis_length * pix_len,
-                # 'eccen': region.eccentricity,
-                # 'orient': np.degrees(region.orientation),
+                'z_mean': parray.mean(),
+                'major': region.major_axis_length * pix_len,
+                'minor': region.minor_axis_length * pix_len,
+                'eccen': region.eccentricity,
+                'orient': np.degrees(region.orientation),
                 'pdata': parray
                 }
             pcle_data.append(pcle)

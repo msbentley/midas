@@ -71,6 +71,12 @@ def run_daily():
 
     if new_data:
 
+        # Re-generate images from manually created scans
+        print('\n\nINFO: generating images from manually image dataframe')
+        man_imgs = load_manual_scans()
+        ros_tm.save_gwy(man_imgs,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/'))
+        ros_tm.save_bcr(man_imgs.query('channel=="ZS"'),os.path.join(image_dir, 'bcr/'), write_meta=True)
+
         # M.S.Bentley 02/09/2014 - the server has only 1GB of memory and indexing ALL packets
         # causes problems. Breaking down indexing here per file, to see if that helps...
 

@@ -73,7 +73,7 @@ def run_daily():
 
         # Re-generate images from manually created scans
         print('\n\nINFO: generating images from manually image dataframe')
-        man_imgs = load_manual_scans()
+        man_imgs = ros_tm.load_manual_scans()
         ros_tm.save_gwy(man_imgs,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/'))
         ros_tm.save_bcr(man_imgs.query('channel=="ZS"'),os.path.join(image_dir, 'bcr/'), write_meta=True)
 

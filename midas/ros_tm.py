@@ -683,10 +683,13 @@ def calibrate_amplitude(ctrl, return_data=False):
 
 def image_from_lines(lines, slow_dir='L_H', get_hk=False):
 
-    lines = lines.query('in_image')
-    if len(lines)==0:
-        print('ERROR: no image-forming line scans')
-        return None
+    if len(lines.sw_ver<661)>0:
+        print('WARNING: OBSW < 661 does not flag if lines come from images')
+    else:
+        lines = lines.query('in_image')
+        if len(lines)==0:
+            print('ERROR: no image-forming line scans')
+            return None
 
     if lines.line_cnt.max()!=len(lines):
         print('WARNING: %d lines available, but maximum line count is %d' % (len(lines),lines.line_cnt.max()))

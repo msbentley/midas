@@ -3297,6 +3297,10 @@ class tm:
 
         lines['scan_algo'] = lines.mode_params.apply(lambda mode: common.scan_algo[mode & 0b1111] )
 
+        # Apply corrections due to relative tip offsets
+        lines['tip_offset'] = lines.apply( lambda row: (row.tip_offset - common.tip_offset[row.tip_num-1]), axis=1 )
+
+
         if ignore_image:
             lines = lines[ (~lines.in_image) & (~lines.anti_creep) ]
             if len(lines)==0:

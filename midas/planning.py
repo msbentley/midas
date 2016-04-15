@@ -2066,6 +2066,8 @@ class itl:
 
         if pstp: at_surface = True
         if contact: set_start = False
+        xpixels=int(xpixels)
+        ypixels=int(ypixels)
 
         if self.shut_open:
             print('WARNING: scan commanded with the shutter open!')
@@ -2284,7 +2286,8 @@ class itl:
             'freq_adj': fadj,
             'channel': dtype,
             'scan_mode': common.scan_type.index(scan_mode),
-            'zapp_pos': zapp_pos } # actually in the approach sequence
+            'zapp_pos': zapp_pos, # actually in the approach sequence
+            'scan_algo': 1 if threshold else 0 }
 
         zrec_params = { \
             'scan_data_rate': "%3.2f" % (data_rate) }

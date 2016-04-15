@@ -69,25 +69,25 @@ def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety_factor = 2., ntypes=2
     return realx,realy, xstep, ystep, zretract
 
 
-def scan_realunits(xlen_um, ylen_um, xpoints, ypoints, openloop=True, dur=True, safety=2.):
+def scan_realunits(xlen_um, ylen_um, xpoints, ypoints, openloop=True, dur=True, safety=2.,
+        zstep=4, xysettle=50, zsettle=50):
     """Accepts an x and y length (in microns) and a number of x and y
     pixels and returns the duration (in seconds)."""
 
     # set some default parameters
     avg = 1
-    zstep = 4
     ntypes = 2
-    xysettle = 50
-    zsettle = 50
+
     # def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety_factor = 2., openloop=True, duration=True):
     realx, realy, xstep, ystep, zretract, duration = scan_params(xlen_um=xlen_um, ylen_um=ylen_um,
-        xpoints=xpoints, ypoints=ypoints, openloop=openloop, duration=dur, safety_factor=safety)
+        xpoints=xpoints, ypoints=ypoints, openloop=openloop, duration=dur, safety_factor=safety,
+        zstep=zstep, xysettle=xysettle, zsettle=zsettle)
     # duration = calc_duration(xpoints, ypoints, ntypes, zretract, zsettle, xysettle, zstep, avg)
 
     return duration
 
 
-def plot_duration_size(sizes_micron, safety=2.0):
+def plot_duration_size(sizes_micron, safety=2.0, zstep=4):
     """Takes as input a list of size (um) and plots the duration of a square scan as
     a function of number of points for every possible value (32..512). If only one
     value is given, the upper scale shows resolution."""
@@ -103,7 +103,7 @@ def plot_duration_size(sizes_micron, safety=2.0):
     duration_axes = duration_plot.add_subplot(1,1,1)
 
     for cnt in range(num_sizes):
-        duration[cnt,:] = np.array([scan_realunits(sizes_micron[cnt], sizes_micron[cnt], pts, pts, safety=safety).total_seconds() for pts in xypoints])
+        duration[cnt,:] = np.array([scan_realunits(sizes_micron[cnt], sizes_micron[cnt], pts, pts, safety=safety, zstep=zstep).total_seconds() for pts in xypoints])
         duration_axes.plot(xypoints,duration[cnt,:]/60./60.,label='%i microns' % (sizes_micron[cnt]))
 
     duration_axes.set_xlabel('Number of points')
@@ -124,10 +124,58 @@ def plot_duration_size(sizes_micron, safety=2.0):
         axis_upper.set_xlabel('Resolution (nm)')
         axis_upper.grid(True)
 
-    plt.draw()
     plt.show()
 
     return xypoints, duration
+
+
+def plot_duration_zstep(size_microns, safety=2.0, zsteps=4):
+    """Takes as input a list of size (um) and plots the duration of a square scan as
+    a function of number of points for every possible value (32..512). If only one
+    value is given, the upper scale shows resolution."""
+
+    if type(zsteps) != list:
+        zsteps = [zsteps]
+
+    xypoints = np.arange(32,512+32,32)
+    num_sizes = len(zsteps)
+    duration = np.zeros( [num_sizes,len(xypoints)] )
+
+    duration_plot = plt.figure()
+    duration_axes = duration_plot.add_subplot(1,1,1)
+
+    for cnt in range(num_sizes):
+        duration[cnt,:] = np.array([scan_realunits(size_microns, size_microns, pts, pts, safety=safety, zstep=zsteps[cnt]).total_seconds() for pts in xypoints])
+        duration_axes.plot(xypoints,duration[cnt,:]/60./60.,label='zstep = %i' % (zsteps[cnt]))
+
+    duration_axes.set_xlabel('Number of points')
+    duration_axes.set_ylabel('Duration (hours)')
+    duration_axes.set_xlim(xypoints[0],xypoints[-1])
+    duration_axes.set_xticks(xypoints)
+    duration_axes.legend(loc=0, fontsize='small')
+    duration_axes.grid(True)
+
+    axis_upper = duration_axes.twiny()
+    resolutions = size_microns*1.e3/xypoints
+    res_label = ["%3.0f" % rez for rez in resolutions]
+    axis_upper.set_xlim(duration_axes.get_xlim())
+    axis_upper.set_xticks(duration_axes.get_xticks())
+    axis_upper.set_xticklabels(res_label)
+    axis_upper.set_xlabel('Resolution (nm)')
+    axis_upper.grid(True)
+
+    plt.suptitle('Scan duration for %3.2f micron square area' % (size_microns), y=1.00)
+
+    plt.setp(axis_upper.get_xticklabels(), rotation=45)
+    plt.setp(duration_axes.get_xticklabels(), rotation=45)
+
+    plt.tight_layout()
+    plt.show()
+
+    return xypoints, duration
+
+
+
 
 
 def plot_duration_resolution(resolution_nm, closed_loop=False):

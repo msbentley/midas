@@ -72,7 +72,7 @@ def run_daily():
     if new_data:
 
         # Re-generate images from manually created scans
-        print('\n\nINFO: generating images from manually image dataframe')
+        print('\n\nINFO: generating images from manual image dataframe')
         man_imgs = ros_tm.load_manual_scans()
         ros_tm.save_gwy(man_imgs,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/'))
         ros_tm.save_bcr(man_imgs.query('channel=="ZS"'),os.path.join(image_dir, 'bcr/'), write_meta=True)
@@ -164,10 +164,6 @@ def run_daily():
         print('\n\nINFO: Requesting latest time correlation packet (TCP)\n')
         tcorr = dds_utils.get_timecorr(outputpath=tlm_dir)
 
-    # Download any new SPICE kernels (spawn as background job)
-    print('\nINFO: Downloading new or updated SPICE kernels...')
-    status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
-
     # Check for new auto-pushed files from FDyn
     print('\nINFO: Retrieving FDyn auto-pushed files')
     dds_utils.get_fdyn_files(fdyn_path)
@@ -175,6 +171,10 @@ def run_daily():
     # Check for new OFPM-pushed files from SGS
     print('\nINFO: Retrieving RSGS OFPM pushed files\n')
     dds_utils.get_sgs_files()
+
+    # Download any new SPICE kernels (spawn as background job)
+    print('\nINFO: Downloading new or updated SPICE kernels...')
+    status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
 
     # Download any new NAVCAM images (via rsync)
     # print('\nINFO: Downloading new NAVCAM images')

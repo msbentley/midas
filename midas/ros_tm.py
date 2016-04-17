@@ -1338,12 +1338,9 @@ def show_grid(images, cols=2, **kwargs):
         show(image, fig=fig, ax=axes[grid], **kwargs)
         grid += 1
 
-    # fig.subplots_adjust(bottom = 0)
-    # fig.subplots_adjust(top = 1)
-    # fig.subplots_adjust(right = 1)
-    # fig.subplots_adjust(left = 0)
+    # plt.tight_layout() #fig, axes)
 
-    plt.tight_layout() #fig, axes)
+    fig.tight_layout()
 
     plt.show()
 
@@ -1483,6 +1480,8 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
 
     if type(images) == pd.Series:
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+    elif (type(images) == str) or (type(images) == list):
+        images = load_images(data=True).query('scan_file==@images')
 
     if 'data' not in images.columns:
         print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')

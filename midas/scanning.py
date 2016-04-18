@@ -306,7 +306,7 @@ def read_fileinfo(filename):
     print '%i valid scans read' % (num_scans)
     return num_scans, sourcefile, xpoints, ypoints, num_types, z_settle, xy_settle, x_loop, y_loop, retract, scan_algo, zstep, avg, duration
 
-def compare_predicted(filename, csvfile):
+def compare_predicted_fileinfo(filename, csvfile):
     """Accepts scan durations and parameters from a FileInfo file and compares with the predicted values
     Both inputs and outputs are written to a CSV file"""
 
@@ -324,6 +324,47 @@ def compare_predicted(filename, csvfile):
 
     # save to a csv file
     np.savetxt(csvfile,outputdata.T,header=header,delimiter=',',fmt="%s",comments='')
+
+
+def compare_predicted(query=None):
+
+    import ros_tm
+    import pandas as pd
+    from datetime import timedelta
+
+    images = ros_tm.load_images(data=False, topo_only=False)
+
+    if query is not None:
+        images = images.query(query)
+
+    if len(images)==0:
+        print('ERROR: no images to compare!')
+        return None
+
+    predicted = []
+    idx = []
+
+    for scan in images.scan_file.unique():
+
+        num_chans = len(images[ images.scan_file == scan ])
+        image = images[ (images.scan_file == scan ) & (images.channel=='ZS') ].squeeze()
+
+        if image.duration is pd.NaT:
+            continue
+
+        # calc_duration(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False):
+
+        predicted.append(
+            calc_duration(image.xsteps, image.ysteps, num_chans, image.z_ret, image.z_settle, image.xy_settle, image.z_step, 1, image.ctrl_image ) )
+        idx.append(image.name)
+
+    images = images.ix[idx]
+
+    images['predicted'] = np.array(np.rint(predicted),dtype=int)
+    images.predicted = images.predicted.apply( lambda t: timedelta(seconds=t) )
+
+    return images
+
 
 
 if __name__ == "__main__":

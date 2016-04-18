@@ -1112,8 +1112,7 @@ def open_gwy(images, path=common.gwy_path):
 
     if type(images) == pd.Series:
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
-
-    if type(images) == pd.DataFrame:
+    elif type(images) == pd.DataFrame:
         gwyfiles = images.scan_file.unique().tolist()
 
     if type(images) == str:
@@ -1667,8 +1666,11 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     if font is None:
         font = mpl.rcParams['font.size']
 
+    if (type(images)==str) or (type(images)==list):
+        images = load_images(data=False).query('scan_file==@images')
+
     # filter out dummy scans
-    images = images[ ~images.dummy ]
+    images = images[ images.dummy==False ]
 
     if tip is not None:
         images = images[ images.tip_num == tip ]
@@ -1837,13 +1839,15 @@ class tm:
 
 
     def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'),
-        start=None, end=None, stp=None, what='all', sourcepath=common.tlm_path, rows=None):
+        start=None, end=None, stp=None, what='all', sourcepath=common.tlm_path, rows=None, tsync=True):
         """Restores a TLM packet index from filename. The entire file is read if no other options are given, otherwise
         filters can be applied:
 
         start=, end= accept any sane string date/time format
         stp= accepts an integer STP number
-        what= can be 'all', 'hk', 'events' or 'science' and filters packets by APID"""
+        what= can be 'all', 'hk', 'events' or 'science' and filters packets by APID
+        tsync=True will only return values from packets which are time synchronised.
+"""
 
         what_types = {
             'hk': 1076,
@@ -1913,6 +1917,9 @@ class tm:
                 return
 
             self.pkts = store.select(table, where=list(selected))
+
+        if tsync:
+            self.pkts = self.pkts[ self.pkts.tsync ]
 
         self.pkts.sort_values(by='obt', inplace=True)
 

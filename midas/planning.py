@@ -2058,8 +2058,6 @@ class itl:
             'hk3': hk3,
             'hk4': hk4 }
 
-        return proc
-
         self.generate(proc)
 
         return

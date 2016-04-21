@@ -3648,7 +3648,7 @@ class tm:
 
             # loop through image packets and unpack the image packet header and image data
             # THIS EATS LOTS OF RAM
-            for idx,pkt in img_pkts.iterrows():
+            for idx, pkt in img_pkts.iterrows():
                 if debug: print('DEBUG: image packet %i of %i' % (idx, len(img_pkts)))
                 image = {}
                 image['header'] = image_names(*struct.unpack(image_fmt,pkt['data'][0:image_size]))
@@ -3676,7 +3676,7 @@ class tm:
             # for each image header packet
             for idx, image in enumerate(image_header):
 
-                if debug: print('DEBUG: processing image %i of %i' % (idx, len(image_header)))
+                if debug: print('DEBUG: processing image %i of %i' % (idx+1, len(image_header)))
 
                 imagedict = {}
                 imagedict['info'] = image # image header into -> image['info']
@@ -3922,6 +3922,10 @@ class tm:
             dummy = images.query('exc_lvl==0 & ac_gain==0 & lin_pos>-0.0005 & lin_pos<0.0005 & tip_num==[1,16]')
             images.drop(dummy.index, inplace=True)
             images = images[ ~images.dummy ]
+
+        if len(images)==0:
+            print('WARNING: only dummy images found!')
+            return None
 
         # Add the origin of the scan, in microns, from the wheel centre
         images = locate_scans(images)
@@ -4661,7 +4665,7 @@ def check_retract(images, boolmask=False):
         if image.fast_dir=='Y': data = np.transpose(data)
 
         # Loop through rows, checking for pixels with height diffs > z_ret
-        num_rows = image.ysteps if image.fast_dir=='X' else image.xsteps
+        num_rows = int(image.ysteps) if image.fast_dir=='X' else int(image.xsteps)
 
         if boolmask:
             mask = np.zeros_like(data, dtype=bool) # mask is a boolean array of bad pixels

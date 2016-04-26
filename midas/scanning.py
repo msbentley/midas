@@ -32,7 +32,7 @@ def calc_duration(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, z
     return duration
 
 
-def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety_factor = 2., ntypes=2, xysettle=50, zsettle=50,
+def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety=2., ntypes=2, xysettle=50, zsettle=50,
                 openloop=True, duration=True, zstep=4):
     """Returns scan duration for a given X and Y length and number of pixels.
     Other scan parameters are set to the following defaults:
@@ -54,7 +54,7 @@ def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety_factor = 2., ntypes=2
     xstep_nm = xstep * xcal
     ystep_nm = ystep * ycal
 
-    zretract_nm = max(xstep_nm,ystep_nm) * safety_factor
+    zretract_nm = max(xstep_nm,ystep_nm) * safety
     zretract = int(np.around(zretract_nm / common.zcal))
 
     realx = xpoints * xstep_nm/1.e3
@@ -78,9 +78,8 @@ def scan_realunits(xlen_um, ylen_um, xpoints, ypoints, openloop=True, dur=True, 
     avg = 1
     ntypes = 2
 
-    # def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety_factor = 2., openloop=True, duration=True):
     realx, realy, xstep, ystep, zretract, duration = scan_params(xlen_um=xlen_um, ylen_um=ylen_um,
-        xpoints=xpoints, ypoints=ypoints, openloop=openloop, duration=dur, safety_factor=safety,
+        xpoints=xpoints, ypoints=ypoints, openloop=openloop, duration=dur, safety=safety,
         zstep=zstep, xysettle=xysettle, zsettle=zsettle)
     # duration = calc_duration(xpoints, ypoints, ntypes, zretract, zsettle, xysettle, zstep, avg)
 

@@ -688,7 +688,7 @@ def calibrate_amplitude(ctrl, return_data=False):
 
 def image_from_lines(lines, slow_dir='L_H', get_hk=False):
 
-    if len(lines.sw_ver<661)>0:
+    if len(lines[lines.sw_ver<661])>0:
         print('WARNING: OBSW < 661 does not flag if lines come from images')
     else:
         lines = lines.query('in_image')
@@ -701,7 +701,7 @@ def image_from_lines(lines, slow_dir='L_H', get_hk=False):
 
     # Do a few sanity checks on the provided lines
     cols = lines.columns.tolist()
-    dropcols = ['obt', 'line_cnt', 'aborted', 'data'] # these are necessarily difference, even in a single image scan
+    dropcols = ['obt', 'line_cnt', 'aborted', 'data', 'start_time'] # these are necessarily difference, even in a single image scan
     cols = [col for col in cols if col not in dropcols]
     if lines.duplicated(subset=cols).sum()+1 != len(lines):
         print('ERROR: some metadata is different, make sure lines are from the same image scan!')
@@ -3393,7 +3393,7 @@ class tm:
 
             lines['z_ret_nm'] = lines.z_ret * common.zcal
 
-        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params'], inplace=True, axis=1)
+        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'start_msw', 'start_lsw'], inplace=True, axis=1)
 
         print('INFO: %i line scans extracted' % (len(lines)))
 

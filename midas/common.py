@@ -13,8 +13,11 @@ the changes!
 """
 
 import numpy as np
+import pandas as pd
 from midas.dust import fulle_data
 import os, math
+
+pd.options.mode.chained_assignment = None  # default='warn'
 
 # Default paths
 ros_sgs_path = os.path.expanduser('~/ROS_SGS/') if os.getenv("ROS_SGS_PATH") is None else os.getenv("ROS_SGS_PATH")

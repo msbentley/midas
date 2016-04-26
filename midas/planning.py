@@ -2180,6 +2180,8 @@ class itl:
             print('ERROR: invalid datatype')
             return False
 
+        if debug: print('DEBUG: number of data types: %d' % ntypes)
+
         # TODO check if this parameter is set!
         # In this template, the piezo creep avoidance is enabled by default
         # Need to add 1/8th of the pixels in the slow direction
@@ -2202,11 +2204,16 @@ class itl:
         line_data_bytes = (num_lines*1072)
         data_bytes = image_data_bytes + line_data_bytes
 
+        # n*(80 + 2096*x*y/1024) - 80 bytes header, 2096 bytes packets per 1024 elements
+        # n = # of data types
+        # x*y = image size
+
         # Add additional data rate if control data packets are enabled
         if ctrl_data:
             data_bytes += (32 * 32 * 2096)
             print('INFO: Control data in image requested - InstrumentSetup must be sent as well!')
 
+        if debug: print('DEBUG: scan generates %d bytes' % data_bytes)
         data_rate = (data_bytes*8/duration_s)
 
         # If memory clear is requested, schedule this first!

@@ -3233,11 +3233,11 @@ class tm:
         expand_params=True will look up additional data in HK but only for non-image lines!
         ignore_image=True will ignore lines forming part of an image scan."""
 
-        line_scan_fmt = ">H2Bh6H6H"
+        line_scan_fmt = ">H2Bh4Hh7H"
         line_scan_size = struct.calcsize(line_scan_fmt)
         line_scan_names = collections.namedtuple("line_scan_names", "sid sw_minor sw_major lin_pos \
             wheel_pos tip_num x_orig y_orig step_size num_steps scan_mode_dir line_cnt sw_flags \
-            mode_params z_step spare2")
+            mode_params start_msw start_lsw")
 
         line_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=132)
 
@@ -3285,23 +3285,41 @@ class tm:
         lines['sw_ver'] = lines.sw_major.apply( lambda major: '%i%i' % (major >> 4, major & 0x0F))
         lines['sw_ver'] = lines['sw_ver'].str.cat(lines['sw_minor'].values.astype(str)).astype(int)
         lines['lin_pos'] = lines.lin_pos.apply( lambda pos: pos*20./65535.)
-        lines['fast_dir'] = lines.scan_mode_dir.apply( lambda fast: 'X' if (fast & 2**12)==0 else 'Y')
-        lines['dir'] = lines.scan_mode_dir.apply( lambda xdir: 'L_H' if (xdir & 2**8)==0 else 'H_L')
+
+        lines['fast_dir'] = lines.apply( lambda row: 'X' if (
+            ((row.scan_mode_dir & 2**12)==0 & row.sw_ver<666) or
+            ( row.scan_mode_dir & 2**3)==0 & row.sw_ver>=666) else 'Y', axis=1)
+
+        lines['dir'] = lines.apply( lambda row: 'L_H' if (
+            ( (row.scan_mode_dir & 2**8)==0 & row.sw_ver<666 ) or
+            ( (row.scan_mode_dir & 2**2)==0 & row.sw_ver>=666 )) else 'H_L', axis=1)
+
         lines['scan_type'] = lines.scan_mode_dir.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
+
         lines['tip_offset'] = lines.apply( lambda row: (row.lin_pos-self.lin_centre_pos[row.tip_num-1]) / common.linearcal, axis=1 )
         lines['target'] = lines.wheel_pos.apply( lambda seg: common.seg_to_facet(seg) )
+
         lines['x_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 4 & 1) )
         lines['y_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 5 & 1) )
         lines['z_closed'] = lines.mode_params.apply( lambda mode: bool(mode >> 6 & 1) )
         lines['ac_gain'] = lines.mode_params.apply( lambda mode: (mode >>  7) & 0b111 )
         lines['dc_gain'] = lines.mode_params.apply( lambda mode: (mode >> 10) & 0b111 )
         lines['exc_lvl'] = lines.mode_params.apply( lambda mode: (mode >> 13) & 0b111 )
+        lines.step_size = abs(lines.step_size)
+
+        lines['z_step'] = np.NaN
+        lines['z_step'][lines.sw_ver<665] = np.NaN
+        lines['z_step'][lines.sw_ver==665] = lines.start_msw
+        lines['z_step'][lines.sw_ver>=666] = lines.scan_mode_dir.apply(  lambda x: x >> 4 )
 
         # Add start time from event history if possible
         events = self.get_events(verbose=False)
         start_times = events.query('sid==42655').obt
         lines['start_time'] = lines.apply( lambda row: start_times[start_times<row.obt].iloc[-1] if
                 len(start_times[start_times<row.obt])>0 else pd.NaT, axis=1)
+
+        lines['start_time'][lines.sw_ver>=666] = lines.apply( lambda row:
+            obt_to_datetime(row.start_msw*65535+row.start_lsw), axis=1 )
 
         # correct scans in early OBSW versions prior to re-centering
         # lines['tip_offset'][lines.obsw_ver<645] += (0.243/common.linearcal)
@@ -3375,11 +3393,7 @@ class tm:
 
             lines['z_ret_nm'] = lines.z_ret * common.zcal
 
-        else:
-            # if expanded params NOT requested, set z_step to NaN (not in header)
-            lines['z_step'][lines['sw_ver']<665] = np.nan
-
-        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'spare2'], inplace=True, axis=1)
+        lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params'], inplace=True, axis=1)
 
         print('INFO: %i line scans extracted' % (len(lines)))
 
@@ -3428,8 +3442,16 @@ class tm:
         ctrl_data['fast_dir'] = ctrl_data.scan_mode.apply( lambda fast: 'X' if (fast >> 12 & 1)==0 else 'Y')
         ctrl_data['scan_dir'] = ctrl_data.scan_mode.apply( lambda xdir: 'H_L' if (xdir >> 8 & 1) else 'L_H')
         ctrl_data['scan_type'] = ctrl_data.scan_mode.apply( lambda mode: common.scan_type[ mode & 0b11 ] )
-        ctrl_data['hires'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 1 & 1) if row.sw_ver>=661 else False, axis=1 )
         ctrl_data['in_image'] = ctrl_data.apply( lambda row: bool(row.sw_flags & 1) if row.sw_ver>=661 else False, axis=1 )
+        ctrl_data['hires'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 1 & 1) if row.sw_ver>=661 else False, axis=1 )
+
+        ctrl_data['line_abort'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 2 & 1) if row.sw_ver>=666 else False, axis=1 )
+        ctrl_data['max_cycles'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 3 & 1) if row.sw_ver>=666 else False, axis=1 )
+
+        ctrl_data['x_closed'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 4 & 1) if row.sw_ver>=665 else False, axis=1 )
+        ctrl_data['y_closed'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 5 & 1) if row.sw_ver>=665 else False, axis=1 )
+        ctrl_data['z_closed'] = ctrl_data.apply( lambda row: bool(row.sw_flags >> 6 & 1) if row.sw_ver>=665 else False, axis=1 )
+
         ctrl_data['target'] = ctrl_data.wheel_pos.apply( lambda pos: common.seg_to_facet(pos) )
 
         ctrl_data.drop(['sid', 'sw_major', 'sw_minor', 'scan_mode'], inplace=True, axis=1)

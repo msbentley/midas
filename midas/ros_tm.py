@@ -4173,12 +4173,12 @@ class tm:
             # loop through the packets and add the fscan data
             if not info_only:
                 scan['amplitude'] = []
-                for idx in single_scan.index:
+                for idy in single_scan.index:
                     if scan['info']['is_phase']:
-                        scan['amplitude'].extend(struct.unpack(">256h",freq_scan_pkts.data.loc[idx]\
+                        scan['amplitude'].extend(struct.unpack(">256h",freq_scan_pkts.data.loc[idy]\
                             [freq_scan_size:freq_scan_size+512]))
                     else:
-                        scan['amplitude'].extend(struct.unpack(">256H",freq_scan_pkts.data.loc[idx]\
+                        scan['amplitude'].extend(struct.unpack(">256H",freq_scan_pkts.data.loc[idy]\
                             [freq_scan_size:freq_scan_size+512]))
 
                 if first_pkt.fscan_type==1:
@@ -4202,9 +4202,10 @@ class tm:
                 wid = cen - scan['frequency'][np.where(scan['amplitude'] > max(scan['amplitude'])/2.)[0][0]]
 
                 try:
-                    popt,pcov = curve_fit(lorentzian,scan['frequency'],scan['amplitude'],p0=[offset, amp, cen, wid])
+                    popt, pcov = curve_fit(lorentzian,scan['frequency'],scan['amplitude'],p0=[offset, amp, cen, wid])
                 except RuntimeError:
                     print('WARNING: problem with curvefit, skipping this scan...')
+                    amp_scans.remove(idx)
                     continue
 
                 fit_params={}
@@ -4213,6 +4214,7 @@ class tm:
                 fit_params['res_freq'] = popt[2]
                 fit_params['half_width'] = popt[3]
                 fit_params['q'] = fit_params['res_freq'] / (2. * fit_params['half_width'])
+                fit_params['cov'] = pcov
 
                 fit_keys = fit_params.keys()
 

@@ -4126,8 +4126,9 @@ class tm:
                 'max_amp': single_scan.max_amp.max()*(20./65535.),
                 'max_freq': single_scan.freq_at_max.max() * 0.0006984, # 00021065027,
                 'num_scans': first_pkt.num_scans,
-                'tip_num': first_pkt.tip_num+1 + first_pkt.cant_block*8,
-                'cant_block': first_pkt.cant_block,
+                'tip_num': (first_pkt.tip_num+1 + first_pkt.cant_block*8) if sw_ver>=660 else
+                    (first_pkt.tip_num + (first_pkt.cant_block-1)*8),
+                'cant_block': first_pkt.cant_block if sw_ver>=660 else first_pkt.cant_block-1,
                 'exc_lvl': first_pkt.exc_lvl,
                 'ac_gain': first_pkt.ac_gain,
                 'res_amp': last_pkt.res_amp * (20./65535.) if sw_ver>=664 else np.nan,
@@ -4661,15 +4662,20 @@ def sample_slope(images, add_to_df=True):
         return (indices, x_deg, y_deg)
 
 
-def check_retract(images, boolmask=False):
-    """Accepts an image produced by get_images() and checks whether any points have
-    pixel-to-pixel height differences greater than the retraction.
+def height_diff(images, mode='diff'):
+    """Accepts an image produced by get_images() and compares height difference
+    in the scanning direction.
 
-    If boolmask=True a boolean array is returned masking points.
-    If boolmask=False a numerical array of the height above retraction is returned."""
+    mode='diff': the height difference is returned
+    mode='above': the height of pizels exceeding the retraction height is returned
+    mode='bool': a boolean mask of pixels above the retraction is returned."""
 
     if type(images) == pd.Series:
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+
+    if mode not in ['diff', 'above', 'bool']:
+        print('ERROR: mode must be one of: diff, above or bool!')
+        return None
 
     topo_images = images[ images.channel=='ZS']
 
@@ -4689,19 +4695,20 @@ def check_retract(images, boolmask=False):
         # Loop through rows, checking for pixels with height diffs > z_ret
         num_rows = int(image.ysteps) if image.fast_dir=='X' else int(image.xsteps)
 
-        if boolmask:
+        if mode=='bool':
             mask = np.zeros_like(data, dtype=bool) # mask is a boolean array of bad pixels
         else:
             mask = np.zeros_like(data)
 
         for row in range(num_rows):
-            line=data[row,:]
-            if boolmask:
+            line = data[row,:]
+            if mode=='bool':
                 mask[row,1:] = (line[1:]-line[:-1]) > image.z_ret
+            elif mode=='diff':
+                mask[row,1:] = (line[1:]-line[:-1])
             else:
                 mask[row,1:] = (line[1:]-line[:-1]) - image.z_ret
-
-        if not boolmask: mask[ mask<0 ] = 0
+                mask[ mask<0 ] = 0
 
         # Transpose and flip according to main scan direction and H_L parameters
         if image.fast_dir=='Y': mask = np.transpose(mask)

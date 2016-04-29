@@ -1712,6 +1712,26 @@ class itl:
         return
 
 
+    def set_adaptive_ret(self, safety_factor=2.0, min_zr=500.):
+        """Updates the software parameters corresponding to the adaptive retraction.
+
+        The largest difference in steps from the previous line is multiplied by the
+        safety factor and compared to min_zr. The largest value is set for the current line.
+
+        # Address     Value   Description
+        #
+        # 0xB2B0      32      Z retraction safety factor*16 (default is 32) i.e. default = 2
+        # 0xA662      100     minimum Z retraction (can be set and monitored via address )
+        #
+        # retract_calc_ = MAX(z_pos_diff_*retract_zfact/16; retract_offset_)"""
+
+        safety_factor = int(round(safety_factor*16))
+        self.set_sw_param(0xB2B0, safety_factor)
+
+        min_zr = int(round(min_zr/common.zcal))
+        self.set_sw_param(0xA662, min_zr)
+
+        return safety_factor, min_zr
 
 
     def power_on(self):
@@ -2000,6 +2020,10 @@ class itl:
         if (wheel_auto<0) or (wheel_auto>3):
             print('ERROR: wheel auto-retry must be in the range 0-3')
             return None
+
+        if adaptive and not calc_retract:
+            print('WARNING: adaptive Z retraction can only be used with automatic retraction calculation. Setting now!')
+            calc_retract = True
 
         # Build the software flags word
         sw_flags = 0

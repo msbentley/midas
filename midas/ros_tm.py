@@ -4231,7 +4231,7 @@ class tm:
             fits = pd.DataFrame(
                 [scan['fit_params'] for scan in freqscans if scan.has_key('fit_params')],
                 columns=fit_keys, index=amp_scans )
-            scans = pd.concat([scans,fits],axis=1)
+            scans = pd.concat( [scans,fits], axis=1, join='inner')
 
         # Add the actual data
         if not info_only:

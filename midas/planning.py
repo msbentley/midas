@@ -2192,6 +2192,10 @@ class itl:
         if type(xorigin)==bool and type(yorigin)==bool:
             xorigin, yorigin = table_centre(xpixels, ypixels, xstep, ystep, openloop=openloop)
 
+        # Calculate the approach position (DAC values)
+        app_x = xorigin if xlh else xorigin + xstep * xpixels
+        app_y = yorigin if ylh else yorigin + ystep * ypixels
+
         xstep_nm = xstep * common.xycal['open']
         ystep_nm = ystep * common.xycal['open'] if openloop else ystep * common.xycal['closed']
         zretract_nm = max(xstep_nm,ystep_nm) * safety_factor
@@ -2280,7 +2284,9 @@ class itl:
             'xy_settle': xy_settle,
             'ctrl_data': 'ON*' if ctrl_data else 'OFF*',
             'scan_algo': 1 if threshold else 0,
-            'mag_retr_1': retr_m1 }
+            'mag_retr_1': retr_m1,
+            'app_x': app_x,
+            'app_y': app_y }
 
             # Contact mode parameters:
             # <dc_set_pt>, <contact_window>, <delta_dc_contact>

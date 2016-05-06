@@ -687,12 +687,11 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=None, savefile=None,
     return
 
 
-def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False):
+def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False, label=None):
     """Plot particles in the passed data frame on their respective facets."""
 
     import matplotlib.collections as mcoll
     from matplotlib.patches import Rectangle
-
 
     for tgt in pcles.target.unique():
 
@@ -703,12 +702,28 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False)
         patches = []
         for idx, pcle in pcles.iterrows():
 
-            xs, ys = np.nonzero(~pcle.pdata.mask)
+            ys, xs = np.nonzero(~(pcle.pdata.mask))
+
             for x,y in zip(xs,ys):
                 x_um = pcle.pcle_xorig_um + x * pcle.x_step_nm /1.e3
-                y_um = pcle.pcle_yorig_um + y * pcle.y_step_nm /1.e3
+                y_um = pcle.pcle_yorig_um - y * pcle.y_step_nm /1.e3
                 rect = Rectangle((x_um, y_um), pcle.x_step_nm/1.e3, pcle.y_step_nm/1.e3, fill=True, linewidth=0, facecolor='k')
                 patches.append(rect)
+
+            if label is not None:
+                if (label not in pcles.columns) and (label!='index'):
+                    print('WARNING: specified label %s not found!' % label)
+                    label = None
+                else:
+                    # plot at centre of bounding box - in microns!
+                    bb_cent_x_um = pcle.pcle_xorig_um + pcle.bb_width/2.
+                    bb_cent_y_um = pcle.pcle_yorig_um - pcle.bb_height/2.
+                    if label=='index':
+                        text = pcle.name
+                    else:
+                        text = pcle['%s' % label]
+                    ax.text(bb_cent_x_um, bb_cent_y_um, text,
+                        horizontalalignment='center', fontsize=8, color='red', clip_on=True)
 
         collection = mcoll.PatchCollection(patches, match_original=True)
         ax.add_collection(collection)
@@ -719,8 +734,8 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False)
     else: # scale plot to show all pcles
         xmin = pcles.pcle_xorig_um.min()
         xmax = (pcles.pcle_xorig_um + pcles.bb_width).max()
-        ymin = pcles.pcle_yorig_um.min()
-        ymax = (pcles.pcle_yorig_um + pcles.bb_height).max()
+        ymin = (pcles.pcle_yorig_um - pcles.bb_height).min()
+        ymax = pcles.pcle_yorig_um.max()
         ax.set_xlim(xmin,xmax)
         ax.set_ylim(ymin,ymax)
 
@@ -735,7 +750,7 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False)
 
     plt.show()
 
-    return
+    return ax
 
 
 def exposure_summary(start='2014-08-06', print_stats=False, fontsize=14):
@@ -861,7 +876,7 @@ def get_pcles(gwyfile, chan='particle'):
             pcle = {
                 'scan_file': meta.scan_file,
                 'chan_name': channel['name'],
-                'left': left,
+                'left': left, # bb
                 'right': right,
                 'up': up,
                 'down': down,
@@ -869,8 +884,8 @@ def get_pcles(gwyfile, chan='particle'):
                 'centre_y': region.centroid[1],
                 'a_pix': region.area,
                 'a_pcle': region.area * pix_area,
-                'x_offset_um': float(meta.x_step_nm)*1.e-3 * left,
-                'y_offset_um': float(meta.y_step_nm)*1.e-3 * up,
+                'x_offset_um': float(meta.x_step_nm)*1.e-3 * float(left),
+                'y_offset_um': float(meta.y_step_nm)*1.e-3 * float(up), # offset from TOP of bb
                 'r_eq': np.sqrt(region.area * pix_area / np.pi),
                 'z_min': parray.min(),
                 'z_max': parray.max(),
@@ -956,13 +971,14 @@ def dbase_load(dbase='particles.msg', pcle_only=False):
 
     # Load the image meta-data frame and merge key meta data for each particle
     images = ros_tm.load_images(data=False)
-    cols = ['scan_file', 'tip_num', 'target', 'wheel_pos', 'scan_type', 'aborted', 'x_orig_um', 'y_orig_um', 'x_step_nm', 'y_step_nm']
+    cols = ['scan_file', 'tip_num', 'target', 'wheel_pos', 'scan_type', 'aborted',
+        'x_orig_um', 'y_orig_um', 'x_step_nm', 'y_step_nm', 'xlen_um', 'ylen_um']
     images = images[ cols ]
     pcles = pcles.merge(images, how='left', on='scan_file')
 
     # calculate the offset in microns of the corner of each bounding box
     pcles['pcle_xorig_um'] = pcles.x_orig_um + pcles.x_offset_um
-    pcles['pcle_yorig_um'] = pcles.y_orig_um + pcles.y_offset_um
+    pcles['pcle_yorig_um'] = pcles.y_orig_um + pcles.ylen_um - pcles.y_offset_um
 
     pcles['bb_width'] = (pcles.right-pcles.left)*pcles.x_step_nm/1.e3
     pcles['bb_height'] = (pcles.down-pcles.up)*pcles.y_step_nm/1.e3

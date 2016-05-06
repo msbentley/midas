@@ -1129,6 +1129,31 @@ def open_gwy(images, path=common.gwy_path):
     return
 
 
+
+def cp_gwy(images, output='.', path=common.gwy_path):
+    """Accepts one or more images or scan file names and copies the corresponding
+    Gwyddion files to the path given in output= (default is current directory)"""
+
+    import shutil
+
+    if type(images) == pd.Series:
+        images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+    elif type(images) == pd.DataFrame:
+        gwyfiles = images.scan_file.unique().tolist()
+
+    if type(images) == str:
+        gwyfiles = [images]
+
+    if type(images) == list:
+        gwyfiles = images
+
+    gwyfiles = [os.path.join(path,gwy+'.gwy') for gwy in gwyfiles]
+
+    [shutil.copy(f,output) for f in gwyfiles]
+
+    return
+
+
 def save_bcr(images, outputdir='.', write_meta=False):
     """Save a set of images as BCRs. If write_meta=True then a matching
     txt file is written with all image meta-data"""

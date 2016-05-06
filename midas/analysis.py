@@ -687,7 +687,8 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=None, savefile=None,
     return
 
 
-def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False, label=None):
+def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False, label=None, labelfont=8,
+                show_scan=False):
     """Plot particles in the passed data frame on their respective facets."""
 
     import matplotlib.collections as mcoll
@@ -723,10 +724,15 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False,
                     else:
                         text = pcle['%s' % label]
                     ax.text(bb_cent_x_um, bb_cent_y_um, text,
-                        horizontalalignment='center', fontsize=8, color='red', clip_on=True)
+                        horizontalalignment='center', fontsize=labelfont, color='red', clip_on=True)
 
         collection = mcoll.PatchCollection(patches, match_original=True)
         ax.add_collection(collection)
+
+    if show_scan:
+        images = pcles.scan_file.unique().tolist()
+        ros_tm.show_loc(images, facet=None, segment=None, tip=None, show_stripes=False, zoom_out=zoom_out,
+            figure=fig, axis=ax, labels=False, title=False, font=None, interactive=False)
 
     if zoom_out:
         ax.set_xlim(-700.,700.)

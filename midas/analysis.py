@@ -756,7 +756,7 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False,
         centre_seg = pcles.target.unique()[0] * 16
         for seg_off in range(-7,8):
             offset = common.seg_off_to_pos(seg_off)
-            ax.text(1.0, offset, str(centre_seg + seg_off), fontsize='medium', color='b',
+            ax.text(1.0, offset, str(centre_seg - seg_off), fontsize='medium', color='b',
                 transform=tform, ha='right', va='center', clip_on=True)
 
     plt.setp(ax.get_xticklabels(), rotation=45)

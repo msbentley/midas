@@ -1779,7 +1779,7 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         centre_seg = images.target.unique()[0] * 16
         for seg_off in range(-7,8):
             offset = common.seg_off_to_pos(seg_off)
-            ax.text(1.0, offset, str(centre_seg + seg_off), fontsize='medium', color='b',
+            ax.text(1.0, offset, str(centre_seg - seg_off), fontsize='medium', color='b',
                 transform=tform, ha='right', va='center', clip_on=True)
 
     # Make sure we plpot fix a fixed aspect ratio!

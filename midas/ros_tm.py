@@ -1683,7 +1683,7 @@ def locate_scans(images):
     return images
 
 def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False,
-    figure=None, axis=None, labels=True, title=True, font=None, interactive=False):
+    figure=None, axis=None, labels=True, title=True, font=None, interactive=False, show_seg=False):
     """Plot the location of a series of images"""
 
     import subprocess
@@ -1773,6 +1773,14 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         for seg_off in range(-7,8):
             offset = common.seg_off_to_pos(seg_off)
             ax.axhspan(offset-50., offset+50., facecolor='g', alpha=0.2)
+
+    if show_seg:
+        tform = mpl.transforms.blended_transform_factory(ax.transAxes, ax.transData)
+        centre_seg = images.target.unique()[0] * 16
+        for seg_off in range(-7,8):
+            offset = common.seg_off_to_pos(seg_off)
+            ax.text(1.0, offset, str(centre_seg + seg_off), fontsize='medium', color='b',
+                transform=tform, ha='right', va='center', clip_on=True)
 
     # Make sure we plpot fix a fixed aspect ratio!
     ax.autoscale(enable=True)

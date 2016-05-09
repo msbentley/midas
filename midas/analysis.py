@@ -12,6 +12,7 @@ import pandas as pd
 from midas import common, ros_tm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib as mpl
 import numpy.ma as ma
 import numpy as np
 
@@ -688,7 +689,7 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=None, savefile=None,
 
 
 def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False, label=None, labelfont=8,
-                show_scan=False):
+                show_scan=False, show_seg=False):
     """Plot particles in the passed data frame on their respective facets."""
 
     import matplotlib.collections as mcoll
@@ -749,6 +750,14 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False,
         for seg_off in range(-7,8):
             offset = common.seg_off_to_pos(seg_off)
             ax.axhspan(offset-50., offset+50., facecolor='g', alpha=0.2)
+
+    if show_seg:
+        tform = mpl.transforms.blended_transform_factory(ax.transAxes, ax.transData)
+        centre_seg = pcles.target.unique()[0] * 16
+        for seg_off in range(-7,8):
+            offset = common.seg_off_to_pos(seg_off)
+            ax.text(1.0, offset, str(centre_seg + seg_off), fontsize='medium', color='b',
+                transform=tform, ha='right', va='center', clip_on=True)
 
     plt.setp(ax.get_xticklabels(), rotation=45)
     ax.set_xlabel('X position (microns)')

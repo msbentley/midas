@@ -507,3 +507,36 @@ def read_log(gwy_file, channel=None):
     log = log.drop_duplicates('time')
 
     return log
+
+
+def gwy_to_vtk(gwy_file, vtk_file, channel=None):
+    """Convert a Gwyddion file to VTK. By default the first channel is used, otherwise
+    the channel can be specified with the channel= parameter"""
+
+    if not os.path.isfile(gwy_file):
+        print('ERROR: Gwyddion file %s not found' % gwy_file)
+        return None
+
+    if channel is None:
+        channels = list_chans(gwy_file)
+        idx = min(channels.keys())
+    else:
+        channels = list_chans(gwy_file, filter=channel)
+        if len(channels)==0:
+            channels = list_chans(gwy_file)
+            idx = min(channels.keys())
+            print('WARNING: selected channel not found, using %s' % channels[idx])
+        elif len(channels)>1:
+            idx = min(channels.keys())
+            print('WARNING: more than one channel matching filter, selecting %s' % channels[idx])
+
+        else:
+            idx = channels.keys()[0]
+
+    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
+    gwy.gwy_app_data_browser_add(C)
+    gwy.gwy_app_data_browser_select_data_field(C, idx)
+    gwy.gwy_file_save(C, vtk_file, gwy.RUN_NONINTERACTIVE)
+    gwy.gwy_app_data_browser_remove(C)
+
+    return

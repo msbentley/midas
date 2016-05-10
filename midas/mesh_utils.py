@@ -19,7 +19,7 @@ def vtk_to_stl(vtkfile, stlfile):
         print('ERROR: VTK module not found!')
         return None
 
-    reader = vtk.vtkUnstructuredGridReader()
+    reader = vtk.vtkStructuredGridReader()
     reader.SetFileName(vtkfile)
 
     surface_filter = vtk.vtkDataSetSurfaceFilter()

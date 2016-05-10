@@ -754,9 +754,11 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False,
     if show_seg:
         tform = mpl.transforms.blended_transform_factory(ax.transAxes, ax.transData)
         centre_seg = pcles.target.unique()[0] * 16
+        adsfgadfh
         for seg_off in range(-7,8):
             offset = common.seg_off_to_pos(seg_off)
-            ax.text(1.0, offset, str(centre_seg - seg_off), fontsize='medium', color='b',
+            print centre_seg, seg_off
+            ax.text(1.0, offset, str(centre_seg + seg_off), fontsize='medium', color='b',
                 transform=tform, ha='right', va='center', clip_on=True)
 
     plt.setp(ax.get_xticklabels(), rotation=45)

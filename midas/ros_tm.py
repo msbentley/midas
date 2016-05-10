@@ -1646,7 +1646,7 @@ def locate_scans(images):
     x_orig_um = []; y_orig_um = []
 
     if type(images)==pd.core.series.Series:
-        images = images.to_frame().T
+        images = images.to_frrame().T
 
     for idx, scan in images.iterrows():
 
@@ -1672,7 +1672,8 @@ def locate_scans(images):
         if (scan.target==0) and (scan.wheel_pos>1016):
             seg_offset = -1*(seg_offset+1024)
         else:
-            seg_offset = centre_seg - scan.wheel_pos
+            # seg_offset = centre_seg - scan.wheel_pos
+            seg_offset = scan.wheel_pos - centre_seg
 
         y_offset += common.seg_off_to_pos(seg_offset)
         y_orig_um.append(y_offset)
@@ -1681,6 +1682,7 @@ def locate_scans(images):
     images['y_orig_um'] = y_orig_um
 
     return images
+
 
 def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom_out=False,
     figure=None, axis=None, labels=True, title=True, font=None, interactive=False, show_seg=False):
@@ -1779,7 +1781,7 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         centre_seg = images.target.unique()[0] * 16
         for seg_off in range(-7,8):
             offset = common.seg_off_to_pos(seg_off)
-            ax.text(1.0, offset, str(centre_seg - seg_off), fontsize='medium', color='b',
+            ax.text(1.0, offset, str(centre_seg + seg_off), fontsize='medium', color='k',
                 transform=tform, ha='right', va='center', clip_on=True)
 
     # Make sure we plpot fix a fixed aspect ratio!
@@ -5122,28 +5124,30 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
     exclude_bad=True - bad images described in bad_scans.txt will be removed
     manual=True - manual images will be appended, and de-duplication performed (on scan_file) """
 
-    if filename is None:
-        if data:
+    if data:
 
+        if filename is None:
             filename = os.path.join(common.tlm_path, 'all_images_data.pkl')
-            f = open(filename, 'rb')
-            import cPickle as pkl
+        f = open(filename, 'rb')
+        import cPickle as pkl
 
-            objs = []
-            while 1:
-                try:
-                    objs.append(pkl.load(f))
-                except EOFError:
-                    break
+        objs = []
+        while 1:
+            try:
+                objs.append(pkl.load(f))
+            except EOFError:
+                break
 
-            if len(objs)==0:
-                print('ERROR: file %s appears to be empty' % filename)
-                return None
+        if len(objs)==0:
+            print('ERROR: file %s appears to be empty' % filename)
+            return None
 
-            images = pd.concat(iter(objs), axis=0)
-        else:
+        images = pd.concat(iter(objs), axis=0)
+
+    else:
+        if filename is None:
             filename = os.path.join(common.tlm_path, 'all_images.pkl')
-            images = pd.read_pickle(filename)
+        images = pd.read_pickle(filename)
 
     if exclude_bad:
         badlist = pd.read_table(os.path.join(common.config_path,'bad_scans.txt'), header=None)[0].tolist()

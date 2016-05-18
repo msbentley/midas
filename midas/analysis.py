@@ -754,7 +754,6 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False,
     if show_seg:
         tform = mpl.transforms.blended_transform_factory(ax.transAxes, ax.transData)
         centre_seg = pcles.target.unique()[0] * 16
-        adsfgadfh
         for seg_off in range(-7,8):
             offset = common.seg_off_to_pos(seg_off)
             print centre_seg, seg_off

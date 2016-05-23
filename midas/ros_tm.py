@@ -1111,15 +1111,17 @@ def open_gwy(images, path=common.gwy_path):
     import subprocess
 
     if type(images) == pd.Series:
-        images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+        # images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+        gwyfiles = [images.scan_file]
     elif type(images) == pd.DataFrame:
         gwyfiles = images.scan_file.unique().tolist()
-
-    if type(images) == str:
+    elif type(images) == str:
         gwyfiles = [images]
-
-    if type(images) == list:
+    elif type(images) == list:
         gwyfiles = images
+    else:
+        print('ERROR: unrecognised image type')
+        return None
 
     gwyfiles = [os.path.join(path,gwy+'.gwy') for gwy in gwyfiles]
     command_string = ['gwyddion', '--remote-new'] + gwyfiles
@@ -1646,7 +1648,7 @@ def locate_scans(images):
     x_orig_um = []; y_orig_um = []
 
     if type(images)==pd.core.series.Series:
-        images = images.to_frrame().T
+        images = images.to_frame().T
 
     for idx, scan in images.iterrows():
 

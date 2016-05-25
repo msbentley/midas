@@ -1377,6 +1377,13 @@ class itl:
         self.current_block = {}
         self.abs_time = None
         self.shut_open = shut_open
+        self.anti_creep = False
+        self.acreep = 4
+        self.ctrl_full = False
+        self.line_tx = True
+        self.ctrl_retract = False
+        self.retr_m2 = 0
+        self.retr_m3 = 0
 
         if self.shut_open:
             print('INFO: shutter state is OPEN! Remember to close if necessary')
@@ -2059,6 +2066,15 @@ class itl:
             print('ERROR: anti-creep factor must be between 0 (2**0) and 7 (2**7) - setting default 4')
             auto_seg = 0
 
+        self.acreep = acreep
+        self.anti_creep = anti_creep
+        self.ctrl_full = ctrl_full
+        self.line_tx = line_tx
+        self.ctrl_retract = ctrl_retract
+        self.retr_m2 = retr_m2
+        self.retr_m3 = retr_m3
+
+
         x_zoom = int(x_zoom)
         y_zoom = int(y_zoom)
 
@@ -2210,26 +2226,40 @@ class itl:
 
         if debug: print('DEBUG: number of data types: %d' % ntypes)
 
-        # TODO check if this parameter is set!
         # In this template, the piezo creep avoidance is enabled by default
         # Need to add 1/8th of the pixels in the slow direction
-        duration_xpix = xpixels + xpixels // 8 if not mainscan_x else xpixels
-        duration_ypix = ypixels + ypixels // 8 if mainscan_x else ypixels
+        # duration_xpix = xpixels + xpixels // 8 if not mainscan_x else xpixels
+        # duration_ypix = ypixels + ypixels // 8 if mainscan_x else ypixels
 
-        duration_s = scanning.calc_duration(xpoints=duration_xpix, ypoints=duration_ypix, ntypes=ntypes, zretract=zretract,
-            zsettle=z_settle, xysettle=xy_settle, zstep=zstep)
+        # duration_s = scanning.calc_duration(xpoints=duration_xpix, ypoints=duration_ypix, ntypes=ntypes, zretract=zretract,
+        #     zsettle=z_settle, xysettle=xy_settle, zstep=zstep)
+
+        mag_chans = 1 if magnetic else 0
+        if self.retr_m2 > 0: mag_chans += 1
+        if self.retr_m3 > 0: mag_chans += 1
+        acreep = 0 if not self.anti_creep else 2**self.acreep
+
+        duration_s = scanning.calc_duration(
+            xpoints=xpixels, ypoints=ypixels,
+            zretract=zretract, zstep=zstep,
+            xysettle=xy_settle, zsettle=z_settle,
+            ctrl=ctrl_data, mainscan_x=mainscan_x,
+            mag_chans=mag_chans, acreep=acreep)
+
         duration_m = (duration_s // 60) + 1
 
         # Calculate data rate to insert into the Z record
 
         # data from line scans if we transmit lines as well
-        # TODO implement this as a parameter
         # line scan 1072 bytes per line (32-512 points)
-        num_lines = ypixels if mainscan_x else xpixels
+        if self.line_tx:
+            num_lines = ypixels if mainscan_x else xpixels
+            line_data_bytes = (num_lines*1072)
+        else:
+            line_data_bytes = 0
 
         # data from image scan headers and packets
         image_data_bytes = ntypes * (80 + 2096 * xpixels * ypixels / 1024)
-        line_data_bytes = (num_lines*1072)
         data_bytes = image_data_bytes + line_data_bytes
 
         # n*(80 + 2096*x*y/1024) - 80 bytes header, 2096 bytes packets per 1024 elements
@@ -2238,8 +2268,10 @@ class itl:
 
         # Add additional data rate if control data packets are enabled
         if ctrl_data:
-            data_bytes += (32 * 32 * 2096)
-            print('INFO: Control data in image requested - InstrumentSetup must be sent as well!')
+            if not self.ctrl_full:
+                print('WARNING: Control data in image requested but not set in InstrumentSetup!')
+            else:
+                data_bytes += (32 * 32 * 2096)
 
         if debug: print('DEBUG: scan generates %d bytes' % data_bytes)
         data_rate = (data_bytes*8/duration_s)
@@ -2888,8 +2920,10 @@ class itl:
         else:
             xpixels = 1
 
-        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, ntypes=ntypes, zretract=zretract, zstep=zstep,
-            ctrl=ctrl_data, zsettle=z_settle, xysettle=xy_settle)
+        # calc_duration(xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, avg=1,
+        #    ctrl=False, mag_chans=0, mainscan_x=True, ctrl_ret=False, acreep=16)
+        duration_s = scanning.calc_duration(xpoints=xpixels, ypoints=ypixels, zretract=zretract, zstep=zstep,
+            ctrl=ctrl_data, zsettle=z_settle, xysettle=xy_settle, acreep=0, ctrl_ret=self.ctrl_retract)
 
         # Control data packets: 1048 words (2096 bytes), one packet per line point, max 32
         # Line scan as well: 1072 bytes (single line)

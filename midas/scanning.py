@@ -8,33 +8,11 @@ from midas import common
 import numpy as np
 import matplotlib.pyplot as plt
 
-debug = True
-
-def calc_duration_old(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False, magnetic=False):
-
-    ifact_1 = 0.0003
-    ofact_1 = 0.00035
-    afact_1 = 0.00075
-    subcycles = 100
-
-    xytotal = (xpoints+2)*xysettle/1000.*ypoints
-    ztotal = (xpoints+3)*zsettle/1000.*ypoints
-    innerloop = xpoints*zretract/zstep*(ifact_1+avg*afact_1)*ypoints # seconds
-    outerloop = zretract/(subcycles*zstep)*ofact_1*xpoints*ypoints # seconds
-    duration = xytotal + ztotal + innerloop + outerloop + ypoints*1.0625 + xpoints*ypoints*ntypes*0.001 # seconds
-
-    # Extend duration if control data is enabled
-    if ctrl:
-        duration += ((xpoints*ypoints)*zretract/zstep)*(0.00334)
-
-    # duration = duration * 0.75 # approx. speedup factor for latest OBSW version
-
-    return duration
+debug = False
 
 
-
-def calc_duration(xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False,
-    mag_chans=0, mainscan_x=True, ctrl_ret=False, acreep=16):
+def calc_duration(xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, avg=1,
+    ctrl=False, mag_chans=0, mainscan_x=True, ctrl_ret=False, acreep=16):
 
     if mainscan_x:
         num_lines = ypoints
@@ -64,14 +42,14 @@ def calc_duration(xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, 
 
     duration = (line_time+ctrl_time+ctrl_ret_time+magnetic_time) * (num_lines+acreep)
 
+    if debug:
+        print('DEBUG: calculated duration: %3.2f seconds' % duration)
+
     return duration
 
 
-
-
-
 def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety=2., ntypes=2, xysettle=50, zsettle=50,
-                openloop=True, duration=True, zstep=4):
+                openloop=True, duration=True, zstep=4, mainscan_x=True, mag_chans=0):
     """Returns scan duration for a given X and Y length and number of pixels.
     Other scan parameters are set to the following defaults:
 
@@ -100,7 +78,18 @@ def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety=2., ntypes=2, xysettl
 
     if duration:
         avg = 1
-        duration = calc_duration(xpoints, ypoints, ntypes, zretract, zsettle, xysettle, zstep, avg)
+        # xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, avg=1,
+        # ctrl=False, mag_chans=0, mainscan_x=True, ctrl_ret=False, acreep=16)
+        duration = calc_duration(
+            xpoints=xpoints,
+            ypoints=ypoints,
+            zretract=zretract,
+            zsettle=zsettle,
+            xysettle=xysettle,
+            zstep=zstep,
+            avg=avg,
+            mainscan_x=mainscan_x,
+            mag_chans=mag_chans)
 
         return realx, realy, xstep, ystep, zretract, timedelta(seconds=duration)
 
@@ -408,3 +397,28 @@ if __name__ == "__main__":
 
     sizes=1.
     plot_duration_size(sizes)
+
+
+
+
+
+def calc_duration_old(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False, magnetic=False):
+
+    ifact_1 = 0.0003
+    ofact_1 = 0.00035
+    afact_1 = 0.00075
+    subcycles = 100
+
+    xytotal = (xpoints+2)*xysettle/1000.*ypoints
+    ztotal = (xpoints+3)*zsettle/1000.*ypoints
+    innerloop = xpoints*zretract/zstep*(ifact_1+avg*afact_1)*ypoints # seconds
+    outerloop = zretract/(subcycles*zstep)*ofact_1*xpoints*ypoints # seconds
+    duration = xytotal + ztotal + innerloop + outerloop + ypoints*1.0625 + xpoints*ypoints*ntypes*0.001 # seconds
+
+    # Extend duration if control data is enabled
+    if ctrl:
+        duration += ((xpoints*ypoints)*zretract/zstep)*(0.00334)
+
+    # duration = duration * 0.75 # approx. speedup factor for latest OBSW version
+
+    return duration

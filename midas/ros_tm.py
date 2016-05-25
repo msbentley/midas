@@ -3707,8 +3707,8 @@ class tm:
 
             # loop through image packets and unpack the image packet header and image data
             # THIS EATS LOTS OF RAM
-            for idx, pkt in img_pkts.iterrows():
-                if debug: print('DEBUG: image packet %i of %i' % (idx, len(img_pkts)))
+            for count, (idx, pkt) in enumerate(img_pkts.iterrows()):
+                if debug: print('DEBUG: image packet %i of %i' % (count+1, len(img_pkts)))
                 image = {}
                 image['header'] = image_names(*struct.unpack(image_fmt,pkt['data'][0:image_size]))
                 if image['header'].channel in [1, 4, 32768]: # ZS, S2, ST

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 debug = True
 
-def calc_duration(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False):
+def calc_duration_old(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False, magnetic=False):
 
     ifact_1 = 0.0003
     ofact_1 = 0.00035
@@ -30,6 +30,44 @@ def calc_duration(xpoints, ypoints, ntypes, zretract, zsettle=50, xysettle=50, z
     # duration = duration * 0.75 # approx. speedup factor for latest OBSW version
 
     return duration
+
+
+
+def calc_duration(xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, avg=1, ctrl=False,
+    mag_chans=0, mainscan_x=True, ctrl_ret=False, acreep=16):
+
+    if mainscan_x:
+        num_lines = ypoints
+        num_pts = xpoints
+    else:
+        num_lines = xpoints
+        num_pts = ypoints
+
+    xpoints = float(xpoints)
+    ypoints = float(ypoints)
+    zretract = float(zretract)
+    zstep = float(zstep)
+    mag_chans = float(mag_chans)
+    acreep = float(acreep)
+    xysettle = float(xysettle) * 1.025
+    zsettle = float(zsettle) * 1.025
+    avg = float(avg) * 0.571
+
+    zcycles = np.ceil(zretract/zstep)
+
+    line_time = ((xysettle+zsettle + (avg+0.31)*zcycles)*num_pts+xysettle+2*zsettle)/1000.
+    ctrl_time = (0.481*num_pts*zcycles+32*114)/1000. if ctrl else 0.
+    ctrl_ret_time = 32.*(256.*0.481+114.)/1000. if ctrl_ret else 0.
+
+    magfac = 3200. if mag_chans>0 else 0.
+    magnetic_time = (float(mag_chans) * num_pts * (zsettle + avg) + mag_chans*700. + magfac) / 1000.
+
+    duration = (line_time+ctrl_time+ctrl_ret_time+magnetic_time) * (num_lines+acreep)
+
+    return duration
+
+
+
 
 
 def scan_params(xlen_um, ylen_um, xpoints, ypoints, safety=2., ntypes=2, xysettle=50, zsettle=50,

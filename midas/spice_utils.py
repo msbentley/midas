@@ -98,8 +98,7 @@ def load_default_kernels(kernel_path=kernel_path):
                 'ik/ROS_MIDAS_V10.TI',
                 'lsk/NAIF0011.TLS',
                 'pck/PCK00010.TPC',
-                # 'sclk/ros_triv.tsc',
-                'sclk/ROS_160302_STEP.TSC',
+                # 'sclk/ROS_160302_STEP.TSC',
                 'fk/ROS_CHURYUMOV_V01.TF',
                 'fk/ROS_AUX.TF',
                 'fk/ROS_CGS_AUX_V01.TF',
@@ -195,7 +194,8 @@ def operational_kernels(no_ck=False):
     sclk_path = os.path.join(kernel_path,'sclk')
 
     # Find all files of the correct type and case
-    rorb = glob.glob(os.path.join(spk_path, 'RORB_DV_???_??_??____00???.BSP'))
+    # RORB_DV_145_01___t19_00216.BSP
+    rorb = glob.glob(os.path.join(spk_path, 'RORB_DV_???_??___t19_00???.BSP'))
     corb = glob.glob(os.path.join(spk_path, 'CORB_DV_???_??_??____00???.BSP'))
     ratt = glob.glob(os.path.join(ck_path,  'RATT_DV_???_??_??____00???.BC'))
     catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_??____00???.BC'))
@@ -215,12 +215,12 @@ def operational_kernels(no_ck=False):
 
     if no_ck:
         return {
-            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01_______00216.BSP'),
+            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01___t19_00216.BSP'),
             'corb_old': os.path.join(spk_path, 'CORB_DV_145_01_______00216.BSP'),
             'rorb': rorb, 'corb': corb, 'sclk': sclk }
     else:
         return {
-            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01_______00216.BSP'),
+            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01___t19_00216.BSP'),
             'corb_old': os.path.join(spk_path, 'CORB_DV_145_01_______00216.BSP'),
             'ratt_old': os.path.join(ck_path, 'RATT_DV_145_01_01____00216.BC'),
             'catt_old': os.path.join(ck_path, 'CATT_DV_145_01_______00216.BC'),
@@ -235,12 +235,15 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
 
     if kernels is None:
         kernels = operational_kernels(no_ck=no_ck)
-        # If old (pre 2015) kernels are present in the list, load them first
-        old_list = ['ratt_old', 'catt_old', 'rorb_old', 'corb_old']
-        for old_kern in old_list:
-            if old_kern in kernels.keys():
-                load_kernels(kernels[old_kern], load_defaults=False)
-                kernels.pop(old_kern)
+
+        if pd.Timestamp(start) < pd.Timestamp("2015-03-01T00:00"):
+            # If old (pre 2015) kernels are present in the list, load them first
+            print 'loading old kernels'
+            old_list = ['ratt_old', 'catt_old', 'rorb_old', 'corb_old']
+            for old_kern in old_list:
+                if old_kern in kernels.keys():
+                    load_kernels(kernels[old_kern], load_defaults=False)
+                    kernels.pop(old_kern)
         load_kernels(kernels, load_defaults=True)
     else:
         load_kernels(kernels, load_defaults=True)
@@ -250,12 +253,14 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
     cometdist = comet_sun_au(ets)
     distance, speed = trajectory(ets, speed=True)
 
+    return ets
+
     if not no_ck:
 
-        phase = phase_angle(ets)
+        phase = phase_angle(ets) #  runs quickly
         sun_angle = nadir_sun(ets)
         offpointing = off_nadir(ets)
-        lat, lon = latlon(ets)
+        lat, lon = latlon(ets) # runs quickly
 
         geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
             columns=['cometdist','sc_dist','speed','latitude','longitude','offnadir','phase','sun_angle'])
@@ -395,6 +400,7 @@ def nadir_sun(times):
 
     # vector from the s/c to the Sun in the s/c frame of reference
     sc_sun = [spice.spkpos(target, time, 'ROS_SPACECRAFT', abcorr, observer)[0] for time in times]
+    print 'here'
 
     # angle between this vector and the s/c Z axis
     nadir_sun = np.rad2deg( [spice.vsep(sc_sun[count],spice.vpack(0.,0.,1.)) for count in range(len(times))])

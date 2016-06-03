@@ -271,7 +271,7 @@ def image_pickle(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir,
         return False
 
     for f in tm_files:
-        tm=ros_tm.tm(f)
+        tm = ros_tm.tm(f)
         images = tm.get_images(info_only=False, expand_params=True)
 
         if images is not None:

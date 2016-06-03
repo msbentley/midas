@@ -238,7 +238,6 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
 
         if pd.Timestamp(start) < pd.Timestamp("2015-03-01T00:00"):
             # If old (pre 2015) kernels are present in the list, load them first
-            print 'loading old kernels'
             old_list = ['ratt_old', 'catt_old', 'rorb_old', 'corb_old']
             for old_kern in old_list:
                 if old_kern in kernels.keys():
@@ -252,8 +251,6 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
 
     cometdist = comet_sun_au(ets)
     distance, speed = trajectory(ets, speed=True)
-
-    return ets
 
     if not no_ck:
 

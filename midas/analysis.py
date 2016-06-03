@@ -782,7 +782,7 @@ def exposure_summary(start='2014-08-06', print_stats=False, fontsize=14):
     targets = sorted(exposures.target.unique())
     start = exposures.start.min()
     end = exposures.end.max()
-    geom = spice_utils.get_geometry(start, end)
+    geom = spice_utils.get_geometry(start, end, no_ck=True)
 
     fig, ax = plt.subplots()
     ax.plot(geom.index, geom.sc_dist, 'k', linewidth=2)

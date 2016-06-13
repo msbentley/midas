@@ -1384,6 +1384,8 @@ class itl:
         self.ctrl_retract = False
         self.retr_m2 = 0
         self.retr_m3 = 0
+        self.xsteps = 0
+        self.ysteps = 0
 
         if self.shut_open:
             print('INFO: shutter state is OPEN! Remember to close if necessary')
@@ -2073,6 +2075,8 @@ class itl:
         self.ctrl_retract = ctrl_retract
         self.retr_m2 = retr_m2
         self.retr_m3 = retr_m3
+        self.xsteps = x_zoom
+        self.ysteps = y_zoom
 
 
         x_zoom = int(x_zoom)
@@ -2116,6 +2120,11 @@ class itl:
 
         if pstp: at_surface = True
         if contact: set_start = False
+
+        if auto:
+            xpixels = self.xsteps
+            ypixels = self.ysteps
+
         xpixels=int(xpixels)
         ypixels=int(ypixels)
 
@@ -2196,6 +2205,9 @@ class itl:
         if not (-4.9 < zapp_pos < 4.9):
             print('ERROR: Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
             return False
+
+        self.xsteps = xpixels
+        self.ysteps = ypixels
 
         z_settle = int(z_settle)
         xy_settle = int(xy_settle)

@@ -1386,6 +1386,7 @@ class itl:
         self.retr_m3 = 0
         self.xsteps = 0
         self.ysteps = 0
+        self.min_zr = 0
 
         if self.shut_open:
             print('INFO: shutter state is OPEN! Remember to close if necessary')
@@ -1709,6 +1710,7 @@ class itl:
 
         open_factor = int(round(23.25 * 16. * safety_factor))
         closed_factor = int(round(8.5 * 16. * safety_factor))
+        self.min_zr = min_zr
         min_zr = int(round(min_zr/common.zcal))
 
         self.set_sw_param(0xA65A, open_factor)
@@ -2226,7 +2228,11 @@ class itl:
 
         xstep_nm = xstep * common.xycal['open']
         ystep_nm = ystep * common.xycal['open'] if openloop else ystep * common.xycal['closed']
-        zretract_nm = max(xstep_nm,ystep_nm) * safety_factor
+
+        if auto:
+            zretract_nm = self.min_zr
+        else:
+            zretract_nm = max(xstep_nm,ystep_nm) * safety_factor
         zretract = int(np.around(zretract_nm / common.zcal))
 
         # Calculate scan duration and data rate
@@ -2237,14 +2243,6 @@ class itl:
             return False
 
         if debug: print('DEBUG: number of data types: %d' % ntypes)
-
-        # In this template, the piezo creep avoidance is enabled by default
-        # Need to add 1/8th of the pixels in the slow direction
-        # duration_xpix = xpixels + xpixels // 8 if not mainscan_x else xpixels
-        # duration_ypix = ypixels + ypixels // 8 if mainscan_x else ypixels
-
-        # duration_s = scanning.calc_duration(xpoints=duration_xpix, ypoints=duration_ypix, ntypes=ntypes, zretract=zretract,
-        #     zsettle=z_settle, xysettle=xy_settle, zstep=zstep)
 
         mag_chans = 1 if magnetic else 0
         if self.retr_m2 > 0: mag_chans += 1

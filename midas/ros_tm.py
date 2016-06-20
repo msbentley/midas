@@ -1349,9 +1349,6 @@ def show_grid(images, cols=2, **kwargs):
 
     num_images = len(images)
     rows = num_images / cols
-    if num_images % cols != 0:
-        rows += 1
-
     gs = gridspec.GridSpec(rows, cols)
     fig = plt.figure()
 
@@ -1363,8 +1360,6 @@ def show_grid(images, cols=2, **kwargs):
         axes.append(plt.subplot(gs[grid]))
         show(image, fig=fig, ax=axes[grid], **kwargs)
         grid += 1
-
-    # plt.tight_layout() #fig, axes)
 
     fig.tight_layout()
 
@@ -1970,6 +1965,30 @@ class tm:
         store.close()
 
         return
+
+
+    def get_dv(self, apid=None, output=False):
+        """Calculates and returns the datavolume (in bytes) for all APIDs or a single, specified, APID"""
+
+        if apid is not None:
+            if apid not in midas_apids:
+                print('ERROR: APID is not valid for MIDAS - defaulting to all APIDs')
+                apids = midas_apids
+            else:
+                if type(apid)!=list:
+                    apids = [apid]
+        else:
+            apids = midas_apids
+
+        dv = {}
+
+        for apid in apids:
+            volume = (self.pkts[self.pkts.apid==apid].length+6).sum()
+            dv.update( { apid: volume } )
+            if output:
+                print('INFO: APID %d generated %3.2f MB' % (apid, volume/1024./1024.))
+
+        return dv
 
 
     def get_pkts(self, files, directory='.', recursive=False, append=False, apid=False, simple=True, dedupe=False, dds_header=True, sftp=False):

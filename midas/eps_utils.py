@@ -7,6 +7,7 @@ debug = False
 import numpy as np
 import pandas as pd
 import os
+import matplotlib.pyplot as plt
 from midas import common, planning
 from datetime import timedelta
 from dateutil import parser
@@ -511,3 +512,38 @@ def count_all_tcs(eps_path, mtp=None, stp=None):
                                  end=end, instrument=instrument))
 
     return dict(zip(common.instruments.keys(), num_tcs))
+
+
+def datavol(itl_file, evf_file, plot=False):
+
+    itl = parse_itl(itl_file)
+    evf_start, evf_end, event_list = planning.read_evf(evf_file)
+
+    times = pd.Series([seq.time for seq in itl.timeline])
+    duration = pd.Timedelta(evf_end-evf_start)
+    last_time = duration-times.iloc[-1]
+    deltatimes = times.diff()[1:].append(pd.Series(last_time)).reset_index(drop=True)
+    seconds = deltatimes.apply( lambda t: t.seconds )
+
+    zrecs = [seq.zrec for seq in itl.timeline]
+    zrecs = [zrec for zrec in zrecs if len(zrec)>0]
+    bitrate = pd.Series([zrec[0].value for zrec in zrecs if zrec[0].name=='DATA_RATE_PROFILE'])
+    bitrate = pd.to_numeric(bitrate)
+    dv = pd.DataFrame(bitrate * seconds).set_index(times+evf_start)
+
+    if plot:
+
+        import matplotlib.dates as md
+
+        fig, ax = plt.subplots()
+        ax.plot(dv.cumsum(), label='dv')
+        ax.grid(True)
+        ax.set_xlabel('On-board time')
+        ax.set_ylabel('Data volume (bits)')
+        fig.autofmt_xdate()
+        plt.setp(ax.get_xticklabels(), rotation=45)
+        # xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+        # ax.xaxis.set_major_formatter(xfmt)
+        ax.yaxis.get_major_formatter().set_useOffset(False)
+
+    return (bitrate * seconds).sum()

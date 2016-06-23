@@ -173,8 +173,8 @@ def run_daily():
     dds_utils.get_sgs_files()
 
     # Download any new SPICE kernels (spawn as background job)
-    print('\nINFO: Downloading new or updated SPICE kernels...')
-    status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
+    # print('\nINFO: Downloading new or updated SPICE kernels...')
+    # status = subprocess.call( os.path.join(kernel_dir, 'get_kernels.sh'), shell=True )
 
     # Download any new NAVCAM images (via rsync)
     # print('\nINFO: Downloading new NAVCAM images')

@@ -195,8 +195,8 @@ def operational_kernels(no_ck=False):
 
     # Find all files of the correct type and case
     # RORB_DV_145_01___t19_00216.BSP
-    rorb = glob.glob(os.path.join(spk_path, 'RORB_DV_???_??___t19_00???.BSP'))
-    corb = glob.glob(os.path.join(spk_path, 'CORB_DV_???_??_??____00???.BSP'))
+    rorb = glob.glob(os.path.join(spk_path, 'RORB_DV_???_??___T19_00???.BSP'))
+    corb = glob.glob(os.path.join(spk_path, 'CORB_DV_???_??___T19_00???.BSP'))
     ratt = glob.glob(os.path.join(ck_path,  'RATT_DV_???_??_??____00???.BC'))
     catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_??____00???.BC'))
 
@@ -215,15 +215,21 @@ def operational_kernels(no_ck=False):
 
     if no_ck:
         return {
-            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01___t19_00216.BSP'),
-            'corb_old': os.path.join(spk_path, 'CORB_DV_145_01_______00216.BSP'),
+            'rorb_1': os.path.join(spk_path, 'RORB_DV_145_01___T19_00216.BSP'),
+            'corb_1': os.path.join(spk_path, 'CORB_DV_145_01___T19_00216.BSP'),
+            'rorb_2': os.path.join(spk_path, 'RORB_DV_223_01___T19_00302.BSP'),
+            'corb_2': os.path.join(spk_path, 'CORB_DV_223_01___T19_00302.BSP'),
             'rorb': rorb, 'corb': corb, 'sclk': sclk }
     else:
         return {
-            'rorb_old': os.path.join(spk_path, 'RORB_DV_145_01___t19_00216.BSP'),
-            'corb_old': os.path.join(spk_path, 'CORB_DV_145_01_______00216.BSP'),
-            'ratt_old': os.path.join(ck_path, 'RATT_DV_145_01_01____00216.BC'),
-            'catt_old': os.path.join(ck_path, 'CATT_DV_145_01_______00216.BC'),
+            'rorb_1': os.path.join(spk_path, 'RORB_DV_145_01___T19_00216.BSP'),
+            'rorb_2': os.path.join(spk_path, 'RORB_DV_223_01___T19_00302.BSP'),
+            'corb_1': os.path.join(spk_path, 'CORB_DV_145_01___T19_00216.BSP'),
+            'corb_2': os.path.join(spk_path, 'CORB_DV_223_01___T19_00302.BSP'),
+            'ratt_1': os.path.join(ck_path,  'RATT_DV_145_01_01____00216.BC'),
+            'ratt_2': os.path.join(ck_path,  'RATT_DV_223_01_01____00302.BC'),
+            'catt_1': os.path.join(ck_path,  'CATT_DV_145_01_______00216.BC'),
+            'catt_2': os.path.join(ck_path,  'CATT_DV_223_01_______00302.BC'),
             'rorb': rorb, 'corb': corb, 'ratt': ratt, 'catt': catt, 'sclk': sclk }
 
 def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
@@ -235,14 +241,11 @@ def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
 
     if kernels is None:
         kernels = operational_kernels(no_ck=no_ck)
-
-        if pd.Timestamp(start) < pd.Timestamp("2015-03-01T00:00"):
-            # If old (pre 2015) kernels are present in the list, load them first
-            old_list = ['ratt_old', 'catt_old', 'rorb_old', 'corb_old']
-            for old_kern in old_list:
-                if old_kern in kernels.keys():
-                    load_kernels(kernels[old_kern], load_defaults=False)
-                    kernels.pop(old_kern)
+        old_list = ['ratt_1', 'ratt_2', 'catt_1', 'catt_2' 'rorb_1', 'rorb_2', 'corb_1', 'corb_2']
+        for old_kern in old_list:
+            if old_kern in kernels.keys():
+                load_kernels(kernels[old_kern], load_defaults=False)
+                kernels.pop(old_kern)
         load_kernels(kernels, load_defaults=True)
     else:
         load_kernels(kernels, load_defaults=True)
@@ -397,7 +400,6 @@ def nadir_sun(times):
 
     # vector from the s/c to the Sun in the s/c frame of reference
     sc_sun = [spice.spkpos(target, time, 'ROS_SPACECRAFT', abcorr, observer)[0] for time in times]
-    print 'here'
 
     # angle between this vector and the s/c Z axis
     nadir_sun = np.rad2deg( [spice.vsep(sc_sun[count],spice.vpack(0.,0.,1.)) for count in range(len(times))])

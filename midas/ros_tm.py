@@ -1348,7 +1348,8 @@ def show_grid(images, cols=2, **kwargs):
     import matplotlib.gridspec as gridspec
 
     num_images = len(images)
-    rows = num_images / cols
+    rows, rem = divmod(num_images, cols)
+    if rem != 0: rows += 1
     gs = gridspec.GridSpec(rows, cols)
     fig = plt.figure()
 
@@ -1361,7 +1362,7 @@ def show_grid(images, cols=2, **kwargs):
         show(image, fig=fig, ax=axes[grid], **kwargs)
         grid += 1
 
-    fig.tight_layout()
+    # fig.tight_layout()
 
     plt.show()
 
@@ -1485,7 +1486,8 @@ def show_tips(savefig=None, info=False):
     return
 
 
-def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None, ax=None, shade=False, show_fscans=False):
+def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None, ax=None,
+            shade=False, show_fscans=False, show=True, rect=None):
     """Accepts one or more images from get_images() and plots them in 2D.
 
     units= can be 'real', 'dac' or 'pix'
@@ -1513,6 +1515,12 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     if units not in unit_types:
         print('ERROR: unit type %s invalid' % units.lower() + " must be one of " + ", ".join(unit_types))
         return None
+
+    if rect is not None:
+        units = 'dac'
+        if len(units)==4:
+            print('ERROR: if rect= is given, 4 values must be passed (X,Y) origin and (width,height) as a tuple')
+            return None
 
     if planesub is not None:
         planetypes = ['plane', 'poly']
@@ -1568,6 +1576,11 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
                 axis.set_adjustable('box')
                 axis.set_aspect(common.xycal['closed']/common.xycal['open'])
             plt.setp(axis.get_xticklabels(), rotation=45)
+
+            if rect is not None:
+                from matplotlib.patches import Rectangle
+                box = Rectangle((rect[0], rect[1]), rect[2], rect[3], fill=False, linewidth=2, edgecolor='w')
+                axis.add_patch(box)
 
         elif units == 'pix':
             plot1 = axis.imshow(data, origin='upper', interpolation='nearest', cmap=cmap)
@@ -1630,7 +1643,7 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
             else:
                 print('INFO: no frequency re-tunes occured during the image at OBT %s' % image.start_time)
 
-    if fig is None:
+    if fig is None and show:
         plt.show()
 
     return figure, axis

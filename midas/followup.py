@@ -38,7 +38,13 @@ class followup:
         zretract_nm = max_step_nm * self.safety
         self.zret = int(np.around(zretract_nm / common.zcal))
 
-        duration = int(scanning.calc_duration(self.x_pix, self.y_pix, 1, self.zret, zsettle=50, xysettle=50, zstep=4, avg=1))
+        duration = int(scanning.calc_duration(
+            xpoints=self.x_pix,
+            ypoints=self.y_pix,
+            zretract=self.zret,
+            zsettle=50,
+            xysettle=50,
+            zstep=4 ))
         hours, remainder = divmod(duration, 3600)
         minutes, seconds = divmod(remainder, 60)
 
@@ -195,6 +201,9 @@ X step size: %i (%3.2f nm)\nY step size: %i (%3.2f nm)\nDuration: %02d:%02d:%02d
         ax3 = fig.add_subplot(gs[1,:])
         ax3.axis('off')
         fig.subplots_adjust(hspace=0.0, wspace=0.1, left=0.0, bottom=0.0, right=0.97, top=0.96)
+
+        if type(image)==str:
+            image = ros_tm.load_images(data=True).query('scan_file==@image').squeeze()
 
         # Load an image, subtract plane, display with pixel units
         self.fig, self.ax1 = ros_tm.show(image, units='dac', planesub='plane', title=False, fig=fig, ax=ax1)

@@ -318,7 +318,7 @@ def read_output(directory='.', ng=True):
     if ng:
         cols = ['time', 'Total', 'ROSETTA', 'ANTENNA', 'ALICE', 'CONSERT', 'COSIMA',
                 'GIADA', 'LANDER', 'MIDAS', 'MIRO', 'NAVCAM', 'OSIRIS', 'ROSINA', 'RPC', 'SREM',
-                'RSI', 'VIRTIS', 'SSMM', 'SGS']
+                'RSI', 'VIRTIS', 'SSMM', 'SGS', 'STR', 'PTR']
 
         power = pd.read_table(powerfile, header=None, skiprows=26, names=cols,
                               skipinitialspace=True, delimiter=' ', engine='python')

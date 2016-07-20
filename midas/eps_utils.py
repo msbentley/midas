@@ -50,7 +50,7 @@ def parse_itl(filename, header=True):
     eventLabel = pp.Word(pp.alphanums + '_-')
 
     # Event options, commonly the event count - optional
-    eventOption = alphanum('key') + pp.Suppress("=") + alphanum('val')
+    eventOption = pp.Group(alphanum('key') + pp.Suppress("=") + alphanum('val'))
     eventOptions = pp.Suppress(
         '(') + pp.OneOrMore(eventOption) + pp.Suppress(')')
 

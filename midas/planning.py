@@ -343,7 +343,8 @@ def ltp_from_mtp(mtp):
         6: range(19,21+1),
         7: range(22,24+1),
         8: range(25,27+1),
-        9: range(28,31+1), }
+        9: range(28,32+1),
+        10: range(33,34+1) }
 
     return [ltp for (ltp,mtps) in ltps.iteritems() if mtp in mtps][0]
 
@@ -680,6 +681,7 @@ def read_itlm(filename):
     from eps_utils import parse_itl
 
     itl = parse_itl(filename)
+    count = False
 
     for header in itl.header:
         if header.key == 'Version': itl_ver = header.val
@@ -704,11 +706,14 @@ def read_itlm(filename):
             return None
         seq['start'] = True if suffix == 'SO' else False
 
-        if entry.options.key != 'COUNT':
+        for option in entry.options:
+            if option.key == 'COUNT':
+                seq['obs_id'] = int(option.val)
+                count = True
+
+        if not count:
             logging.error('event must contain a COUNT')
             return None
-        else:
-            seq['obs_id'] = int(entry.options.val)
 
         if entry.instrument != 'MIDAS':
                 logging.error('ITL command references an instrument other than MIDAS')

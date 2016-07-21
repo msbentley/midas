@@ -148,7 +148,7 @@ def parse_itl(filename, header=True):
     return itl
 
 
-def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.', fs=False, showout=False):
+def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.', fs=False, showout=False, showcmd=False):
     """Spawn an external process to run and EPS and validate a given EPS and ITL file"""
 
     import subprocess
@@ -161,8 +161,9 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
 
         # Config files now have format: ROS_SGS\CONFIG\ros_eps_MTP011P.cfg
         ng_exec = os.path.join(os.path.expanduser('~/Dropbox/bin'), 'epsng')
-        command_string = ['epsng', 'exec', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir, '-tt', 'abs',
+        command_string = [ng_exec, 'exec', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir, '-tt', 'abs',
                           '-obs', obspath, 'DEF_ROS_TOP___________V001.def', '-obseventdefs']
+
     else:
         os.environ["EPS_DATA"] = os.path.expanduser('~/Dropbox/EPS/DATA')
         os.environ["EPS_CFG_DATA"] = os.path.expanduser('~/Dropbox/EPS/DATA')
@@ -179,8 +180,8 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
     if por:
         command_string.extend(['-f', 'por', '-o', por])
 
-    if debug:
-        print('DEBUG: EPS running as: \n\n %s' % " ".join(command_string))
+    if showcmd:
+        print('INFO: EPS is running with command line:\n %s' % " ".join(command_string))
 
     try:
         epscmd = subprocess.check_output(
@@ -199,7 +200,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
     return True
 
 
-def run_mtp(mtp, case='P', outfolder=None, showout=False):
+def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
     import glob
@@ -252,7 +253,7 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False):
 
     status = run_eps(itl[0], evf, ros_sgs=True, mtp=mtp,
                      case=case, outputdir=local_folder,
-                     showout=showout)
+                     showout=showout, showcmd=showcmd)
 
     if not status:
         return False

@@ -148,7 +148,8 @@ def parse_itl(filename, header=True):
     return itl
 
 
-def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.', fs=False, showout=False, showcmd=False):
+def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.',
+            fs=False, showout=False, showcmd=False, disable_plugins=False):
     """Spawn an external process to run and EPS and validate a given EPS and ITL file"""
 
     import subprocess
@@ -177,6 +178,9 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
         command_string = ['epsng', 'exec', '-i', itl_file, '-e',
                           'midas_stand_alone.edf', '-ei', evf_file, '-c', config_file, '-ed', outputdir]
 
+    if disable_plugins:
+        command_string.append('-disable-plugins')
+
     if por:
         command_string.extend(['-f', 'por', '-o', por])
 
@@ -200,7 +204,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
     return True
 
 
-def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False):
+def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable_plugins=False):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
     import glob
@@ -253,7 +257,7 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False):
 
     status = run_eps(itl[0], evf, ros_sgs=True, mtp=mtp,
                      case=case, outputdir=local_folder,
-                     showout=showout, showcmd=showcmd)
+                     showout=showout, showcmd=showcmd, disable_plugins=disable_plugins)
 
     if not status:
         return False

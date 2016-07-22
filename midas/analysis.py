@@ -319,7 +319,7 @@ def read_lap_file(filename):
     columns = ['start_utc', 'end_utc', 'start_obt', 'end_obt', 'quality', 'plasma_dens', 'e_temp',
                'sc_pot', 'probe', 'direction', 'illum', 'sweep_grp']
 
-    lap = pd.read_table(filename, sep=',', skipinitialspace=True, header=False, names=columns,
+    lap = pd.read_table(filename, sep=',', skipinitialspace=True, header=None, names=columns,
                         parse_dates=['start_utc', 'end_utc'])
 
     return lap

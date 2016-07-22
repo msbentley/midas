@@ -1355,7 +1355,7 @@ class ptrm:
         xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
         ax.xaxis.set_major_formatter(xfmt)
 
-        plt.draw()
+        plt.show()
 
 #------------------ ITL class for generating ITLs -----------------
 

@@ -370,7 +370,7 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
 
     if not set(params).issubset(hk1_params + hk2_params):
         print('ERROR: one or more parameters not found in the archive')
-        return False
+        return None
 
     # Work out which of the requested parameters is in HK1 and which in HK2
     # Extract indices (different for both tables!), then data
@@ -456,6 +456,9 @@ def plot(param, start=None, end=None, max_pts=10000, **kwargs):
                 ax.figure.canvas.draw_idle()
 
     data = query(param, start=start, end=end)
+    if data is None:
+        return None
+
     xdata = data.index
     ydata = data
 

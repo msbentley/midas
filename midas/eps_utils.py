@@ -149,7 +149,7 @@ def parse_itl(filename, header=True):
 
 
 def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False, outputdir='.',
-            fs=False, showout=False, showcmd=False, disable_plugins=False):
+            fs=False, showout=False, showcmd=False, disable_plugins=False, timestep=3600):
     """Spawn an external process to run and EPS and validate a given EPS and ITL file"""
 
     import subprocess
@@ -162,7 +162,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
 
         # Config files now have format: ROS_SGS\CONFIG\ros_eps_MTP011P.cfg
         ng_exec = os.path.join(os.path.expanduser('~/Dropbox/bin'), 'epsng')
-        command_string = [ng_exec, 'exec', '-t', '1', '-s', '3600', '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir, '-tt', 'abs',
+        command_string = [ng_exec, 'exec', '-t', '1', '-s', str(timestep), '-c', 'ros_eps_MTP%03i%c.cfg' % (mtp, case.upper()), '-i', itl_file, '-e', 'rosetta.edf', '-ei', evf_file, '-ed', outputdir, '-tt', 'abs',
                           '-obs', obspath, 'DEF_ROS_TOP___________V001.def', '-obseventdefs']
 
     else:
@@ -204,7 +204,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
     return True
 
 
-def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable_plugins=False):
+def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable_plugins=False, timestep=3600):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
     import glob
@@ -226,6 +226,10 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
                                   'SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
     if len(scen) > 1:
         print('ERROR: more than one scenario file present!')
+        return None
+
+    if len(scen)==0:
+        print('ERROR: cannot find PTRM file %s' % ('SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
         return None
 
     # Open the scenario file and find the eventInputFile (EVF) file entry
@@ -256,7 +260,7 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
     # files = os.listdir(mtp_folder)
 
     status = run_eps(itl[0], evf, ros_sgs=True, mtp=mtp,
-                     case=case, outputdir=local_folder,
+                     case=case, outputdir=local_folder, timestep=timestep,
                      showout=showout, showcmd=showcmd, disable_plugins=disable_plugins)
 
     if not status:

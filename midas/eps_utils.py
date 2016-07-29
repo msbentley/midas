@@ -222,14 +222,19 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
 
     # Find the MTp level scenario file:
     # SCEN_MTP014P_01_01_________PTRM.ini
-    scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
-                                  'SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
+    if mtp==33:
+        # SCEN_MTP033P_01_01_________RATT
+        scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
+                                      'SCEN_MTP%03i%c_01_01_________RATT.ini' % (mtp, case.upper())))
+    else:
+        scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
+                                      'SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
     if len(scen) > 1:
         print('ERROR: more than one scenario file present!')
         return None
 
     if len(scen)==0:
-        print('ERROR: cannot find PTRM file %s' % ('SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
+        print('ERROR: cannot find scenario file %s' % ('SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
         return None
 
     # Open the scenario file and find the eventInputFile (EVF) file entry

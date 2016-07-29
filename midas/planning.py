@@ -1124,7 +1124,7 @@ class ptrm:
         # Search for PTRM files, filenames:
         # PTRM_PL_M???______01_?_RSM?PIM0.ROS
 
-        ptrm=glob.glob(os.path.join(directory,'PTRM_PL_M???______01_?_RSM?PIM0.ROS'))
+        ptrm = glob.glob(os.path.join(directory,'PTRM_PL_M???______01_?_RSM?PIM0.ROS'))
 
         if (len(ptrm)==0):
             print('ERROR: no PTRM files found in folder %s' % (directory))
@@ -1136,6 +1136,28 @@ class ptrm:
 
         return ptrm
 
+
+    def get_slots(self):
+
+        from lxml import etree
+
+        ptr = etree.parse(self.filename).getroot()
+
+        comments = ptr.xpath('//comment')
+        slots = [comment.getparent().getparent() for comment in comments if 'SLOT' in comment.text]
+        slot_num = [int(comment.text.split('SLOT')[1]) for comment in comments if 'SLOT' in comment.text]
+
+        start_list = []
+        end_list = []
+
+        for slot in slots:
+            start = pd.Timestamp(slot.find('startTime').text)
+            end = pd.Timestamp(slot.find('endTime').text)
+            start_list.append(start)
+            end_list.append(end)
+            # slot_list.append(slot_txt)
+
+        return pd.DataFrame( zip(start_list, end_list, slot_num), columns=['start','end','slot'] )
 
 
     def read(self, filename):

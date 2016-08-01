@@ -1275,15 +1275,15 @@ class ptrm:
 
         # truncate the first and last blocks to the observation window if necessary
         if midas_blocks.iloc[0].start < obs_start:
-           midas_blocks.iloc[0,0] = obs_start
+            midas_blocks.iloc[0,0] = obs_start
 
         if midas_blocks.iloc[-1].end > obs_end:
-           midas_blocks.iloc[-1,1] =  obs_end
+            midas_blocks.iloc[-1,1] =  obs_end
 
         midas_blocks['duration'] = midas_blocks.apply(lambda row: row.end-row.start,axis=1)
         midas_blocks['offset'] = midas_blocks.start - obs_start
 
-        self.merged = midas_blocks[midas_blocks.offset>pd.Timedelta(0)]
+        self.merged = midas_blocks[midas_blocks.offset>=pd.Timedelta(0)]
         self.merged = self.merged.reset_index(drop=True)
 
         return
@@ -1367,7 +1367,7 @@ class ptrm:
             obs_ax.get_yaxis().set_ticks([])
 
         if type(selected) != bool:
-            ax.set_xlim(observations.start_time.values, observations.end_time.values)
+            ax.set_xlim(observations.start_time.values[0], observations.end_time.values[0])
             hours = observations.duration.values / np.timedelta64(1, 'h')
 
             ax.set_title('Selected observation: %s (COUNT=%i), duration %i hours' % \
@@ -1627,7 +1627,7 @@ class itl:
             'offset': timedelta(seconds=current_block.offset/np.timedelta64(1, 's'))
         })
 
-        print('INFO: block %i has duration %s' % (index, self. current_block['duration']))
+        print('INFO: block %i (of %i) has duration %s' % (index, len(blocks)-1, self.current_block['duration']))
 
         self.time = self.current_block['offset'] + offset
         self.abs_time = self.current_obs.start_time + self.time

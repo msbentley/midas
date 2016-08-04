@@ -1152,12 +1152,17 @@ class ptrm:
 
         for slot in slots:
             start = pd.Timestamp(slot.find('startTime').text)
-            end = pd.Timestamp(slot.find('endTime').text)
             start_list.append(start)
-            end_list.append(end)
-            # slot_list.append(slot_txt)
 
-        return pd.DataFrame( zip(start_list, end_list, slot_num), columns=['start','end','slot'] )
+        slots = pd.DataFrame( zip(start_list, slot_num), columns=['start','slot'] )
+        slots['end'] = slots.start.shift(-1)
+
+        # find the time of the last block
+        last_block = ptr.findall('body/segment/data/timeline/block')[-1]
+        last_time = last_block.find('endTime').text
+        slots.set_value(slots.index[-1], 'end', last_time)
+
+        return slots
 
 
     def read(self, filename):
@@ -1288,6 +1293,47 @@ class ptrm:
 
         return
 
+
+    def show_slots(self, start=None, end=None, show=True):
+
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as md
+        import matplotlib.transforms as transforms
+
+        slots = self.get_slots()
+        slots['centre'] = slots.start + (slots.end-slots.start)/2.
+
+        fig, ax = plt.subplots()
+        ax.grid(True)
+        fig.autofmt_xdate()
+        ax.set_ylabel('')
+        xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+        ax.xaxis.set_major_formatter(xfmt)
+        ax.get_yaxis().set_ticks([])
+        trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+
+        for idx, slot in slots.iterrows():
+            ax.axvline(slot.start, color='r', linewidth=2.)
+            ax.axvline(slot.end, color='r', linewidth=2.)
+            ax.text(slot.centre, 0.9, 'SLOT %i' % slot.slot, rotation=90, transform=trans, clip_on=True, ha='center', va='center')
+
+            if start is None:
+                start = slots.start.min()
+            else:
+                if type(start)==str:
+                    start = pd.Timestamp(start)
+            if end is None:
+                end = slots.end.max()
+            else:
+                if type(end)==str:
+                    end = pd.Timestamp(end)
+
+            ax.set_xlim(start, end)
+
+        if show:
+            plt.show()
+
+        return ax
 
 
     def show(self, observations=False, selected=False):
@@ -2276,6 +2322,11 @@ class itl:
         if self.retr_m3 > 0: mag_chans += 1
         acreep = 0 if not self.anti_creep else 2**self.acreep
 
+        if auto:
+            xpixels = self.xsteps
+            ypixels = self.ysteps
+            print('INFO: calculating duration based on the following x/y steps: (%d,%d)' % (xpixels,ypixels))
+
         duration_s = scanning.calc_duration(
             xpoints=xpixels, ypoints=ypixels,
             zretract=zretract, zstep=zstep,
@@ -2877,7 +2928,7 @@ class itl:
                 proc['template'] = 'LINE_CON_SURF'
             else:
                 proc['template'] = 'LINE_SURF'
-        else:
+        else:#
             if contact:
                 proc['template'] = 'LINE_CONTACT'
             else:

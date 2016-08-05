@@ -1294,7 +1294,7 @@ class ptrm:
         return
 
 
-    def show_slots(self, start=None, end=None, show=True):
+    def show_slots(self, start=None, end=None, ocms=False, show=True):
 
         import matplotlib.pyplot as plt
         import matplotlib.dates as md
@@ -1312,23 +1312,29 @@ class ptrm:
         ax.get_yaxis().set_ticks([])
         trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
 
+        if start is None:
+            start = slots.start.min()
+        else:
+            if type(start)==str:
+                start = pd.Timestamp(start)
+        if end is None:
+            end = slots.end.max()
+        else:
+            if type(end)==str:
+                end = pd.Timestamp(end)
+
         for idx, slot in slots.iterrows():
             ax.axvline(slot.start, color='r', linewidth=2.)
             ax.axvline(slot.end, color='r', linewidth=2.)
             ax.text(slot.centre, 0.9, 'SLOT %i' % slot.slot, rotation=90, transform=trans, clip_on=True, ha='center', va='center')
 
-            if start is None:
-                start = slots.start.min()
-            else:
-                if type(start)==str:
-                    start = pd.Timestamp(start)
-            if end is None:
-                end = slots.end.max()
-            else:
-                if type(end)==str:
-                    end = pd.Timestamp(end)
+        ax.set_xlim(start, end)
 
-            ax.set_xlim(start, end)
+        if ocms:
+            # List OCMs in order to overplot
+            ocms = self.ptrm[ (self.ptrm.Activity=='MOCM') & (self.ptrm.Start >= start) & (self.ptrm.End <= end)]
+            for idx, ocm in ocms.iterrows():
+                ax.axvspan(ocm.Start,ocm.End, facecolor='g', alpha=0.3)
 
         if show:
             plt.show()

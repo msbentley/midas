@@ -1289,6 +1289,7 @@ class ptrm:
         midas_blocks['offset'] = midas_blocks.start - obs_start
 
         self.merged = midas_blocks[midas_blocks.offset>=pd.Timedelta(0)]
+        self.merged = midas_blocks[midas_blocks.duration>pd.Timedelta(0)]
         self.merged = self.merged.reset_index(drop=True)
 
         return
@@ -1839,6 +1840,12 @@ class itl:
 
         params = { 'template': 'POWER_OFF', 'params': {} }
         self.generate(params, timedelta(seconds=0))
+
+
+    def standby(self):
+        """Switch MIDAS to standby mode (all subsystems OFF)."""
+
+        self.power_subsys()
 
 
     def power_subsys(self, cssc_on=False, app_on=False, lin_on=False, preamp_on=False, block1_on=False, block2_on=False,

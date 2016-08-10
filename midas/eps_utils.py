@@ -397,6 +397,7 @@ def plot_eps_output(power, data, start=False, end=False, observations=False):
 
     ax_right = ax.twinx()
     if start:
+        start = data[data.index>start].iloc[0].name
         data_line = ax_right.plot(
             data.index, data.mem_accum - data.mem_accum.loc[start], 'b', label='Memory (Mb)')
     else:

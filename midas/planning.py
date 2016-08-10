@@ -2355,12 +2355,18 @@ class itl:
         # line scan 1072 bytes per line (32-512 points)
         if self.line_tx:
             num_lines = ypixels if mainscan_x else xpixels
+            print(num_lines)
             line_data_bytes = (num_lines*1072)
         else:
             line_data_bytes = 0
 
+        if debug: print('DEBUG: line data (bytes): %d' % line_data_bytes)
+
         # data from image scan headers and packets
         image_data_bytes = ntypes * (80 + 2096 * xpixels * ypixels / 1024)
+
+        if debug: print('DEBUG: image data (bytes): %d' % image_data_bytes)
+
         data_bytes = image_data_bytes + line_data_bytes
 
         # n*(80 + 2096*x*y/1024) - 80 bytes header, 2096 bytes packets per 1024 elements
@@ -2775,9 +2781,6 @@ class itl:
 
         return
 
-# cantilever, facet, channels=['ZS','PH','ST'], openloop=True, xpixels=256, ypixels=256, xstep=15, ystep=15, xorigin=False, yorigin=False, \
-#    xlh=True, ylh=True, mainscan_x=True, tip_offset=False, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
-##    ac_gain=False, exc_lvl=False,
 
     def tile_scan(self, x_tiles, y_tiles, overlap, cantilever, facet, channels=['ZS','PH', 'ST'], openloop=True, xpixels=256, ypixels=256,
         xstep=15, ystep=15, xlh=True, ylh=True, mainscan_x=True, tip_offset=0, fadj=85.0, safety_factor=2.0, zstep=4, at_surface=False,

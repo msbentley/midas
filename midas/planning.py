@@ -769,7 +769,7 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
 
     seqs = []
     seqs = pd.DataFrame(
-        [(seq.name, seq.time, seq.label, int(seq.options.val)) for seq in itl.timeline if type(seq.time)==timedelta],
+        [(seq.name, seq.time, seq.label, int(seq.options[0].val)) for seq in itl.timeline if type(seq.time)==timedelta],
         columns=['sequence', 'reltime', 'event', 'cnt'] )
 
     # add the absolute time for each sequence according to event and count

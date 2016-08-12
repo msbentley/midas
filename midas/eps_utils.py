@@ -222,7 +222,7 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
 
     # Find the MTp level scenario file:
     # SCEN_MTP014P_01_01_________PTRM.ini
-    if mtp==33:
+    if mtp>=33:
         # SCEN_MTP033P_01_01_________RATT
         scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
                                       'SCEN_MTP%03i%c_01_01_________RATT.ini' % (mtp, case.upper())))

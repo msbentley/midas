@@ -2348,6 +2348,13 @@ class itl:
             ctrl=ctrl_data, mainscan_x=mainscan_x,
             mag_chans=mag_chans, acreep=acreep)
 
+        dur = pd.Timedelta(seconds=duration_s)
+        s = dur.seconds
+        hours, remainder = divmod(s, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        duration_fmt = '%03d_%02d:%02d:%02d' % (dur.days, hours, minutes, seconds)
+
         duration_m = (duration_s // 60) + 1
 
         # Calculate data rate to insert into the Z record
@@ -2475,7 +2482,8 @@ class itl:
             'scan_mode': common.scan_type.index(scan_mode),
             'zapp_pos': zapp_pos, # actually in the approach sequence
             'scan_algo': 1 if threshold else 0,
-            'xfer_mode': xfer_mode }
+            'xfer_mode': xfer_mode,
+            'duration': duration_fmt }
 
         zrec_params = { \
             'scan_data_rate': "%3.2f" % (data_rate) }

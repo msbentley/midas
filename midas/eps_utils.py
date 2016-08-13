@@ -110,13 +110,11 @@ def parse_itl(filename, header=True):
     # Optional Z record data
     zrec_param = pp.CaselessLiteral(
         'POWER_PROFILE') ^ pp.CaselessLiteral('DATA_RATE_PROFILE')
-    zrec_detail = relTime('time') + num('value') + \
-        pp.Optional(paramUnitType)('unit')
-    zrec = pp.OneOrMore(pp.Group(zrec_param('name') +
-                                 pp.Suppress('=') + pp.OneOrMore(zrec_detail)))
+    zrec_detail = pp.Group(relTime('time') + num('value') + pp.Optional(paramUnitType)('unit')).setResultsName('data', listAllMatches=True)
+    zrec = pp.Group(zrec_param('name') + pp.Suppress('=') + pp.OneOrMore(zrec_detail)).setResultsName('zrec', listAllMatches=True)
 
     sequence = alphanumunder('name') + pp.Optional(pp.Suppress('(') +
-        seqParams('params') + pp.Optional(zrec('zrec')) + pp.Suppress(')'))
+        seqParams('params') + pp.ZeroOrMore(zrec) + pp.Suppress(')'))
 
     timeline_entry = pp.Group(pp.Or(
         [ eventLabel('label') + pp.Optional(eventOptions('options')) + relTime('time'),

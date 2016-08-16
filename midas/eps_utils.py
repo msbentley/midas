@@ -111,7 +111,7 @@ def parse_itl(filename, header=True):
     zrec_param = pp.CaselessLiteral(
         'POWER_PROFILE') ^ pp.CaselessLiteral('DATA_RATE_PROFILE')
     zrec_detail = pp.Group(relTime('time') + num('value') + pp.Optional(paramUnitType)('unit')).setResultsName('data', listAllMatches=True)
-    zrec = pp.Group(zrec_param('name') + pp.Suppress('=') + pp.OneOrMore(zrec_detail)).setResultsName('zrec', listAllMatches=True)
+    zrec = (zrec_param('name') + pp.Suppress('=') + pp.OneOrMore(zrec_detail)).setResultsName('zrec', listAllMatches=True)
 
     sequence = alphanumunder('name') + pp.Optional(pp.Suppress('(') +
         seqParams('params') + pp.ZeroOrMore(zrec) + pp.Suppress(')'))
@@ -527,12 +527,110 @@ def count_all_tcs(eps_path, mtp=None, stp=None):
     return dict(zip(common.instruments.keys(), num_tcs))
 
 
-def datavol(itl_file, evf_file, plot=False):
+def datavol_old(itl_file, evf_file, plot=False):
 
     itl = parse_itl(itl_file)
     evf_start, evf_end, event_list = planning.read_evf(evf_file)
 
     times = pd.Series([seq.time for seq in itl.timeline])
+    duration = pd.Timedelta(evf_end-evf_start)
+    last_time = duration-times.iloc[-1]
+    deltatimes = times.diff()[1:].append(pd.Series(last_time)).reset_index(drop=True)
+    seconds = deltatimes.apply( lambda t: t.seconds )
+
+    zrecs = [seq.zrec[0] for seq in itl.timeline]
+    zrecs = [zrec for zrec in zrecs if len(zrec)>0]
+    bitrate = pd.Series([zrec.data[0].value for zrec in zrecs if zrec.name=='DATA_RATE_PROFILE'])
+    bitrate = pd.to_numeric(bitrate)
+    dv = pd.DataFrame(bitrate * seconds).set_index(times+evf_start)
+
+    if plot:
+
+        import matplotlib.dates as md
+
+        fig, ax = plt.subplots()
+        ax.plot(dv.cumsum(), label='dv')
+        ax.grid(True)
+        ax.set_xlabel('On-board time')
+        ax.set_ylabel('Data volume (bits)')
+        fig.autofmt_xdate()
+        plt.setp(ax.get_xticklabels(), rotation=45)
+        # xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+        # ax.xaxis.set_major_formatter(xfmt)
+        ax.yaxis.get_major_formatter().set_useOffset(False)
+
+    return dv.sum().squeeze() # (bitrate * seconds).sum()
+
+def datavol(itl_file, evf_file, plot=False):
+
+
+    itl = parse_itl(itl_file)
+    evf_start, evf_end, event_list = planning.read_evf(evf_file)
+
+
+    dv = 0.
+    reltime = 0.
+    bps = 0.
+
+    times = []
+    drate = []
+
+    for seq in itl.timeline:
+
+        if len(seq.zrec)>0: # process Z record data
+
+             data_rate_profile = [record for record in seq.zrec if record.name=='DATA_RATE_PROFILE'][0].data
+
+             for datarec in data_rate_profile:
+                 rec_time = (seq.time.total_seconds() + datarec.time.total_seconds())
+                 duration = rec_time - reltime
+                 dv += duration * bps
+                 bps = float(datarec.value)
+                 reltime = rec_time
+                 times.append(evf_start+pd.Timedelta(seconds=reltime))
+                 drate.append(dv)
+
+    itl_dur = (evf_end-evf_start).total_seconds()
+    if itl_dur > reltime:
+        times.append(evf_end)
+        drate.append(dv + bps * (itl_dur-reltime))
+
+    datavol = pd.DataFrame(drate, columns=['drate']).set_index(pd.Series(times))
+
+    if plot:
+
+        import matplotlib.dates as md
+
+        fig, ax = plt.subplots()
+        ax.plot(datavol, label='dv')
+        ax.grid(True)
+        ax.set_xlabel('On-board time')
+        ax.set_ylabel('Data volume (bits)')
+        fig.autofmt_xdate()
+        plt.setp(ax.get_xticklabels(), rotation=45)
+        ax.yaxis.get_major_formatter().set_useOffset(False)
+
+    return datavol.iloc[-1].squeeze()
+
+
+
+
+
+
+
+
+
+
+
+    times = pd.Series([seq.time for seq in itl.timeline])
+
+
+
+
+
+
+
+
     duration = pd.Timedelta(evf_end-evf_start)
     last_time = duration-times.iloc[-1]
     deltatimes = times.diff()[1:].append(pd.Series(last_time)).reset_index(drop=True)

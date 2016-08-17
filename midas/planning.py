@@ -724,9 +724,9 @@ def read_itlm(filename):
         # Extract power and data specs from Z records
         for zrec in entry.zrec:
             if zrec.name == 'DATA_RATE_PROFILE':
-                seq['drate'] = float(zrec.value)
+                seq['drate'] = float(zrec.data[0].value)
             elif zrec.name == 'POWER_PROFILE':
-                seq['power'] = float(zrec.value)
+                seq['power'] = float(zrec.data[0].value)
 
         # entries are not always given for switch off - ensure that we zero out
         # the data and power if the switch-off sequence is found

@@ -1606,7 +1606,8 @@ class itl:
                 exceeded = -remaining # end_time - self.current_block['offset'] + self.current_block['duration']
                 print('WARNING: observation is %s too long for block %i' % (exceeded, self.current_block['index']))
             else:
-                print('INFO: %s left in block %i' % (remaining,self.current_block['index']))
+                print('INFO: %s left in observation %s (%d), block %i' %
+                    (remaining, self.current_obs.obs_type, self.current_obs.obs_id, self.current_block['index']))
 
         # Add the ITL regardless (some time over-runs are "soft")
         self.itl.append(template)

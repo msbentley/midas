@@ -165,8 +165,8 @@ def run_daily():
         tcorr = dds_utils.get_timecorr(outputpath=tlm_dir)
 
     # Check for new auto-pushed files from FDyn
-    print('\nINFO: Retrieving FDyn auto-pushed files')
-    dds_utils.get_fdyn_files(fdyn_path)
+    # print('\nINFO: Retrieving FDyn auto-pushed files')
+    # dds_utils.get_fdyn_files(fdyn_path)
 
     # Check for new OFPM-pushed files from SGS
     print('\nINFO: Retrieving RSGS OFPM pushed files\n')

@@ -62,6 +62,7 @@ other_templates = {
     'POWER_ON': 'ITLS_MD_POWER_ON.itl',
     'POWER_OFF': 'ITLS_MD_POWER_OFF.itl',
     'SUBSYS_ONOFF': 'ITLS_MD_SUBSYS_ON_OFF.itl',
+    'SUBSYS_OFF' : 'ITLS_MD_SUBSYS_OFF.itl',
     'FSCAN': 'ITLS_MD_FSCAN.itl',
     'CANT_SURVEY': 'ITLS_MD_FSCAN_SURVEY_CANT.itl',
     'ABORT': 'ITLS_MD_ABORT.itl',
@@ -1846,7 +1847,7 @@ class itl:
     def standby(self):
         """Switch MIDAS to standby mode (all subsystems OFF)."""
 
-        self.power_subsys()
+        self.generate({'template': 'SUBSYS_OFF', 'params': {}}, timedelta(minutes=1))
 
 
     def power_subsys(self, cssc_on=False, app_on=False, lin_on=False, preamp_on=False, block1_on=False, block2_on=False,
@@ -2364,7 +2365,6 @@ class itl:
         # line scan 1072 bytes per line (32-512 points)
         if self.line_tx:
             num_lines = ypixels if mainscan_x else xpixels
-            print(num_lines)
             line_data_bytes = (num_lines*1072)
         else:
             line_data_bytes = 0

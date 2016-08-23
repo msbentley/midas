@@ -375,7 +375,7 @@ def read_output(directory='.', ng=True):
     return power, data
 
 
-def plot_eps_output(power, data, start=False, end=False, observations=False):
+def plot_eps_output(power, data, start=False, end=False, observations=False, show=True):
     """Plot the EPS output (average power and data). If an MTP observation set is given, also
     plot the envelope resources"""
 
@@ -444,9 +444,10 @@ def plot_eps_output(power, data, start=False, end=False, observations=False):
         ax.plot(times, mtp_power, color='b', label='MTP envelope power')
         ax_right.plot(times, mtp_data, color='r', label='MTP envelope data')
 
-    plt.show()
+    if show:
+        plt.show()
 
-    return
+    return ax
 
 
 def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instrument='MIDAS', return_tcs=False, inc_time=False):

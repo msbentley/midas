@@ -90,8 +90,9 @@ def array_to_vtk(data, vtkfile, xlen=1.0, ylen=1.0, name=''):
         print('ERROR: data must be a 2D array!')
         return None
 
-    fldata = data.view('float')
-    fldata[:] = data
+    # fldata = data.view('float')
+    # fldata[:] = data
+    fldata = np.array(data, dtype=float)
 
     with open(vtkfile, 'w') as f:
         f.write('# vtk DataFile Version 2.0\n')

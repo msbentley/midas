@@ -50,7 +50,7 @@ memory_size = 32 * 32 * 512
 zcal = 0.164 # nm/bit
 xycal = {'open': 3.81384, 'closed': 1.388889} # nm/bit
 linearcal = 1.e-3/1.75 # V/um
-xyorigin = 106792
+xyorigin = {'open': -106792, 'closed': 0} # 28000 in openloop, 28000 * xycal['open']
 
 # freq_cal =  3.e6/2.**32
 # M.S.Bentley 13/12/2014 - frequency start values were not quite being correctly calculated

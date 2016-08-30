@@ -515,15 +515,30 @@ def planesub(bcrdata):
 # The origin and step sizes are calculated into "real" units in the BCR file
 # here we want them back in XY table pixels
 
-def get_origin(bcrdata):
-    xorigin = int(round((bcrdata['xoffset']*1000 + common.xyorigin)/common.xycal['open'])-1)
-    yorigin = int(round((bcrdata['yoffset']*1000 + common.xyorigin)/common.xycal['open'])-1)
-    return xorigin,yorigin
+def get_origin(bcrdata, xopen=True, yopen=True):
 
-def set_origin(xorigin, yorigin):
-    xoffset = xorigin * common.xycal['open'] + common.xyorigin/1000.
-    yoffset = yorigin * common.xycal['open'] + common.xyorigin/1000.
-    return xoffset,yoffset
+    xopen_str = 'open' if xopen else 'closed'
+    yopen_str = 'open' if yopen else 'closed'
+
+    xorigin = int(round((bcrdata['xoffset']*1000 + common.xyorigin[xopen_str])/common.xycal[xopen_str])-1)
+    yorigin = int(round((bcrdata['yoffset']*1000 + common.xyorigin[yopen_str])/common.xycal[yopen_str])-1)
+
+    return xorigin, yorigin
+
+def set_origin(xorigin, yorigin, xopen=True, yopen=True):
+
+    xopen_str = 'open' if xopen else 'closed'
+    yopen_str = 'open' if yopen else 'closed'
+
+    xcal = common.xycal['open'] if xopen else common.xycal['closed']
+    ycal = common.xycal['open'] if yopen else common.xycal['closed']
+
+    # xOrigin*xPosCal[0] + xPosCal[1])/1000.0
+
+    xoffset = (xorigin * common.xycal['open'] + common.xyorigin[xopen_str])/1000.
+    yoffset = (yorigin * common.xycal['open'] + common.xyorigin[yopen_str])/1000.
+
+    return xoffset, yoffset
 
 def get_step(bcrdata):
     xstep = int(round( bcrdata['xlength'] / (bcrdata['xpixels']-1) / common.xycal['open'] ))

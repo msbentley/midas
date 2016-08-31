@@ -829,7 +829,7 @@ def to_bcr(images, outputdir='.'):
 
         bcrdata = {}
 
-        xoffset, yoffset = bcrutils.set_origin(image.x_orig,image.y_orig)
+        xoffset, yoffset = bcrutils.set_origin(image.x_orig,image.y_orig, xopen=not image.x_closed, yopen=not image.y_closed)
 
         bcrdata['xpixels'] = image.xsteps
         bcrdata['ypixels'] = image.ysteps

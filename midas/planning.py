@@ -2311,6 +2311,13 @@ class itl:
         if type(xorigin)==bool and type(yorigin)==bool:
             xorigin, yorigin = table_centre(xpixels, ypixels, xstep, ystep, openloop=openloop)
 
+        # Check upper DAC bounds
+        xend = xorigin + xstep * xpixels
+        yend = yorigin + ystep * ypixels
+        if (xend>65535) or (yend>65535):
+            print('ERROR: command scan exceeds possible DAC positions (%d,%d)' % (xend, yend))
+            return None
+
         # Calculate the approach position (DAC values)
         app_x = xorigin if xlh else xorigin + xstep * xpixels
         app_y = yorigin if ylh else yorigin + ystep * ypixels

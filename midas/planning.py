@@ -359,7 +359,7 @@ def pstp_itl(itl_file, evf_file):
 
     # Read the ITL and check for the placeholder SQ
     stp_itl = eps_utils.parse_itl(itl_file)
-    sqs = [sq.name for sq in stp_itl.timeline]
+    sqs = [sq.sqname for sq in stp_itl.timeline]
     if placeholder not in sqs:
         print('ERROR: no PSTP high res scan placeholder found in this ITL')
         return False
@@ -731,7 +731,7 @@ def read_itlm(filename):
 
         # entries are not always given for switch off - ensure that we zero out
         # the data and power if the switch-off sequence is found
-        if entry.sequence.name == 'AMDF041A':
+        if entry.sequence.sqname == 'AMDF041A':
             seq['drate'] = 0.0
             seq['power'] = 0.0
 
@@ -770,7 +770,7 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
 
     seqs = []
     seqs = pd.DataFrame(
-        [(seq.name, seq.time, seq.label, int(seq.options[0].val)) for seq in itl.timeline if type(seq.time)==timedelta],
+        [(seq.sqname, seq.time, seq.label, int(seq.options[0].val)) for seq in itl.timeline if type(seq.time)==timedelta],
         columns=['sequence', 'reltime', 'event', 'cnt'] )
 
     # add the absolute time for each sequence according to event and count
@@ -1296,7 +1296,7 @@ class ptrm:
         return
 
 
-    def show_slots(self, start=None, end=None, ocms=False, show=True):
+    def show_slots(self, start=None, end=None, ocms=False, show=True, ax=None):
 
         import matplotlib.pyplot as plt
         import matplotlib.dates as md
@@ -1305,7 +1305,11 @@ class ptrm:
         slots = self.get_slots()
         slots['centre'] = slots.start + (slots.end-slots.start)/2.
 
-        fig, ax = plt.subplots()
+        if ax is None:
+            fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
+
         ax.grid(True)
         fig.autofmt_xdate()
         ax.set_ylabel('')
@@ -1328,7 +1332,7 @@ class ptrm:
         for idx, slot in slots.iterrows():
             ax.axvline(slot.start, color='r', linewidth=2.)
             ax.axvline(slot.end, color='r', linewidth=2.)
-            ax.text(slot.centre, 0.9, 'SLOT %i' % slot.slot, rotation=90, transform=trans, clip_on=True, ha='center', va='center')
+            ax.text(slot.centre, 0.8, 'SLOT %i' % slot.slot, rotation=90, transform=trans, clip_on=True, ha='center', va='center')
 
         ax.set_xlim(start, end)
 

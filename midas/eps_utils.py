@@ -113,7 +113,7 @@ def parse_itl(filename, header=True):
     zrec_detail = pp.Group(relTime('time') + num('value') + pp.Optional(paramUnitType)('unit')).setResultsName('data', listAllMatches=True)
     zrec = (zrec_param('name') + pp.Suppress('=') + pp.OneOrMore(zrec_detail)).setResultsName('zrec', listAllMatches=True)
 
-    sequence = alphanumunder('name') + pp.Optional(pp.Suppress('(') +
+    sequence = alphanumunder('sqname') + pp.Optional(pp.Suppress('(') +
         seqParams('params') + pp.ZeroOrMore(zrec) + pp.Suppress(')'))
 
     timeline_entry = pp.Group(pp.Or(
@@ -375,15 +375,17 @@ def read_output(directory='.', ng=True):
     return power, data
 
 
-def plot_eps_output(power, data, start=False, end=False, observations=False, show=True):
+def plot_eps_output(power, data, start=False, end=False, observations=False, show=True, ax=None):
     """Plot the EPS output (average power and data). If an MTP observation set is given, also
     plot the envelope resources"""
 
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
 
     ax.set_title('Power and data for MIDAS in the EPS')
 

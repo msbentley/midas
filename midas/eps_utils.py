@@ -300,6 +300,29 @@ def read_latency(directory='.'):
     return latency
 
 
+def read_modes(directory='.'):
+    """Reads the the modes.out EPS file and returns
+    the MIDAS-related contents as a df"""
+
+    modesfile = os.path.join(directory, 'modes.out')
+    if not os.path.isfile(modesfile):
+        print('ERROR: modes.out file not found in directory %s' % (directory))
+        return None
+
+    cols = ['time', 'ROSETTA', 'ANTENNA', 'ALICE', 'CONSERT', 'COSIMA', 'GIADA', 'LANDER', 'MIDAS', 'MIRO', 'NAVCAM',
+        'OSIRIS', 'ROSINA', 'RPC', 'SREM', 'RSI', 'VIRTIS', 'SSMM', 'SGS', 'STR', 'ROSETTA_POINTIN']
+
+    modes = pd.read_table(modesfile, header=None, skiprows=27, names=cols,
+        skipinitialspace=True, delimiter=' ', comment='#', skip_blank_lines=True, index_col=False,
+        usecols=[0,8])
+
+    modes['time'] = modes['time'].apply(lambda time: parser.parse(" ".join(time.split('_'))))
+    modes.set_index('time', drop=True, inplace=True)
+
+    return pd.Series(modes.MIDAS)
+
+
+
 
 def read_output(directory='.', ng=True):
     """Reads the power and data EPS output files."""
@@ -561,11 +584,13 @@ def datavol_old(itl_file, evf_file, plot=False):
         # xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
         # ax.xaxis.set_major_formatter(xfmt)
         ax.yaxis.get_major_formatter().set_useOffset(False)
+        plt.show()
 
     return dv.sum().squeeze() # (bitrate * seconds).sum()
 
 def datavol(itl_file, evf_file, plot=False):
 
+    # TODO - fix for the case where we have multiple observations in a single ITL/EVF pair (cumulative value is right, but plot is not!)
 
     itl = parse_itl(itl_file)
     evf_start, evf_end, event_list = planning.read_evf(evf_file)

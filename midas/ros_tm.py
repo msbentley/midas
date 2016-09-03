@@ -5315,6 +5315,126 @@ def wheel_aborts():
     return wheel_evts
 
 
+def compare_power(mtp, stp, case='P', ax=None, show_events=None):
+    """Accepts an STP, loads the corresponding MTP EPS run (if it doesn't exist, the EPS
+    is executed first) and the s/c TLM file to compare predicted and actual power usage.
+
+    If show_events=True then *actual* events are overplotted."""
+
+    import eps_utils, glob
+    import matplotlib.transforms as transforms
+
+
+    mtp_folder = os.path.expanduser('~/Dropbox/work/midas/operations/MTP%03i%c/' % (mtp,case.upper()))
+    power, data = eps_utils.read_output(os.path.join(mtp_folder, 'eps'), ng=True)
+
+    sc_files = glob.glob(os.path.join(common.tlm_path, 'TLM__SC_*%03d*.DAT' % stp))
+    sc_tm = tm(sc_files)
+
+    if show_events is not None:
+
+        md_files = glob.glob(os.path.join(common.tlm_path, 'TLM__MD_*%03d*.DAT' % stp))
+        md_tm = tm(md_files)
+
+        events = md_tm.get_events(ignore_giada=True, verbose=False)
+
+    lcl_curr = sc_tm.get_param('NPWDA548')
+    real_pwr = 28.*lcl_curr
+
+    start = max( power.index.min(), real_pwr.index.min() )
+    end = min( power.index.max(), real_pwr.index.max() )
+
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+
+    real_line = ax.plot( real_pwr.index, real_pwr, 'b-', label='real power' )
+    predict_line = ax.plot( power.index, power.MIDAS, 'r-', label='predicted power' )
+
+    ax.set_ylabel('Power consumption (W)')
+    ax.grid(True)
+    ax.set_xlim( start, end )
+
+    plt.setp(ax.get_xticklabels(), rotation=45)
+    leg = ax.legend(loc=0, prop={'size':10}, fancybox=True)
+
+    if show_events is not None:
+
+        events = md_tm.get_events(ignore_giada=True, verbose=False)
+
+        if show_events=='scan':
+            # 42656 - EvFullScanStarted
+            # 42756 - EvFullScanAborted
+            # 42513 - EvScanFinished
+            # 42713 - EvScanAborted
+            scan_events = [42656, 42756, 42513, 42713]
+            events = events[events.sid.isin(scan_events)]
+
+        elif show_events=='wheel':
+            # 42904 - EvSegSearchTimeout
+            # 42592 - EvSegmentFound
+            # 42591 - EvSearchForRefPulse
+            scan_events = [42904, 42592, 42591]
+            events = events[events.sid.isin(scan_events)]
+
+        elif show_events=='fscan':
+            # 42641 - EvFScanStarted
+            # 42645 - EvAutoFScanFinshed
+            scan_events = [42641, 42645]
+            events = events[events.sid.isin(scan_events)]
+
+        elif show_events=='lines':
+            # 42655 - EvLineScanStarted
+            # 42611 - EvLineScanFinished
+            scan_events = [42655, 42611]
+            events = events[events.sid.isin(scan_events)]
+
+        elif show_events=='approach':
+            # 42662 - EvApproachStarted
+            # 42664 - EvApproachFinished
+            # 42762 - EvApproachAborted
+            # 42764 - EvAppContact
+            # 42765 - EvAppError
+            # 42766 - EvApproachStuck
+            # 42906 - EvApproachTimeout
+            # 42916 - EvMoveAbortedApp
+            # 42917 - EvAppAbortedLin
+            # 42623	- EvSurfaceFound
+            # 42665	- EvZpiezoFineAdj
+            app_events = [42662, 42664, 42762, 42764, 42765, 42766, 42906, 42916, 42917, 42623, 42665 ]
+            events = events[events.sid.isin(app_events)]
+        elif show_events=='all':
+            # Ignore events that don't bring much diagonstic info or flood the plot
+            ignore_sids = [ \
+                42501, # TC accept
+                42701, # TC reject
+                42611, # EvLineScanFinished
+                42512, # EvScanProgress
+                42642, # EvFScanCycleStarted
+                42643, # EvFScanCycleFinished
+                42699] # KernelHello
+            events = events[-events.sid.isin(ignore_sids)]
+        else:
+            print('WARNING: invalid event label, ignoring')
+            events = pd.DataFrame()
+
+        # Fixing mark/MIDAS#2 - filter events to given time range first
+        events = events[ (events.obt>start) & (events.obt<end) ]
+
+        for idx, event in events.iterrows():
+            ax.axvline(event.obt,color='r')
+            trans = transforms.blended_transform_factory(ax.transData, ax.transAxes)
+            ax.text(event.obt,0.9, event.event,rotation=90, transform=trans, clip_on=True)
+
+    fig.tight_layout()
+
+    plt.show()
+
+    return
+
+
+
 if __name__ == "__main__":
 
     print('WARNING: this module cannot be called interactively')

@@ -62,6 +62,10 @@ freq_lo_cal = 45.769644 / 65535.
 centre_open = 44500
 centre_closed = 32768 # TODO FIXME
 
+modes = ['OFF', 'STANDBY', 'EXPOSURE', 'MOVE_LINEAR_STAGE', 'MOVE_WHEEL',
+    'APPROACH', 'SCAN', 'LINEAR_STAGE_SETUP', 'FREQ_SCAN', 'HIGH_RES_SCAN',
+   'KERNEL', 'IMAGE_PROC_DATA_TX', 'CALIBRATION', 'PREPARE_SCAN']
+
 # FM linear positions (hard coded)
 # Tip Centre [V]       [mm]     Min [V]           [mm]          Max [V]    [mm]
 #

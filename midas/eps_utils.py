@@ -300,9 +300,12 @@ def read_latency(directory='.'):
     return latency
 
 
-def read_modes(directory='.'):
+def read_modes(directory='.', expand_modes=True):
     """Reads the the modes.out EPS file and returns
-    the MIDAS-related contents as a df"""
+    the MIDAS-related contents as a df.
+
+    If expand_modes=True the abbreviated mode names given
+    in the modes.out file are expanded to their full versions."""
 
     modesfile = os.path.join(directory, 'modes.out')
     if not os.path.isfile(modesfile):
@@ -318,8 +321,13 @@ def read_modes(directory='.'):
 
     modes['time'] = modes['time'].apply(lambda time: parser.parse(" ".join(time.split('_'))))
     modes.set_index('time', drop=True, inplace=True)
+    modes = pd.Series(modes.MIDAS)
 
-    return pd.Series(modes.MIDAS)
+    if expand_modes:
+        abb_modes = [mode[0:15] for mode in common.modes]
+        modes = modes.apply( lambda mode: common.modes[abb_modes.index(mode)])
+
+    return modes
 
 
 

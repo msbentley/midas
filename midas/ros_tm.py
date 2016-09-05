@@ -2914,7 +2914,7 @@ class tm:
 
 
 
-    def plot_params(self, param_names, start=False, end=False, label_events=None, symbol=True, line=''):
+    def plot_params(self, param_names, start=False, end=False, label_events=None, symbol=True, line='', axis=None):
         """Plot a TM parameter vs OBT. Requires a packet list and parameter
         name. start= and end= can be set to a string or DateTime to limit the returned
         data.
@@ -2956,8 +2956,12 @@ class tm:
             marker_left = None
             marker_right = None
 
-        plot_fig = plt.figure()
-        ax_left = plot_fig.add_subplot(1,1,1)
+        if axis is None:
+            plot_fig, ax_left = plt.subplots()
+        else:
+            ax_left = axis
+            plot_fig = ax_left.figure
+
         ax_left.set_prop_cycle(cycler('color', ['c', 'm', 'y', 'k']))
 
         if len(units)==2:
@@ -3075,9 +3079,12 @@ class tm:
                 ax_left.text(event.obt,0.9,event.event,rotation=90, transform=trans, clip_on=True)
 
         plot_fig.tight_layout()
-        plt.show()
 
-        return plot_fig
+        if axis is None:
+            plt.show()
+            return plot_fig
+        else:
+            return
 
 
     def plot_temps(self, start=False, end=False, cssc=False, label='scan', **kwargs):
@@ -5314,8 +5321,87 @@ def wheel_aborts():
 
     return wheel_evts
 
+def compare_modes(mtp, stp, case='P', axis=None, start=None, end=None, cmap=None):
 
-def compare_power(mtp, stp, case='P', ax=None, show_events=None):
+    import eps_utils
+    import matplotlib.cm as cm
+    import matplotlib.dates as md
+
+    mtp_folder = os.path.expanduser('~/Dropbox/work/midas/operations/MTP%03i%c/' % (mtp,case.upper()))
+    eps_folder = os.path.join(mtp_folder, 'eps')
+
+    # Use the EPS modes.out file to produce a list of mode transitions that
+    # can be plot on the chart if requested.
+
+    modes = eps_utils.read_modes(eps_folder, expand_modes=True)
+
+    times = []
+    mid_modes = []
+    curr_mode = None
+
+    for idx, (time, mode)  in enumerate(modes.iteritems()):
+        if mode==curr_mode:
+            continue
+        curr_mode = mode
+        mid_modes.append(mode)
+        times.append(time)
+
+    modes = pd.Series(index=times, data=mid_modes, name='mode')
+
+    num_modes = len(modes.unique())
+
+    # make a colour index with the correct number of colors, spanning the colourmap
+    if cmap is None:
+        colours = cm.get_cmap('gist_rainbow')
+    else:
+        colours = cm.get_cmap(cmap)
+
+    colour_list = [colours(1.*i/num_modes) for i in range(num_modes+2)]
+
+    if axis is None:
+        fig, ax = plt.subplots()
+    else:
+        ax = axis
+        fig = ax.figure
+
+    blocks = []
+    used = []
+
+    # fig.autofmt_xdate()
+    xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+    ax.xaxis.set_major_formatter(xfmt)
+    ax.xaxis_date()
+
+
+    for idx, (time, mode) in enumerate(modes.iloc[:-1].iteritems()):
+        colour = colour_list[modes.unique().tolist().index(mode)]
+        spam = ax.axvspan(modes.index[idx], modes.index[idx+1], facecolor=colour, alpha=0.7)
+        if mode not in used:
+            used.append(mode)
+            blocks.append(spam)
+
+    ax.grid(True)
+
+    if start is None:
+        start = modes.index.min()
+    if end is None:
+        end = modes.index.max()
+
+    ax.set_xlim(start, end)
+    plt.setp(ax.get_xticklabels(), rotation=45)
+    ax.get_yaxis().set_ticks([])
+
+    pt_legend = ax.legend(labels=used, handles=blocks, loc=0, fancybox=True)
+    pt_legend.get_frame().set_alpha(0.7)
+
+    if axis is None:
+        plt.show()
+
+    return modes
+
+
+
+def compare_power(mtp, stp, case='P', ax=None, show_events=None, start=None, end=None):
     """Accepts an STP, loads the corresponding MTP EPS run (if it doesn't exist, the EPS
     is executed first) and the s/c TLM file to compare predicted and actual power usage.
 
@@ -5323,10 +5409,12 @@ def compare_power(mtp, stp, case='P', ax=None, show_events=None):
 
     import eps_utils, glob
     import matplotlib.transforms as transforms
+    import matplotlib.dates as md
 
 
     mtp_folder = os.path.expanduser('~/Dropbox/work/midas/operations/MTP%03i%c/' % (mtp,case.upper()))
-    power, data = eps_utils.read_output(os.path.join(mtp_folder, 'eps'), ng=True)
+    eps_folder = os.path.join(mtp_folder, 'eps')
+    power, data = eps_utils.read_output(eps_folder, ng=True)
 
     sc_files = glob.glob(os.path.join(common.tlm_path, 'TLM__SC_*%03d*.DAT' % stp))
     sc_tm = tm(sc_files)
@@ -5341,20 +5429,27 @@ def compare_power(mtp, stp, case='P', ax=None, show_events=None):
     lcl_curr = sc_tm.get_param('NPWDA548')
     real_pwr = 28.*lcl_curr
 
-    start = max( power.index.min(), real_pwr.index.min() )
-    end = min( power.index.max(), real_pwr.index.max() )
+    if start is None:
+        start = max( power.index.min(), real_pwr.index.min() )
+    if end is None:
+        end = min( power.index.max(), real_pwr.index.max() )
 
     if ax is None:
         fig, ax = plt.subplots()
     else:
         fig = ax.figure
 
+    fig.autofmt_xdate()
+    xfmt = md.DateFormatter('%Y-%m-%d %H:%M:%S')
+    ax.xaxis.set_major_formatter(xfmt)
+    # ax.xaxis_date()
+
     real_line = ax.plot( real_pwr.index, real_pwr, 'b-', label='real power' )
     predict_line = ax.plot( power.index, power.MIDAS, 'r-', label='predicted power' )
 
     ax.set_ylabel('Power consumption (W)')
     ax.grid(True)
-    ax.set_xlim( start, end )
+    ax.set_xlim(start, end)
 
     plt.setp(ax.get_xticklabels(), rotation=45)
     leg = ax.legend(loc=0, prop={'size':10}, fancybox=True)
@@ -5431,7 +5526,7 @@ def compare_power(mtp, stp, case='P', ax=None, show_events=None):
 
     plt.show()
 
-    return
+    return real_pwr, power.MIDAS
 
 
 

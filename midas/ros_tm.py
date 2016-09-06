@@ -1669,7 +1669,7 @@ def locate_scans(images):
         y_centre = common.centre_closed if scan.y_closed else common.centre_open
         y_cal = common.xycal['closed'] if scan.y_closed else common.xycal['open']
         y_cal /= 1000.
-        y_offset = (scan.y_orig - y_centre) * y_cal
+        y_offset = (y_centre - scan.y_orig) * y_cal
 
         # Take the cantilever and linear stage position into account for X position
         left = ( (scan.lin_pos-common.lin_centre_pos_fm[int(scan.tip_num)-1]) / common.linearcal ) + x_offset
@@ -1682,7 +1682,6 @@ def locate_scans(images):
         if (scan.target==0) and (scan.wheel_pos>1016):
             seg_offset = -1*(seg_offset+1024)
         else:
-            # seg_offset = centre_seg - scan.wheel_pos
             seg_offset = scan.wheel_pos - centre_seg
 
         y_offset += common.seg_off_to_pos(seg_offset)

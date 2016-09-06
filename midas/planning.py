@@ -2400,6 +2400,9 @@ class itl:
             else:
                 data_bytes += (32 * 32 * 2096)
 
+        if xfer_mode==0:
+            data_bytes = 0
+
         if debug: print('DEBUG: scan generates %d bytes' % data_bytes)
         data_rate = (data_bytes*8/duration_s)
 

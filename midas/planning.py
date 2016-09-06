@@ -2205,7 +2205,7 @@ class itl:
         xlh=True, ylh=True, mainscan_x=True, tip_offset=0, safety_factor=2.0, zstep=4, at_surface=False, pstp=False, fadj=85.0, op_amp=False, set_pt=False, \
         ac_gain=False, exc_lvl=False, auto=False, num_fcyc=8, fadj_numscans=2, set_start=True, z_settle=50, xy_settle=50, ctrl_data=False,
         op_delta=1., contact=False, threshold=False, segment=None, dc_set=False, zapp_pos=1.5, magnetic=False, retr_m1=0, clear_ram=True,
-        xfer_mode=1):
+        xfer_mode=1, abort_first=True):
         """Generic scan generator - minimum required is timing information, cantilever and facet - other parameters can
         be overridden if the defaults are not suitable. Generates an ITL fragment."""
 
@@ -2406,7 +2406,11 @@ class itl:
         if debug: print('DEBUG: scan generates %d bytes' % data_bytes)
         data_rate = (data_bytes*8/duration_s)
 
-        # If memory clear is requested, schedule this first!
+        # If an abort is requested, execute that first
+        if abort_first:
+            self.abort()
+
+        # If memory clear is requested, schedule this next
         if clear_ram:
             self.clear_ram()
 

@@ -1773,7 +1773,7 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
 
     for idx, scan in images.iterrows():
         edgecolor=closedcolor if scan.y_closed else opencolor
-        rect = Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor, picker=True)
+        rect = Rectangle((scan.x_orig_um, scan.y_orig_um), scan.xlen_um, -scan.ylen_um, fill=False, linewidth=1, edgecolor=edgecolor, picker=True)
         patches.append(rect)
         scan_names.append(scan.scan_file)
 

@@ -202,7 +202,8 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
     return True
 
 
-def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable_plugins=False, timestep=3600):
+def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable_plugins=False,
+        tlis=None, timestep=3600):
     """Runs the EPS-NG on MTP level products in the ROS_SGS repository"""
 
     import glob
@@ -218,42 +219,46 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
     if not os.path.exists(local_folder):
         os.makedirs(local_folder)
 
-    # Find the MTp level scenario file:
-    # SCEN_MTP014P_01_01_________PTRM.ini
-    if mtp>=33:
-        # SCEN_MTP033P_01_01_________RATT
-        scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
-                                      'SCEN_MTP%03i%c_01_01_________RATT.ini' % (mtp, case.upper())))
+    if tlis is None:
+
+        # Find the MTp level scenario file:
+        # SCEN_MTP014P_01_01_________PTRM.ini
+        if mtp>=33:
+            # SCEN_MTP033P_01_01_________RATT
+            scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
+                                          'SCEN_MTP%03i%c_01_01_________RATT.ini' % (mtp, case.upper())))
+        else:
+            scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
+                                          'SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
+        if len(scen) > 1:
+            print('ERROR: more than one scenario file present!')
+            return None
+
+        if len(scen)==0:
+            print('ERROR: cannot find scenario file %s' % ('SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
+            return None
+
+        # Open the scenario file and find the eventInputFile (EVF) file entry
+        evf = False
+        f = open(scen[0], 'r')
+        data = f.readlines()
+        for item in data:
+            if item.split('=')[0] == 'MTP_VER_A\InputData\TimelineEvents\eventInputFile':
+                evf = os.path.join(mtp_folder, item.split('=')[1].strip())
+                break
+        f.close()
+
+        if not evf:
+            print('ERROR: eventInputFile entry not found in scenario file %s' % scen)
+            return
+
     else:
-        scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
-                                      'SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
-    if len(scen) > 1:
-        print('ERROR: more than one scenario file present!')
-        return None
-
-    if len(scen)==0:
-        print('ERROR: cannot find scenario file %s' % ('SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
-        return None
-
-    # Open the scenario file and find the eventInputFile (EVF) file entry
-    evf = False
-    f = open(scen[0], 'r')
-    data = f.readlines()
-    for item in data:
-        if item.split('=')[0] == 'MTP_VER_A\InputData\TimelineEvents\eventInputFile':
-            evf = os.path.join(mtp_folder, item.split('=')[1].strip())
-            break
-    f.close()
-
-    if not evf:
-        print('ERROR: eventInputFile entry not found in scenario file %s' % scen)
-        return
+        evf = os.path.join(mtp_folder, tlis)
 
     # Find the latest TLIS*.evf and TLIS*.itl files
     # e.g. TLIS_PL_M009______01_A_OPS0001A.evf
     itl = glob.glob(os.path.join(
         mtp_folder, 'TLIS_PL_M%03i______01_%c_OPS?????.itl' % (mtp, case.upper())))
-    # evf=glob.glob(os.path.join(mtp_folder,'TLIS_PL_M%03i______01_%c_OPS?????.evf' % (mtp, case.upper())))
 
     if len(itl) != 1:  # or (len(evf)>1 or len(evf)==0):
         print('ERROR: cannot find latest TLIS ITL file')

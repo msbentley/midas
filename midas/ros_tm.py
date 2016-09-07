@@ -3685,7 +3685,7 @@ class tm:
 
 
     def get_images(self, info_only=False, rawheader=False, rawdata=False, sw_flags=False,
-        expand_params=False, unpack_status=False, add_retr=False):
+        expand_params=False, unpack_status=False, add_retr=False, skip_badsize=True):
         """Extracts images from telemetry packets. Setting info_only=True returns a
         dataframe containing the scan metadata, but no actual images.
 
@@ -3794,9 +3794,15 @@ class tm:
                 xsteps = image.xsteps_dir & 0x3ff
                 ysteps = image.ysteps_dir & 0x3ff
 
-                if (xsteps==0) or (ysteps==0):
-                    print('INFO: image at %s: invalid image dimensions (%i,%i), skipping...' % (obt_to_iso(image.start_time),xsteps,ysteps))
-                    continue
+                if skip_badsize:
+
+                    if (xsteps==0) or (ysteps==0):
+                        print('INFO: image at %s: invalid image dimensions (%i,%i), skipping...' % (obt_to_iso(image.start_time),xsteps,ysteps))
+                        continue
+
+                    if (image.x_step==0) or (image.y_step==0):
+                        print('INFO: image at %s: invalid image step size (%i,%i), skipping....' % (obt_to_iso(image.start_time), image.x_step, image.y_step))
+                        continue
 
                 main_y = bool(image.scan_type & 2**15) # False = X, True = Y
 

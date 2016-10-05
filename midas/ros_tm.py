@@ -3935,7 +3935,7 @@ class tm:
             for idx, img in old_images.iterrows():
                 frame = hk2[hk2.obt>img.start_time].index
                 if len(frame)==0:
-                    print('WARNING: no HK2 frame found after scan start at %s' % time)
+                    print('WARNING: no HK2 frame found after scan start at %s' % img.start_time)
                     continue
                 else:
                     frame = frame[0]

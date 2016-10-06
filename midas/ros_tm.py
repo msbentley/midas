@@ -5261,6 +5261,7 @@ def read_timecorr(tcorr_file='TLM__MD_TIMECORR.DAT'):
         delta_t_s = dds_header.scet1 + dds_header.scet2/1.e6
         # delta_t = timedelta(seconds=dds_header.scet1, microseconds=dds_header.scet2)
         validity = dds_obt_epoch + timedelta(seconds=delta_t_s)
+        validity = validity.replace(tzinfo=None)
 
         grad, offs, std, gent1, gent2 = struct.unpack('>3dIH',tcorr[pkt_len*pkt+dds_header_len:pkt_len*pkt+dds_header_len+pkt_dfield_len])
         gentime = obt_epoch + timedelta(seconds = gent1 + (gent2/2.**16))

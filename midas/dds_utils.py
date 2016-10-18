@@ -30,6 +30,7 @@ template_file = os.path.join(common.config_path, template_file)
 
 tcp_template = os.path.join(common.config_path,'tcp_dds_request.xml')
 single_template = os.path.join(common.config_path,'generic_dds_req.xml')
+cmh_template = os.path.join(common.config_path,'midas_cmh_request.xml')
 
 schema_file = 'GDDSRequest.xsd'
 schema_file = os.path.join(common.config_path, schema_file)
@@ -85,8 +86,9 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
         return 0
 
     # validate inputs
-    if apid not in ros_tm.midas_apids:
-        print('WARNING: APID %i invalid for MIDAS' % apid)
+    if apid is not None:
+        if apid not in ros_tm.midas_apids:
+            print('WARNING: APID %i invalid for MIDAS' % apid)
 
     if type(start_time)!=pd.Timestamp:
         start_time = pd.Timestamp(start_time)
@@ -104,8 +106,11 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
     start_time = start_time.strftime(isofmt)
     end_time = end_time.strftime(isofmt)
 
+    if os.path.basename(template_file)=='midas_cmh_request.xml':
+        request = 'MD_CMH_%s--%s' % (start_time, end_time)
+    else:
+        request = 'MD_TLM_%i_%s--%s' % (apid, start_time, end_time)
 
-    request = 'MD_TLM_%i_%s--%s' % (apid, start_time, end_time)
     request = request.replace(":","")
 
     if target and target not in dds_targets:
@@ -279,14 +284,15 @@ def request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, target=
     st = parser.parse(start_time) if (type(start_time) != pd.tslib.Timestamp and type(start_time) != datetime) else start_time
     et = parser.parse(end_time) if type(end_time) != pd.tslib.Timestamp else end_time
 
-    packet = ros_tm.pid[ (ros_tm.pid.apid==apid) & (ros_tm.pid.type==pkt_type) & (ros_tm.pid.subtype==pkt_subtype) & (ros_tm.pid.sid==sid) ]
-    if len(packet)==0:
-        print('ERROR: no packet found in the database for APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
-        return False
-    elif len(packet)>1:
-        print('ERROR: more than one packet found matching APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
-    else:
-        print('INFO: building request for packet %s' % packet.description.squeeze())
+    if apid is not None:
+        packet = ros_tm.pid[ (ros_tm.pid.apid==apid) & (ros_tm.pid.type==pkt_type) & (ros_tm.pid.subtype==pkt_subtype) & (ros_tm.pid.sid==sid) ]
+        if len(packet)==0:
+            print('ERROR: no packet found in the database for APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
+            return False
+        elif len(packet)>1:
+            print('ERROR: more than one packet found matching APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
+        else:
+            print('INFO: building request for packet %s' % packet.description.squeeze())
 
     # start_time, end_time, apid, pkt_type=None, pkt_subtype=None, template_file=template_file, target=False
     xml, request_id = generate_request(start_time=st, end_time=et, apid=apid, sid=sid, pkt_type=pkt_type, pkt_subtype=pkt_subtype, template_file=template_file, target=target)
@@ -487,6 +493,47 @@ def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=5):
     filelist = get_files(filename, outputpath=outputpath, apid=apid, outputfile='TLM__MD_TIMECORR.DAT', max_retry=max_retry, retry_delay=retry_delay)
 
     return filelist
+
+
+
+def get_tc_history(start_time, end_time, outputpath='.', outputfile='CMH.DAT', socks=False, max_retry=5, retry_delay=5):
+
+    from datetime import datetime
+
+    # st = parser.parse(start_time) if (type(start_time) != pd.tslib.Timestamp and type(start_time) != datetime) else start_time
+    # et = parser.parse(end_time) if type(end_time) != pd.tslib.Timestamp else end_time
+
+    filename = request_data(start_time, end_time, apid=None, sid=None, pkt_type=None, pkt_subtype=None, socks=socks, template_file=cmh_template)
+
+    print('INFO: waiting for DDS to service requests before starting retrieval...')
+
+    time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
+
+    filelist = get_files(filename, outputpath=outputpath, apid=None, outputfile=outputfile, max_retry=max_retry, retry_delay=retry_delay)
+
+    return filelist
+
+
+
+def get_tc_hist_per_obs(outputdir='.', socks=False, max_retry=10, retry_delay=5):
+
+    observations = read_obs_file()
+
+    obs_filenames = []
+
+    for idx, obs in observations.iterrows():
+
+        start = obs.start.isoformat()
+        end = obs.end.isoformat()
+
+        padded_name = obs.observation + (20-len(obs.observation)) * '_'
+        cmh_filename = 'CMH__MD_M%03d_S%03d_%s_COUNT_%02d.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
+
+        filename = get_tc_history(start, end, outputpath=outputdir, outputfile=cmh_filename, max_retry=max_retry, retry_delay=retry_delay)
+        obs_filenames.append(os.path.join(outputdir, cmh_filename))
+
+    return
+
 
 
 def get_single_pkt(start_time, end_time, apid, sid, pkt_type, pkt_subtype, outputfile=False, outputpath='.', socks=False, delfiles=True, max_retry=5, retry_delay=2):

@@ -46,6 +46,16 @@ dds_header_fmt = '>3I2H2B'
 dds_header_len = struct.calcsize(dds_header_fmt)
 dds_header_names = collections.namedtuple("dds_header_names", "scet1 scet2 pkt_length gnd_id vc_id sle time_qual")
 
+tc_pkt_header_fmt = '>3H4B'
+tc_pkt_header_size = struct.calcsize(tc_pkt_header_fmt)
+tc_pkt_header_names = collections.namedtuple("tc_pkt_header_names","pkt_id pkt_seq pkt_len ver_check pkt_type pkt_subtype pad")
+
+dds_tc_header_fmt = '>4I5HI8s8s'
+dds_tc_header_len = struct.calcsize(dds_tc_header_fmt)
+dds_tc_header_names = collections.namedtuple("dds_tc_header_names", "uplink_t_s uplink_t_us exec_t_s exec_t_us cuv cav_vc0 cev_vc0 cav_vc1 cev_vc1 pkt_len tc sq")
+
+
+
 # List of MIDAS specific APIDs
 midas_apids = [1073, 1076, 1079, 1081, 1083, 1084]
 
@@ -1846,6 +1856,213 @@ def select_files(wildcard, directory='.', recursive=False):
     return filelist
 
 
+
+class tc:
+
+    def __init__(self, files=None, directory='.', recursive=False, apid=1084, simple=True):
+
+            self.pkts = None
+
+            if files is not None:
+                self.get_pkts(files=files, directory=directory, recursive=recursive, simple=simple, apid=apid)
+
+
+    def simple_locate_pkts(self, filename):
+        """Scans a TC file and returns OBT, packet type and sub-type, APID and offset.
+        Minimal checking is performed; use get_pkts() for a more robust method of TC extraction."""
+
+        f = open(filename, 'rb')
+        tc = bytearray(os.path.getsize(filename))
+        if debug:
+            print('DEBUG: file %s has length %d bytes' % (filename, (os.path.getsize(filename))))
+
+        f.readinto(tc)
+
+        num_pkts = 0
+        offsets = []
+        offset = 0
+
+        while(offset < len(tc)):
+
+            offsets.append(offset+dds_tc_header_len)
+
+            # "pkt_id pkt_seq pkt_len ver_check pkt_type pkt_subtype pad
+            dds_tc_header = dds_tc_header_names(*struct.unpack_from(dds_tc_header_fmt, tc, offset))
+            tc_pkt_header = tc_pkt_header_names(*struct.unpack_from(tc_pkt_header_fmt, tc, offset + dds_tc_header_len))
+            if debug:
+                print('DEBUG: packet seq %d, type %d, subtype %d' %
+                    (tc_pkt_header.pkt_seq, tc_pkt_header.pkt_type, tc_pkt_header.pkt_subtype))
+
+            offset = offset + (dds_tc_header_len + dds_tc_header.pkt_len)
+            num_pkts += 1
+
+        print 'INFO: %i packets read from file %s' % (num_pkts, filename)
+
+        return np.array(offsets)
+
+
+    def locate_pkts(self, filename, apid=None):
+        """Reads a file or TC packets into a numpy array and searches for the unique bit-pattern
+        defining the packet header. Returns an index of offsets (in bytes) to the start of each
+        packet. If APID is set, this APID is located - otherwise the MIDAS APID is assumed."""
+
+        f = open(filename, 'rb')
+
+        # We read in an array of words, but file can be non-integer number of words long
+        # so check and ignore last byte if so (doesn't matter for packet finding)
+        data = f.read()
+        if len(data) % 2 != 0: data=data[0:-1]
+        pkts = np.fromstring(data, dtype=('>H'), count=-1)
+
+        num_words = len(pkts)
+
+        if apid is None:
+
+            pkt_offsets = np.where( \
+
+                # Packet ID (word 0) version number (bits 0-2) = 0b000
+                # Packet ID (word 0) type (bit 3) = 1 (telecommand)
+                # Packet ID (word 0) data field header (bit 4) = 1
+                (pkts[0:num_words-4] & 0xF800 == 0x1800) & \
+
+                # Packet sequence control (word 1) bits 0-2 segmentation flag = 0b11
+                (pkts[1:num_words-3] & 0xC000 == 0xC000) & \
+
+                # Data field header, word 3 / byte 0 - PUS version, checksum, ack (3,1,4 bits)
+                # PUS - no pattern
+                # checksum (1 bit) - always 1b
+                # ack = bits 5/6 always 0
+                (pkts[3:num_words-1] & 0x1600 == 0x1000 ) & \
+
+                # Data field header, word 4
+                # byte 1 = pad (0)
+                (pkts[4:num_words] & 0xFF == 0 ))[0]
+
+        else:
+
+            pkt_offsets = np.where( \
+
+                # Packet ID (word 0) version number (bits 0-2) = 0b000
+                # Packet ID (word 0) type (bit 3) = 1 (telecommand)
+                # Packet ID (word 0) data field header (bit 4) = 1
+                (pkts[0:num_words-4] & 0xF800 == 0x1800) & \
+
+                # Packet ID (word 0)
+                # bits 5-15 (APID)
+                #     bits 5-11: PID = 67 for MIDAS
+                #     bits 12-15: PCAT = always 12 (dec)
+                (pkts[0:num_words-4] & 0x7FF == apid ) & \
+
+                # Packet sequence control (word 1) bits 0-2 segmentation flag = 0b11
+                (pkts[1:num_words-3] & 0xC000 == 0xC000) & \
+
+                # Data field header, word 3 / byte 0 - PUS version, checksum, ack (3,1,4 bits)
+                # PUS - no pattern
+                # checksum (1 bit) - always 1b
+                # ack = bits 5/6 always 0
+                (pkts[3:num_words-1] & 0x1600 == 0x1000 ) & \
+
+                # Data field header, word 4
+                # byte 1 = pad (0)
+                (pkts[4:num_words] & 0xFF == 0 ))[0]
+
+
+        print('INFO: file %s contains %i matching TC packets') % (filename, len(pkt_offsets))
+
+        return pkt_offsets*2
+
+
+
+    def get_pkts(self, files, directory='.', recursive=False, append=False, apid=None, simple=True):
+        """Read telecommand packets from the DDS history"""
+
+        if recursive:
+            selectfiles = locate(files, directory)
+            filelist = [file for file in selectfiles]
+        elif type(files)==list:
+            filelist = files
+        else:
+            import glob
+            filelist = glob.glob(os.path.join(directory,files))
+
+        filelist.sort()
+
+        pkt_list = []
+
+        for fl in filelist:
+
+            print('INFO: indexing TC history file %s' % fl)
+
+            if simple:
+                offsets = self.simple_locate_pkts(fl)
+            else:
+                offsets = self.locate_pkts(fl, apid=apid)
+
+            if len(offsets) == 0:
+                print('ERROR: no packets found in file %s' % fl)
+                continue
+
+            f = open(fl, 'rb')
+            tc = f.read()
+            f.close()
+
+            for idx, offset in enumerate(offsets):
+
+                pkt = {}
+
+                dds_tc_header = dds_tc_header_names(*struct.unpack_from(dds_tc_header_fmt, tc, offset-(dds_tc_header_len)))
+                pkt_header = tc_pkt_header_names(*struct.unpack_from(tc_pkt_header_fmt, tc, offset))
+
+                if pkt_header.pkt_len == 0:
+                    continue
+
+                pkt['offset'] = offset
+                pkt['filename'] = os.path.abspath(fl)
+
+                # DDS: uplink_t_s uplink_t_us exec_t_s exec_t_us cuv cav_vc0 cev_vc0 cav_vc1 cev_vc1 pkt_len
+                pkt['t_uplink'] = sun_mjt_epoch + timedelta(seconds=dds_tc_header.uplink_t_s) + timedelta(microseconds=dds_tc_header.uplink_t_us)
+                pkt['t_exec'] =   sun_mjt_epoch + timedelta(seconds=dds_tc_header.exec_t_s) + timedelta(microseconds=dds_tc_header.exec_t_us)
+                pkt['cuv'] = dds_tc_header.cuv
+                pkt['cav_vc0'] = dds_tc_header.cav_vc0
+                pkt['cev_vc0'] = dds_tc_header.cev_vc0
+                pkt['cav_vc1'] = dds_tc_header.cav_vc1
+                pkt['cev_vc1'] = dds_tc_header.cev_vc1
+                pkt['dds_pkt_len'] = dds_tc_header.pkt_len
+                pkt['name'] = dds_tc_header.tc
+                pkt['sequence'] = dds_tc_header.sq
+
+                # TC: pkt_id pkt_seq pkt_len ver_check pkt_type pkt_subtype pad
+                pkt['apid'] = pkt_header.pkt_id & 0x7FF
+                pkt['pkt_seq'] = pkt_header.pkt_seq
+                pkt['length'] = pkt_header.pkt_len
+                pkt['type'] = pkt_header.pkt_type
+                pkt['subtype'] = pkt_header.pkt_subtype
+
+                if pkt_header.pkt_len==0:
+                    continue
+
+                pkt_list.append(pkt)
+
+        if len(pkt_list)==0:
+            print('ERROR: no valid frames found in TC file(s)')
+            return False
+
+        # turn the packet list into a DataFrame, interpret the obt columns as a datetime
+        tcpkts = pd.DataFrame(pkt_list)
+
+        tcpkts.name = tcpkts.name.apply( lambda name : name.replace("\x00", " ").strip() )
+        tcpkts.sequence = tcpkts.sequence.apply( lambda sq : sq.replace("\x00", " ").strip() )
+        pkts = pd.merge(tcpkts, ccf,  how='inner', on=['type', 'subtype', 'apid', 'name'])
+
+        if apid is not None:
+            pkts = pkts[pkts.apid==apid]
+
+        self.pkts = pkts.sort_values(by='t_exec')
+
+        return
+
+
+
 class tm:
 
     def __init__(self, files=None, directory='.', recursive=False, pkts=False, apid=False, dedupe=False, simple=True, dds_header=True, sftp=False, model='FM'):
@@ -1857,10 +2074,12 @@ class tm:
         if self.model=='FM':
             self.lin_centre_pos = common.lin_centre_pos_fm
             self.tcorr = read_timecorr(os.path.join(common.tlm_path,'TLM__MD_TIMECORR.DAT'))
-            if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=dedupe, simple=simple, dds_header=dds_header, sftp=sftp)
+            if files is not None:
+                self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=dedupe, simple=simple, dds_header=dds_header, sftp=sftp)
         elif self.model=='FS':
             self.lin_centre_pos = common.lin_centre_pos_fs
-            if files: self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=True, simple=False, dds_header=False, sftp=sftp)
+            if files is not None:
+                self.get_pkts(files=files, directory=directory, recursive=recursive, apid=apid, dedupe=True, simple=False, dds_header=False, sftp=sftp)
 
     def save_index(self, filename):
         """Saves the packet index to a file, to save time re-indexing TLM files. This can be reloaded with
@@ -4907,7 +5126,11 @@ def read_ccf(filename=False):
         filename = os.path.join(common.s2k_path, 'ccf.dat')
 
     cols = ('name', 'description', 'type', 'subtype', 'apid')
-    ccf=pd.read_table(filename,header=None,names=cols,usecols=[0,1,6,7,8])
+    ccf = pd.read_table(filename,header=None,names=cols,usecols=[0,1,6,7,8])
+    ccf = ccf.dropna()
+    ccf.type = ccf.type.astype(np.int16)
+    ccf.subtype = ccf.subtype.astype(np.int16)
+    ccf.apid = ccf.apid.astype(np.int16)
 
     return ccf
 

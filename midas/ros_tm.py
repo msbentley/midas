@@ -1989,6 +1989,23 @@ class tc:
 
         pkt_list = []
 
+        ver_flags = {
+            0: 'N/A',
+            1: 'IDLE',
+            2: 'PENDING',
+            4: 'PASSED',
+            8: 'FAILED',
+            16: 'UNVERIFIED',
+            32: 'UNKNOWN',
+            64: 'TIMED-OUT',
+            128: 'SSC ONLY',
+            256: 'ASSUMED',
+            512: 'BIT 10?',
+            1024: 'BIT 11?',
+            2048: 'BIT 12?',
+            4096: 'BIT 13?',
+            8192: 'BIT 14?' }
+
         for fl in filelist:
 
             print('INFO: indexing TC history file %s' % fl)
@@ -2022,11 +2039,11 @@ class tc:
                 # DDS: uplink_t_s uplink_t_us exec_t_s exec_t_us cuv cav_vc0 cev_vc0 cav_vc1 cev_vc1 pkt_len
                 pkt['t_uplink'] = sun_mjt_epoch + timedelta(seconds=dds_tc_header.uplink_t_s) + timedelta(microseconds=dds_tc_header.uplink_t_us)
                 pkt['t_exec'] =   sun_mjt_epoch + timedelta(seconds=dds_tc_header.exec_t_s) + timedelta(microseconds=dds_tc_header.exec_t_us)
-                pkt['cuv'] = dds_tc_header.cuv
-                pkt['cav_vc0'] = dds_tc_header.cav_vc0
-                pkt['cev_vc0'] = dds_tc_header.cev_vc0
-                pkt['cav_vc1'] = dds_tc_header.cav_vc1
-                pkt['cev_vc1'] = dds_tc_header.cev_vc1
+                pkt['cuv'] = ver_flags[dds_tc_header.cuv]
+                pkt['cav_vc0'] = ver_flags[dds_tc_header.cav_vc0]
+                pkt['cev_vc0'] = ver_flags[dds_tc_header.cev_vc0]
+                pkt['cav_vc1'] = ver_flags[dds_tc_header.cav_vc1]
+                pkt['cev_vc1'] = ver_flags[dds_tc_header.cev_vc1]
                 pkt['dds_pkt_len'] = dds_tc_header.pkt_len
                 pkt['name'] = dds_tc_header.tc
                 pkt['sequence'] = dds_tc_header.sq
@@ -2056,6 +2073,13 @@ class tc:
 
         if apid is not None:
             pkts = pkts[pkts.apid==apid]
+
+        pkts.cuv = pkts.cuv.astype("category", categories=ver_flags.values(), ordered=False)
+        pkts.cav_vc0 = pkts.cav_vc0.astype("category", categories=ver_flags.values(), ordered=False)
+        pkts.cev_vc0 = pkts.cev_vc0.astype("category", categories=ver_flags.values(), ordered=False)
+        pkts.cav_vc1 = pkts.cav_vc1.astype("category", categories=ver_flags.values(), ordered=False)
+        pkts.cev_vc1 = pkts.cev_vc1.astype("category", categories=ver_flags.values(), ordered=False)
+
 
         self.pkts = pkts.sort_values(by='t_exec')
 

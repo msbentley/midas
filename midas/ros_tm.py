@@ -3142,8 +3142,8 @@ class tm:
             print('DEBUG: image (%ix%i), main scan min/max: %i/%i, line scan min/max: %i/%i' % \
                 (image.xsteps, image.ysteps, main.min(), main.max(), line.min(), line.max()))
 
-        if (len(line) != len(main)) & (len(line) != len(values)):
-            print('ERROR: mismatch of values, lines and main scan values')
+        if (len(line) != len(main)) or (len(line) != len(values)):
+            print('ERROR: mismatch of values, lines and main scan values - note that HK1 parameters not supported')
             return
 
         for (idx, coord) in enumerate(zip(line,main)):

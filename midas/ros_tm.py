@@ -1672,32 +1672,28 @@ def calibrate_xy(image, filename, mark_pos=True):
                         shade=False, show_fscans=False, show=False, rect=None)
             self.f = open(filename, 'w')
             self.cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
+            self.pid = self.fig.canvas.mpl_connect('close_event', self.onclose)
 
         def onclick(self, event):
 
             if debug:
                 print 'DEBUG: position clicked: x = %3.3f, y = %3.3f' % (event.xdata, event.ydata)
 
-            self.f.write('%3.2f %3.2f\n' % (event.xdata, event.ydata))
+            self.f.write('%3.2f, %3.2f\n' % (event.xdata, event.ydata))
 
-            c = plt.Circle((event.xdata, event.ydata), 0.3, color='black')
-            self.ax.add_artist(c)
-            self.fig.canvas.draw()
+            if self.mark_pos:
+                c = plt.Circle((event.xdata, event.ydata), 0.3, color='black')
+                self.ax.add_artist(c)
+                self.fig.canvas.draw()
 
             return
 
-
-        def close(self):
+        def onclose(self, event):
             self.fig.canvas.mpl_disconnect(self.cid)
             self.f.close()
 
     cal = Calibrate(image, filename, mark_pos)
-    plt.show()
-
-    while not plt.waitforbuttonpress():
-        pass
-
-    cal.close()
+    plt.show(block=True)
 
     return
 

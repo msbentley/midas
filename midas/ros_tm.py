@@ -1659,6 +1659,50 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     return figure, axis
 
 
+def calibrate_xy(image, filename, mark_pos=True):
+    """Accepts an image, displays it and allows the user to click calibration positions, which
+    are logged to a file in CSV format. Hit any key to stop the process."""
+
+    class Calibrate:
+
+        def __init__(self, image, filename, mark_pos):
+            self.mark_pos = mark_pos
+            self.filename = filename
+            self.fig, self.ax = show(image, units='real', planesub='poly', title=True, cbar=True,
+                        shade=False, show_fscans=False, show=False, rect=None)
+            self.f = open(filename, 'w')
+            self.cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
+
+        def onclick(self, event):
+
+            if debug:
+                print 'DEBUG: position clicked: x = %3.3f, y = %3.3f' % (event.xdata, event.ydata)
+
+            self.f.write('%3.2f %3.2f\n' % (event.xdata, event.ydata))
+
+            c = plt.Circle((event.xdata, event.ydata), 0.3, color='black')
+            self.ax.add_artist(c)
+            self.fig.canvas.draw()
+
+            return
+
+
+        def close(self):
+            self.fig.canvas.mpl_disconnect(self.cid)
+            self.f.close()
+
+    cal = Calibrate(image, filename, mark_pos)
+    plt.show()
+
+    while not plt.waitforbuttonpress():
+        pass
+
+    cal.close()
+
+    return
+
+
+
 def locate_scans(images):
     """Accepts a list of scans returned by get_images() and calculates the origin of each scan,
     relative to the wheel/target centre. These are added to the images DataFrame and returned."""
@@ -3136,7 +3180,7 @@ class tm:
         line = self.get_param('NMDA0165', start=start, end=end).values
         main = self.get_param('NMDA0170', start=start, end=end).values
 
-        hk_img = np.zeros( (image.xsteps,image.ysteps) )
+        hk_img = np.zeros( (image.xsteps, image.ysteps) )
 
         if debug:
             print('DEBUG: image (%ix%i), main scan min/max: %i/%i, line scan min/max: %i/%i' % \

@@ -1661,7 +1661,7 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
 
 def calibrate_xy(image, filename, mark_pos=True):
     """Accepts an image, displays it and allows the user to click calibration positions, which
-    are logged to a file in CSV format. Hit any key to stop the process."""
+    are logged to a filename in CSV format. """
 
     class Calibrate:
 
@@ -1690,6 +1690,7 @@ def calibrate_xy(image, filename, mark_pos=True):
 
         def onclose(self, event):
             self.fig.canvas.mpl_disconnect(self.cid)
+            self.fig.canvas.mpl_disconnect(self.pid)
             self.f.close()
 
     cal = Calibrate(image, filename, mark_pos)

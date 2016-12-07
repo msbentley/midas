@@ -1659,41 +1659,106 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     return figure, axis
 
 
-def calibrate_xy(image, filename, mark_pos=True):
+def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
     """Accepts an image, displays it and allows the user to click calibration positions, which
     are logged to a filename in CSV format. """
 
+    import matplotlib.collections as mcoll
+
     class Calibrate:
 
-        def __init__(self, image, filename, mark_pos):
-            self.mark_pos = mark_pos
+        def __init__(self, image, filename, printdata, radius, **kwargs):
+
             self.filename = filename
+            self.radius = radius
+            self.kwargs = kwargs
+
+            try:
+                self.f = open(filename, 'w')
+            except IOError as (errno, strerror):
+                print "ERROR: I/O error({0}): {1}".format(errno, strerror)
+                return None
+
             self.fig, self.ax = show(image, units='real', planesub='poly', title=True, cbar=True,
                         shade=False, show_fscans=False, show=False, rect=None)
-            self.f = open(filename, 'w')
+
+            self.patches = []
+            self.xs = []
+            self.ys = []
+            self.coll = None
+
             self.cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
             self.pid = self.fig.canvas.mpl_connect('close_event', self.onclose)
+            self.pickid = self.fig.canvas.mpl_connect('pick_event', self.onpick)
+            self.pickEvent = False
+
 
         def onclick(self, event):
 
-            if debug:
-                print 'DEBUG: position clicked: x = %3.3f, y = %3.3f' % (event.xdata, event.ydata)
+            if self.pickEvent:
+                self.pickEvent=False
+                return
 
-            self.f.write('%3.2f, %3.2f\n' % (event.xdata, event.ydata))
+            if printdata:
+                print 'INFO: added point: x = %3.3f, y = %3.3f' % (event.xdata, event.ydata)
 
-            if self.mark_pos:
-                c = plt.Circle((event.xdata, event.ydata), 0.3, color='black')
-                self.ax.add_artist(c)
-                self.fig.canvas.draw()
+            self.xs.append(event.xdata)
+            self.ys.append(event.ydata)
 
-            return
+            c = plt.Circle((event.xdata, event.ydata), radius=self.radius, color='black', fill=False, **self.kwargs)
+            self.patches.append(c)
+
+            self.update()
+
 
         def onclose(self, event):
             self.fig.canvas.mpl_disconnect(self.cid)
             self.fig.canvas.mpl_disconnect(self.pid)
+            self.fig.canvas.mpl_disconnect(self.pickid)
+            self.writedata()
+
+
+        def writedata(self):
+
+            for x,y in zip(self.xs, self.ys):
+                self.f.write('%3.3f, %3.3f\n' % (x, y))
             self.f.close()
 
-    cal = Calibrate(image, filename, mark_pos)
+
+        def onpick(self, event):
+
+            self.pickEvent = True
+
+            ind = event.ind.tolist()
+            if len(ind)>1:
+                print('WARNING: overlapping markers, only removing one!')
+            ind = ind[0]
+
+            if printdata:
+                print 'INFO: removed point: x = %3.3f, y = %3.3f' % (self.xs[ind], self.ys[ind])
+
+            self.patches.pop(ind)
+            self.xs.pop(ind)
+            self.ys.pop(ind)
+            self.update()
+
+
+        def update(self):
+
+            if self.coll is not None:
+                if len(self.ax.collections) > 0:
+                    self.ax.collections.remove(self.coll)
+
+            if len(self.patches) > 0:
+
+                self.coll = mcoll.PatchCollection(self.patches,  match_original=True, picker=True)
+                self.ax.add_collection(self.coll)
+
+            self.fig.canvas.draw()
+
+
+
+    cal = Calibrate(image, filename=filename, printdata=printdata, radius=radius, **kwargs)
     plt.show(block=True)
 
     return

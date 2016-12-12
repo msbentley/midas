@@ -46,8 +46,7 @@ def validate_xml(xml, schema_file, isfile=False):
 
     from lxml import etree
 
-    with open(schema_file, 'r') as f:
-        schema_root = etree.XML(f.read())
+    schema_doc = etree.parse(schema_file)
 
     current_dir = os.getcwd()
     schema_dir =  os.path.dirname(os.path.abspath(schema_file))
@@ -56,23 +55,22 @@ def validate_xml(xml, schema_file, isfile=False):
     # to be in the same directory, so first move there
     os.chdir(schema_dir)
 
-    schema = etree.XMLSchema(schema_root)
-    xmlparser = etree.XMLParser(schema=schema)
+    schema = etree.XMLSchema(schema_doc)
+    # xmlparser = etree.XMLParser(schema=schema)
 
     os.chdir(current_dir)
 
     try:
         if isfile:
             with open(xml, 'r') as f:
-                etree.fromstring(f.read(), xmlparser)
+                schema.validate(etree.parse(f))
         else:
-            etree.fromstring(xml, xmlparser)
+            schema.validate(etree.fromstring(xml))
             if debug: print('DEBUG: XML validation against schema %s successful' % (schema_file))
         return True
     except etree.XMLSyntaxError as e:
         print('ERROR: XML parse error: %s' % e)
         print('INFO: error occured at line %d column %d' % e.position)
-        asdfdfg
         return False
     except IOError as e:
         print "ERROR: I/O error({0}): {1}".format(e.errno, e.strerror)

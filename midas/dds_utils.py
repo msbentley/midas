@@ -69,10 +69,13 @@ def validate_xml(xml, schema_file, isfile=False):
             etree.fromstring(xml, xmlparser)
             if debug: print('DEBUG: XML validation against schema %s successful' % (schema_file))
         return True
-    except:
-        print('ERROR: file or parse error')
-        print(sf)
+    except etree.XMLSyntaxError as e:
+        print('ERROR: XML parse error: %s' % e)
+        print('INFO: error occured at line %d column %d' % e.position)
+        asdfdfg
         return False
+    except IOError as e:
+        print "ERROR: I/O error({0}): {1}".format(e.errno, e.strerror)
 
 
 def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype=None, template_file=template_file, target=False):
@@ -86,9 +89,9 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
         return 0
 
     # validate inputs
-    if apid is not None:
-        if apid not in ros_tm.midas_apids:
-            print('WARNING: APID %i invalid for MIDAS' % apid)
+    # if apid is not None:
+    #     if apid not in ros_tm.midas_apids:
+    #         print('WARNING: APID %i invalid for MIDAS' % apid)
 
     if type(start_time)!=pd.Timestamp:
         start_time = pd.Timestamp(start_time)
@@ -109,7 +112,10 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
     if os.path.basename(template_file)=='midas_cmh_request.xml':
         request = 'MD_CMH_%s--%s' % (start_time, end_time)
     else:
-        request = 'MD_TLM_%i_%s--%s' % (apid, start_time, end_time)
+        if sid is None:
+            request = 'MD_TLM_%i_%s--%s' % (apid, start_time, end_time)
+        else:
+            request = 'MD_TLM_%i_%i_%s--%s' % (apid, sid, start_time, end_time)
 
     request = request.replace(":","")
 
@@ -243,14 +249,18 @@ def request_data_by_apid(start_time, end_time, apid=False, target=False, socks=F
     aplist = apid if apid else ros_tm.midas_apids
 
     for ap in aplist:
-        xml, request_id = generate_request(st, et, ap, template_file, target=target)
+        # (start_time, end_time, apid, sid, pkt_type=None, pkt_subtype=None, template_file=template_file, target=False)
+        print('INFO: building request for APID %d' % ap)
+        xml, request_id = generate_request(start_time=st, end_time=et, apid=ap, sid=None, pkt_type=None,
+            pkt_subtype=None, template_file=template_file, target=target)
         filenames.append(request_id+'.DAT')
 
         if validate_xml(xml, schema_file):
             submit_request(xml, request_id, socks)
             pass
         else:
-            print('ERROR: problem validating XML against schema')
+            print('ERROR: problem validating XML against schema, request not submitted')
+            return None, None
 
     print('INFO: %d requests submitted to the DDS' % len(filenames))
 
@@ -302,7 +312,8 @@ def request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, target=
         submit_request(xml, request_id, socks)
         pass
     else:
-        print('ERROR: problem validating XML against schema')
+        print('ERROR: problem validating XML against schema. Request not submitted')
+        return None
 
     print('INFO: request submitted to the DDS')
 
@@ -386,7 +397,8 @@ def get_files(filenames, outputpath, apid=False, outputfile=False, delfiles=True
         else:
             tm = ros_tm.tm()
             for localfile in retrieved:
-                tm.get_pkts(localfile, apid=apid[filenames.index(os.path.basename(localfile))], append=True)
+                # tm.get_pkts(localfile, apid=apid[filenames.index(os.path.basename(localfile))], append=True)
+                tm.get_pkts(localfile, append=True, simple=True)
 
             tm.write_pkts(outputfile, outputpath=outputpath, strip_dds=strip_dds)
             print('INFO: combined TM written to file %s' % (outputfile))
@@ -461,6 +473,7 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
 
     if len(remaining) > 0:
         print('WARNING: unable to retrieve %i files' % (len(remaining)))
+        print(remaining)
 
     return retrieved
 
@@ -505,6 +518,9 @@ def get_tc_history(start_time, end_time, outputpath='.', outputfile='CMH.DAT', s
 
     filename = request_data(start_time, end_time, apid=None, sid=None, pkt_type=None, pkt_subtype=None, socks=socks, template_file=cmh_template)
 
+    if filename is None:
+        return None
+
     print('INFO: waiting for DDS to service requests before starting retrieval...')
 
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
@@ -541,12 +557,54 @@ def get_single_pkt(start_time, end_time, apid, sid, pkt_type, pkt_subtype, outpu
     # request_data(start_time, end_time, apid, pkt_type, pkt_subtype, target=False, socks=False, template_file=single_template):
     filename = request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, socks=socks)
 
+    if filename is None:
+        return None
+
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
     filelist = get_files(filename, outputpath=outputpath, apid=apid, outputfile=outputfile, delfiles=delfiles, max_retry=max_retry, retry_delay=retry_delay)
 
     return filelist
+
+
+
+def get_pkts_from_list(start_time, end_time, filename, outputfile=False, outputpath='.', socks=False, delfiles=True, max_retry=10, retry_delay=10):
+
+    filelist = []
+
+    packets = pd.read_csv(filename, skipinitialspace=True, na_values='None')
+
+    for idx, packet in packets.iterrows():
+
+        # def request_data_by_apid(start_time, end_time, apid=False, target=False, socks=False, template_file=template_file):
+        # def request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, target=False, socks=False, template_file=single_template):
+
+        if pd.isnull(packet.type):
+
+            # request_data_by_apid(start_time, end_time, apid=False, target=False, socks=False, template_file=template_file)
+            # returns apids, filelist
+            filename, apid = request_data_by_apid(start_time=start_time, end_time=end_time, apid=int(packet.apid))
+            if filename is None:
+                print('ERROR: something went wrong building the request, skipping')
+            else:
+                filelist.append(filename[0])
+
+        else:
+
+            # request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, target=False, socks=False, template_file=single_template)
+            # returns filename
+            filename = request_data(start_time, end_time, apid=int(packet.apid), sid=int(packet.sid), pkt_type=int(packet.type),
+                pkt_subtype=int(packet.subtype))
+            filelist.append(filename)
+
+    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
+
+    gotfiles = get_files(filelist, outputpath=outputpath, apid=False,
+        outputfile=outputfile, delfiles=delfiles, max_retry=max_retry, retry_delay=retry_delay)
+
+    return gotfiles
 
 
 

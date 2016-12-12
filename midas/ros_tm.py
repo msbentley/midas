@@ -1712,6 +1712,7 @@ def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
 
 
         def onclose(self, event):
+
             self.fig.canvas.mpl_disconnect(self.cid)
             self.fig.canvas.mpl_disconnect(self.pid)
             self.fig.canvas.mpl_disconnect(self.pickid)
@@ -1755,7 +1756,6 @@ def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
                 self.ax.add_collection(self.coll)
 
             self.fig.canvas.draw()
-
 
 
     cal = Calibrate(image, filename=filename, printdata=printdata, radius=radius, **kwargs)
@@ -2425,15 +2425,15 @@ class tm:
                 if pkt_header.pkt_len == 0:
                     continue
 
-                obt_s = pkt_header.obt_sec + pkt_header.obt_frac / 2.**16
-                if self.model=='FM':
-                    obt = self.correlate_time(obt_s)
-                else:
-                    obt = obt_epoch + timedelta(seconds=obt_s)
-
                 # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
                 # of the 32 bit coarse time (= seconds since reference date) is set to "1".
                 pkt['tsync'] = not bool(pkt_header.obt_sec >> 31)
+
+                obt_s = pkt_header.obt_sec + pkt_header.obt_frac / 2.**16
+                if self.model=='FM' and pkt['tsync']:
+                    obt = self.correlate_time(obt_s)
+                else:
+                    obt = obt_epoch + timedelta(seconds=obt_s)
 
                 pkt['offset'] = offset
                 pkt['type'] = pkt_header.pkt_type
@@ -2459,7 +2459,7 @@ class tm:
 
                 if len(pkt_pic)==0:
                     print('WARNING: packet type (%i,%i) not found in the PIC' % (pkt_header.pkt_type,pkt_header.pkt_subtype))
-                    if debug: print('DEBUG: OBT: %s, APID: %i, SEQ: %i' % (pkt.obt, pkt.apid, pkt.seq))
+                    if debug: print('DEBUG: OBT: %s, APID: %i, SEQ: %i' % (pkt['obt'], pkt['apid'], pkt['seq']))
                     continue
                 if pkt_pic[0][2] ==-1:
                     if pkt['apid'] in midas_apids:
@@ -4847,7 +4847,10 @@ class tm:
         # Use the appropriate line in the time correlation packet to correct
         # UTC = gradient * OBT + offset
         obt = obt_epoch + timedelta(seconds=obt_s)
-        tcp = self.tcorr[self.tcorr.index<obt].iloc[-1]
+        if obt<self.tcorr.index[0]:
+            tcp = self.tcorr.iloc[0]
+        else:
+            tcp = self.tcorr[self.tcorr.index<obt].iloc[-1]
         utc_s = tcp.gradient * obt_s + tcp.offset
         obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
 

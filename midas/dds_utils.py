@@ -596,6 +596,8 @@ def get_pkts_from_list(start_time, end_time, filename, outputfile=False, outputp
                 pkt_subtype=int(packet.subtype))
             filelist.append(filename)
 
+        time.sleep(10) # try to avoid problems at the DDS end
+
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 

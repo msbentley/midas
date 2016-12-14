@@ -38,6 +38,9 @@ schema_file = os.path.join(common.config_path, schema_file)
 obs_list_file = 'observations.csv'
 obs_list_file = os.path.join(common.config_path, obs_list_file)
 
+pkt_file = 'sc_packets.csv'
+pkt_file = os.path.join(common.config_path, pkt_file)
+
 def validate_xml(xml, schema_file, isfile=False):
     """Validate a DDS request (or other) XML file against a given schema"""
 
@@ -601,10 +604,10 @@ def get_pkts_from_list(start_time, end_time, filename, outputfile=False, outputp
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
-    gotfiles = get_files(filelist, outputpath=outputpath, apid=False,
+    reqfiles, gotfiles = get_files(filelist, outputpath=outputpath, apid=False,
         outputfile=outputfile, delfiles=delfiles, max_retry=max_retry, retry_delay=retry_delay)
 
-    return gotfiles
+    return filelist, gotfiles
 
 
 
@@ -687,7 +690,8 @@ def read_obs_file(filename=obs_list_file):
     #
     # RETRIEVED can be True or False
 
-    observations = pd.read_csv(filename, skipinitialspace=True, parse_dates=['start','end'])
+    observations = pd.read_csv(filename, skipinitialspace=True, comment='#',
+        parse_dates=['start','end'])
 
     return observations
 
@@ -696,6 +700,30 @@ def write_obs_file(obs_list):
     writes it to a CSV file."""
 
     obs_list.to_csv(obs_list_file, index=False, date_format=isofmt)
+
+    return
+
+
+def get_aux_observations(outputdir='.', pkt_file=pkt_file, max_retry=20, retry_delay=5):
+    """Get all auxiliary observations using get_pkts_from_list()"""
+
+    observations = read_obs_file()
+
+    for idx,obs in observations.iterrows():
+
+        start = obs.start.isoformat()
+        end = obs.end.isoformat()
+
+        padded_name = obs.observation + (20-len(obs.observation)) * '_'
+        aux_filename = 'TLM__SC_M%03d_S%03d_%s_COUNT_%02d.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
+
+        print('INFO: requesting data for auxiliary file %s' % aux_filename)
+
+        reqfiles, gotfiles = get_pkts_from_list(start, end, pkt_file, outputfile=aux_filename, outputpath=outputdir,
+            delfiles=True, max_retry=max_retry, retry_delay=retry_delay)
+
+        if len(gotfiles)<len(reqfiles):
+            print('WARNING: only %d of %d requested files retrieved for aux file %s' % (len(gotfiles), len(reqfiles), aux_filename))
 
     return
 

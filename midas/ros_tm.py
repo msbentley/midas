@@ -1663,6 +1663,12 @@ def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
     """Accepts an image, displays it and allows the user to click calibration positions, which
     are logged to a filename in CSV format. """
 
+    # TODO:
+    # - Switch to drawing in calibrate_xy on release
+    # - Show circle on click, and draw marker with movement, and draw on release.
+    # - When in zoom mode, ignore clicks
+    # See blit example: http://matplotlib.org/users/event_handling.html
+
     import matplotlib.collections as mcoll
 
     class Calibrate:
@@ -1694,6 +1700,9 @@ def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
 
 
         def onclick(self, event):
+
+            if self.fig.canvas.toolbar._active is not None:
+                return
 
             if self.pickEvent:
                 self.pickEvent=False

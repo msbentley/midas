@@ -1659,17 +1659,12 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     return figure, axis
 
 
-def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
+def calibrate_xy(image, filename, printdata=False, radius=100, **kwargs):
     """Accepts an image, displays it and allows the user to click calibration positions, which
-    are logged to a filename in CSV format. """
+    are logged to a filename in CSV format.
 
-    # TODO:
-    # - Switch to drawing in calibrate_xy on release
-    # - Show circle on click, and draw marker with movement, and draw on release.
-    # - When in zoom mode, ignore clicks
-    # See blit example: http://matplotlib.org/users/event_handling.html
-
-    import matplotlib.collections as mcoll
+    Left clicking in the plot adds a new point. Existing points can be dragged to
+    a new location with the left button, and a right click deletes a point."""
 
     class Calibrate:
 
@@ -1678,6 +1673,8 @@ def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
             self.filename = filename
             self.radius = radius
             self.kwargs = kwargs
+            self.tolerance = 10
+            self.xy = []
 
             try:
                 self.f = open(filename, 'w')
@@ -1688,84 +1685,92 @@ def calibrate_xy(image, filename, printdata=False, radius=0.3, **kwargs):
             self.fig, self.ax = show(image, units='real', planesub='poly', title=True, cbar=True,
                         shade=False, show_fscans=False, show=False, rect=None)
 
-            self.patches = []
-            self.xs = []
-            self.ys = []
-            self.coll = None
+            self.points = self.ax.scatter([], [], s=self.radius, facecolors='none', edgecolors='r',
+                        picker=self.tolerance, animated=True)
 
-            self.cid = self.fig.canvas.mpl_connect('button_press_event', self.onclick)
-            self.pid = self.fig.canvas.mpl_connect('close_event', self.onclose)
-            self.pickid = self.fig.canvas.mpl_connect('pick_event', self.onpick)
-            self.pickEvent = False
-
+            connect = self.fig.canvas.mpl_connect
+            self.cid = connect('button_press_event', self.onclick)
+            self.close_cid = connect('close_event', self.onclose)
+            self.draw_cid = connect('draw_event', self.grab_background)
 
         def onclick(self, event):
 
             if self.fig.canvas.toolbar._active is not None:
                 return
 
-            if self.pickEvent:
-                self.pickEvent=False
-                return
+            contains, info = self.points.contains(event)
 
-            if printdata:
-                print 'INFO: added point: x = %3.3f, y = %3.3f' % (event.xdata, event.ydata)
-
-            self.xs.append(event.xdata)
-            self.ys.append(event.ydata)
-
-            c = plt.Circle((event.xdata, event.ydata), radius=self.radius, color='black', fill=False, **self.kwargs)
-            self.patches.append(c)
-
-            self.update()
-
-
-        def onclose(self, event):
-
-            self.fig.canvas.mpl_disconnect(self.cid)
-            self.fig.canvas.mpl_disconnect(self.pid)
-            self.fig.canvas.mpl_disconnect(self.pickid)
-            self.writedata()
-
-
-        def writedata(self):
-
-            for x,y in zip(self.xs, self.ys):
-                self.f.write('%3.3f, %3.3f\n' % (x, y))
-            self.f.close()
-
-
-        def onpick(self, event):
-
-            self.pickEvent = True
-
-            ind = event.ind.tolist()
-            if len(ind)>1:
-                print('WARNING: overlapping markers, only removing one!')
-            ind = ind[0]
-
-            if printdata:
-                print 'INFO: removed point: x = %3.3f, y = %3.3f' % (self.xs[ind], self.ys[ind])
-
-            self.patches.pop(ind)
-            self.xs.pop(ind)
-            self.ys.pop(ind)
-            self.update()
-
+            if contains:
+                i = info['ind'][0]
+                if event.button == 1: # left button
+                    self.start_drag(i)
+                elif event.button == 3: # right button
+                    self.delete_point(i)
+            else:
+                self.add_point(event)
 
         def update(self):
+            self.points.set_offsets(self.xy)
+            self.blit()
 
-            if self.coll is not None:
-                if len(self.ax.collections) > 0:
-                    self.ax.collections.remove(self.coll)
+        def add_point(self, event):
+            self.xy.append([event.xdata, event.ydata])
+            if printdata:
+                print 'INFO: added point: x = %3.3f, y = %3.3f' % (event.xdata, event.ydata)
+            self.update()
 
-            if len(self.patches) > 0:
+        def delete_point(self, i):
+            if printdata:
+                print 'INFO: removed point: x = %3.3f, y = %3.3f' % (self.xy[i][0], self.xy[i][1])
+            self.xy.pop(i)
+            self.update()
 
-                self.coll = mcoll.PatchCollection(self.patches,  match_original=True, picker=True)
-                self.ax.add_collection(self.coll)
+        def start_drag(self, i):
+            self.drag_i = i
+            connect = self.fig.canvas.mpl_connect
+            cid1 = connect('motion_notify_event', self.drag_update)
+            cid2 = connect('button_release_event', self.end_drag)
+            self.drag_cids = [cid1, cid2]
 
-            self.fig.canvas.draw()
+        def drag_update(self, event):
+            self.xy[self.drag_i] = [event.xdata, event.ydata]
+            self.update()
 
+        def end_drag(self, event):
+            if printdata:
+                print('INFO: point moved to: x = %3.3f, y = %3.3f' % (self.xy[self.drag_i][0], self.xy[self.drag_i][1]))
+            for cid in self.drag_cids:
+                self.fig.canvas.mpl_disconnect(cid)
+
+        def safe_draw(self):
+            canvas = self.fig.canvas
+            canvas.mpl_disconnect(self.draw_cid)
+            canvas.draw()
+            self.draw_cid = canvas.mpl_connect('draw_event', self.grab_background)
+
+        def onclose(self, event):
+            disconnect = self.fig.canvas.mpl_disconnect
+            disconnect(self.cid)
+            disconnect(self.close_cid)
+            disconnect(self.draw_cid)
+            self.writedata()
+
+        def grab_background(self, event=None):
+            self.points.set_visible(False)
+            self.safe_draw()
+            self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
+            self.points.set_visible(True)
+            self.blit()
+
+        def blit(self):
+            self.fig.canvas.restore_region(self.background)
+            self.ax.draw_artist(self.points)
+            self.fig.canvas.blit(self.fig.bbox)
+
+        def writedata(self):
+            for x,y in self.xy:
+                self.f.write('%3.3f, %3.3f\n' % (x, y))
+            self.f.close()
 
     cal = Calibrate(image, filename=filename, printdata=printdata, radius=radius, **kwargs)
     plt.show(block=True)

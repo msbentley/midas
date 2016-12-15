@@ -604,7 +604,7 @@ def get_pkts_from_list(start_time, end_time, filename, outputfile=False, outputp
     print('INFO: waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
-    reqfiles, gotfiles = get_files(filelist, outputpath=outputpath, apid=False,
+    gotfiles = get_files(filelist, outputpath=outputpath, apid=False,
         outputfile=outputfile, delfiles=delfiles, max_retry=max_retry, retry_delay=retry_delay)
 
     return filelist, gotfiles

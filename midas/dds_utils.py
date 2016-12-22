@@ -1,7 +1,7 @@
 #!/usr/bin/python
 """dds_utils.py - module to interact with the ESA DDS"""
 
-debug = False
+debug = True
 
 import pandas as pd
 import os, time, socket
@@ -434,13 +434,16 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
 
         # refresh list of files available on the server
         files = ssh.sftp.listdir()
+        if debug:
+            print('DEBUG: list of files on server: %s' % " ".join(files))
 
         for filename in remaining:
 
             if debug: print('DEBUG: processing file %s' % (filename))
 
             if filename not in files:
-                # print('WARNING: file %s not found on the server' % (filename))
+                if debug:
+                    print('WARNING: file %s not found on the server' % (filename))
                 continue
 
             stat = ssh.sftp.stat(filename)

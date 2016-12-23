@@ -1659,8 +1659,9 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     return figure, axis
 
 
-def calibrate_xy(image, filename, printdata=False, radius=100, **kwargs):
-    """Accepts an image, displays it and allows the user to click calibration positions, which
+def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=False, radius=100, colour='white',
+        process_gwy=True, **kwargs):
+    """Accepts an image (scan) name, displays it and allows the user to click calibration positions, which
     are logged to a filename in CSV format.
 
     Left clicking in the plot adds a new point. Existing points can be dragged to
@@ -1668,30 +1669,56 @@ def calibrate_xy(image, filename, printdata=False, radius=100, **kwargs):
 
     class Calibrate:
 
-        def __init__(self, image, filename, printdata, radius, **kwargs):
+        def __init__(self, scan_file, gwy_path, outpath, printdata, radius, colour, **kwargs):
 
-            self.filename = filename
-            self.radius = radius
-            self.kwargs = kwargs
-            self.tolerance = 10
+            tolerance = 10
             self.xy = []
+            self.row = []
+            self.current_row = 1
+            self.process_gwy = process_gwy
+            self.gwy_file = os.path.join(gwy_path, scan_file+'.gwy')
 
+            image = load_images(data=True).query('scan_file==@scan_file').squeeze()
+            if len(image)==0:
+                print('ERROR: could not find image %s' % scan_file)
+                return None
             try:
-                self.f = open(filename, 'w')
+                self.f = open(os.path.join(outpath, scan_file+'_cal.csv'), 'w')
             except IOError as (errno, strerror):
                 print "ERROR: I/O error({0}): {1}".format(errno, strerror)
                 return None
 
+            if process_gwy:
+                if not os.path.isfile(self.gwy_file):
+                    print('ERROR: Gwyddion file %s not found' % self.gwy_file)
+                    return None
+
             self.fig, self.ax = show(image, units='real', planesub='poly', title=True, cbar=True,
                         shade=False, show_fscans=False, show=False, rect=None)
 
-            self.points = self.ax.scatter([], [], s=self.radius, facecolors='none', edgecolors='r',
-                        picker=self.tolerance, animated=True)
+            self.points = self.ax.scatter([], [], s=radius, facecolors='none', edgecolors=colour,
+                        picker=tolerance, animated=True, **kwargs)
+
+            self.update_title()
 
             connect = self.fig.canvas.mpl_connect
             self.cid = connect('button_press_event', self.onclick)
             self.close_cid = connect('close_event', self.onclose)
             self.draw_cid = connect('draw_event', self.grab_background)
+            self.key_cid = connect('key_press_event', self.onkey)
+
+        def onkey(self, event):
+
+            if event.key=='up':
+                self.current_row -= 1
+                if self.current_row < 1:
+                    self.current_row = 1
+            elif event.key=='down':
+                self.current_row += 1
+            else:
+                return
+
+            self.update()
 
         def onclick(self, event):
 
@@ -1709,20 +1736,27 @@ def calibrate_xy(image, filename, printdata=False, radius=100, **kwargs):
             else:
                 self.add_point(event)
 
+        def update_title(self):
+            self.fig.canvas.set_window_title('Current row: %d' % self.current_row)
+
+
         def update(self):
             self.points.set_offsets(self.xy)
+            self.update_title()
             self.blit()
 
         def add_point(self, event):
             self.xy.append([event.xdata, event.ydata])
+            self.row.append(self.current_row)
             if printdata:
-                print 'INFO: added point: x = %3.3f, y = %3.3f' % (event.xdata, event.ydata)
+                print 'INFO: added point: x = %3.3f, y = %3.3f to row %d' % (event.xdata, event.ydata, self.current_row)
             self.update()
 
         def delete_point(self, i):
             if printdata:
-                print 'INFO: removed point: x = %3.3f, y = %3.3f' % (self.xy[i][0], self.xy[i][1])
+                print 'INFO: removed point: x = %3.3f, y = %3.3f from row %d' % (self.xy[i][0], self.xy[i][1], self.row[i])
             self.xy.pop(i)
+            self.row.pop(i)
             self.update()
 
         def start_drag(self, i):
@@ -1738,7 +1772,7 @@ def calibrate_xy(image, filename, printdata=False, radius=100, **kwargs):
 
         def end_drag(self, event):
             if printdata:
-                print('INFO: point moved to: x = %3.3f, y = %3.3f' % (self.xy[self.drag_i][0], self.xy[self.drag_i][1]))
+                print('INFO: point moved to: x = %3.3f, y = %3.3f on row %d' % (self.xy[self.drag_i][0], self.xy[self.drag_i][1], self.row[self.drag_i]))
             for cid in self.drag_cids:
                 self.fig.canvas.mpl_disconnect(cid)
 
@@ -1753,7 +1787,14 @@ def calibrate_xy(image, filename, printdata=False, radius=100, **kwargs):
             disconnect(self.cid)
             disconnect(self.close_cid)
             disconnect(self.draw_cid)
+            disconnect(self.key_cid)
             self.writedata()
+
+            if self.process_gwy:
+                coeffs = xyz_to_coeff()
+                if coeffs is not None:
+                    gwy_utils.polynomial_distort(self.gwy_file, channel=None, new_chan='corrected', coeffs=coeffs)
+
 
         def grab_background(self, event=None):
             self.points.set_visible(False)
@@ -1768,15 +1809,16 @@ def calibrate_xy(image, filename, printdata=False, radius=100, **kwargs):
             self.fig.canvas.blit(self.fig.bbox)
 
         def writedata(self):
-            for x,y in self.xy:
-                self.f.write('%3.3f, %3.3f\n' % (x, y))
+            for row, (x,y) in zip(self.row, self.xy):
+                self.f.write('%d, %3.3f, %3.3f\n' % (row, x, y))
             self.f.close()
 
-    cal = Calibrate(image, filename=filename, printdata=printdata, radius=radius, **kwargs)
+    cal = Calibrate(scan_file, gwy_path=gwy_path, outpath=outpath, printdata=printdata,
+        radius=radius, colour=colour, **kwargs)
+
     plt.show(block=True)
 
     return
-
 
 
 def locate_scans(images):
@@ -5584,6 +5626,51 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
         images.filename = images.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
 
     return images
+
+
+def load_lines(filename=None, ignore_image=True, expand_params=True):
+    """Loads a line scan dataframe from disk. The options ignore_image and
+    exppand_params are used as per get_line_scans() and simply define which
+    of four data files are loaded. If filename is given, then this file is
+    simply loaded instead."""
+
+
+    import cPickle as pkl
+
+    if filename is not None:
+        fname = filename
+    else:
+        if ignore_image:
+            if expand_params:
+                fname = 'lines_expanded_no_image.pkl'
+            else:
+                fname = 'lines_no_expand_no_image.pkl'
+        else:
+            if expand_params:
+                fname = 'lines_expanded_images.pkl'
+            else:
+                fname = 'lines_no_expand_images.pkl'
+        fname = os.path.join(common.tlm_path, fname)
+
+    f = open(fname, 'rb')
+
+    objs = []
+    while 1:
+        try:
+            objs.append(pkl.load(f))
+        except EOFError:
+            break
+
+    if len(objs)==0:
+        print('ERROR: file %s appears to be empty' % filename)
+        return None
+
+    lines = pd.concat(iter(objs), axis=0)
+    lines.sort_values(by='obt', inplace=True)
+    lines.reset_index(inplace=True, drop=True)
+
+    return lines
+
 
 
 def load_manual_scans(filename=os.path.join(common.config_path, 'manual_images.pkl')):

@@ -14,6 +14,8 @@ scans, tm.get_params() to extract named TM parameters and tm.plot_params()
 to plot the same.
 """
 
+debug = False
+
 import struct, collections, pytz, os, math
 import pandas as pd
 import numpy as np
@@ -31,8 +33,6 @@ dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0, 
 
 # Configuration file paths
 gwy_settings_file = os.path.join(common.config_path, 'gwy-settings.gwy')
-
-debug = False
 
 # Define struct types for various packet formats, to allow easy extraction of values from the
 # binary data into named tuples
@@ -1739,7 +1739,6 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
         def update_title(self):
             self.fig.canvas.set_window_title('Current row: %d' % self.current_row)
 
-
         def update(self):
             self.points.set_offsets(self.xy)
             self.update_title()
@@ -1793,7 +1792,8 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
             if self.process_gwy:
                 coeffs = xyz_to_coeff()
                 if coeffs is not None:
-                    gwy_utils.polynomial_distort(self.gwy_file, channel=None, new_chan='corrected', coeffs=coeffs)
+                    # gwy_utils.polynomial_distort(self.gwy_file, channel=None, new_chan='corrected', coeffs=coeffs)
+                    pass
 
 
         def grab_background(self, event=None):
@@ -1819,6 +1819,28 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
     plt.show(block=True)
 
     return
+
+
+
+def calfile_to_coeff(calfile, scan_file=None):
+    """Accepts a calibration file produced by calibrate_xy() and produced a set of
+    normalised coefficients suitable for applying a polynomial distortion correction.
+
+    If scan_file=None the calibration filename is assumed to be of the form:
+
+    scan_file_cal.csv
+
+    and scan_file will be extracted and used. Otherwise specify via scan_file="""
+
+    row, x, y = np.loadtxt(calfile, delimiter=',', unpack=True)
+
+
+    D = np.array([x*0+1, x, x**2, x**3, y, y*x, y*x**2, y**2, y**2*x, y**3]).T
+    B = z
+    coeff, r, rank, s = np.linalg.lstsq(D, B)
+
+    return coeff
+
 
 
 def locate_scans(images):
@@ -3163,7 +3185,8 @@ class tm:
         param = pcf[pcf.param_name==param].squeeze()
 
         pkt_info = pid.merge(plf[plf.param_name==param.param_name])
-        if debug: print('DEBUG: parameter %s found in the following %i packet(s): ' % \
+        if debug:
+            print('DEBUG: parameter %s found in the following %i packet(s): ' % \
             (param.param_name, len(pkt_info)) + ", ".join(pkt_info.description.values))
 
         if value_after is not None:
@@ -3209,6 +3232,8 @@ class tm:
 
         # group packets by their SPID
         spids = pkts[pkts.spid.notnull()].spid.unique().astype(int)
+        if debug:
+            print('DEBUG: processing packets with SPIDs: %s' % spids)
 
         obt = []
         pkt_data = []
@@ -3706,12 +3731,13 @@ class tm:
 
 
 
-    def get_line_scans(self, info_only=False, expand_params=False, ignore_image=True):
+    def get_line_scans(self, info_only=False, expand_params=False, ignore_image=True, use_archive=False):
         """Extracts line scans from TM packets.
 
         info_only=True will return meta-data, but not line scan data.
         expand_params=True will look up additional data in HK but only for non-image lines!
-        ignore_image=True will ignore lines forming part of an image scan."""
+        ignore_image=True will ignore lines forming part of an image scan.
+        use_archive=True will use the HK archive to retrieve params if expand_params=True"""
 
         line_scan_fmt = ">H2Bh4Hh7H"
         line_scan_size = struct.calcsize(line_scan_fmt)
@@ -3730,7 +3756,12 @@ class tm:
         filename = []
 
         if expand_params:
-            hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+            if use_archive:
+                import archive
+                params = ['NMDA0118','NMDA0142','NMDA0147','NMDA0181','NMDA0188','NMDA0231','NMDA0244','NMDA0245','NMDA0270','NMDA0271','NMDA0287','NMDA0298','NMDA0306','NMDA0347']
+                hk2 = archive.query(params=params, archive_path='/media/phys-mab/projects/midas')
+            else:
+                hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
         for idx,pkt in line_scan_pkts.iterrows():
 
@@ -3831,8 +3862,10 @@ class tm:
                 else:
                     line_start = line.start_time
                     # print 'Using line start: %s' % line_start
-
-                frame = hk2[hk2.obt>line_start].index
+                if use_archive:
+                    frame = hk2[hk2.index>line_start].index
+                else:
+                    frame = hk2[hk2.obt>line_start].index
                 if len(frame)==0:
                     print('WARNING: no HK2 frame found after line scan at %s' % pkt.obt)
                     in_image = True # hack to put NaNs in the table if no HK available
@@ -3841,8 +3874,13 @@ class tm:
 
                 if line.scan_type=='CON':
 
-                    lines['work_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0287', frame=frame)[1]
-                    lines['set_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0298', frame=frame)[1]
+                    if use_archive:
+                        lines['work_pt'].loc[idx] = np.nan if line.in_image else hk2['NMDA0287'].loc[frame]
+                        lines['set_pt'].loc[idx] = np.nan if line.in_image else hk2['NMDA0298'].loc[frame]
+                    else:
+
+                        lines['work_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0287', frame=frame)[1]
+                        lines['set_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0298', frame=frame)[1]
 
                     # set expanded parameters that are not relevant in CON mode to NaN
                     lines['res_amp'].loc[idx] = np.nan
@@ -3853,23 +3891,43 @@ class tm:
 
                 else: # MAG or DYN modes
 
-                    lines['res_amp'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0306', frame=frame)[1]
-                    lines['work_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0181', frame=frame)[1]
-                    lines['work_pt'].loc[idx] = np.nan if line.in_image else lines['res_amp'].loc[idx] * abs(lines['work_pt_per'].loc[idx]) / 100.
-                    lines['set_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0245', frame=frame)[1]
-                    lines['set_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0244', frame=frame)[1]
-                    lines['fadj'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0347', frame=frame)[1]
+                    if use_archive:
+                        lines['res_amp'].loc[idx] = np.nan if line.in_image else hk2['NMDA0306'].loc[frame]
+                        lines['work_pt_per'].loc[idx] = np.nan if line.in_image else hk2['NMDA0181'].loc[frame]
+                        lines['work_pt'].loc[idx] = np.nan if line.in_image else lines['res_amp'].loc[idx] * abs(lines['work_pt_per'].loc[idx]) / 100.
+                        lines['set_pt'].loc[idx] = np.nan if line.in_image else hk2['NMDA0245'].loc[frame]
+                        lines['set_pt_per'].loc[idx] = np.nan if line.in_image else hk2['NMDA0244'].loc[frame]
+                        lines['fadj'].loc[idx] = np.nan if line.in_image else hk2['NMDA0347'].loc[frame]
+                    else:
+                        lines['res_amp'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0306', frame=frame)[1]
+                        lines['work_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0181', frame=frame)[1]
+                        lines['work_pt'].loc[idx] = np.nan if line.in_image else lines['res_amp'].loc[idx] * abs(lines['work_pt_per'].loc[idx]) / 100.
+                        lines['set_pt'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0245', frame=frame)[1]
+                        lines['set_pt_per'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0244', frame=frame)[1]
+                        lines['fadj'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0347', frame=frame)[1]
 
                 if line.sw_ver < 665: # have to get these from HK
-                    lines['z_step'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0231', frame=frame)[1]
-                    lines['exc_lvl'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0147', frame=frame)[1]
-                    lines['ac_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0118', frame=frame)[1]
-                    lines['dc_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0142', frame=frame)[1]
+                    if use_archive:
+                        lines['z_step'].loc[idx] = np.nan if line.in_image else hk2['NMDA0231'].loc[frame]
+                        lines['exc_lvl'].loc[idx] = np.nan if line.in_image else hk2['NMDA0147'].loc[frame]
+                        lines['ac_gain'].loc[idx] = np.nan if line.in_image else hk2['NMDA0118'].loc[frame]
+                        lines['dc_gain'].loc[idx] = np.nan if line.in_image else hk2['NMDA0142'].loc[frame]
+                    else:
+                        lines['z_step'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0231', frame=frame)[1]
+                        lines['exc_lvl'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0147', frame=frame)[1]
+                        lines['ac_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0118', frame=frame)[1]
+                        lines['dc_gain'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0142', frame=frame)[1]
 
                 # get these regardless of mode
-                lines['xy_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0271', frame=frame)[1]
-                lines['z_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0270', frame=frame)[1]
-                lines['z_ret'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0188', frame=frame)[1]
+                if use_archive:
+
+                    lines['xy_settle'].loc[idx] = np.nan if line.in_image else hk2['NMDA0271'].loc[frame]
+                    lines['z_settle'].loc[idx] = np.nan if line.in_image else hk2['NMDA0270'].loc[frame]
+                    lines['z_ret'].loc[idx] = np.nan if line.in_image else hk2['NMDA0188'].loc[frame]
+                else:
+                    lines['xy_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0271', frame=frame)[1]
+                    lines['z_settle'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0270', frame=frame)[1]
+                    lines['z_ret'].loc[idx] = np.nan if line.in_image else self.get_param('NMDA0188', frame=frame)[1]
 
             lines['z_ret_nm'] = lines.z_ret * common.zcal
 

@@ -38,18 +38,29 @@ def get_packet_format(apid=1076, sid=1):
 
     params = params[ (params.param_name.str.startswith('NMD')) ]
 
+    # fix an apparently database error:
+    #  NMDD3193  2067          456           3
+    params.bit_offset.loc[ params[ params.param_name=="NMDD3193"].index ] = 0
+
     params['bit_position'] = params.byte_offset * 8 + params.bit_offset
 
     global_params = params[params.param_name.str.startswith('NMDA')]
     detailed_params = params[params.param_name.str.startswith('NMDD')]
+
+    # remove detailed parameters corresponding to wax actuators since global_params
+    # parameter was re-purposed. Also NMDD3193 which seems to be badly defined in the RMIB?
+    detailed_params = detailed_params[~detailed_params.param_name.isin(["NMDD2142", "NMDD2141", "NMDD2140"])]
 
     # Remove any A parameters that have one or more D parameters inside
     global_remove = []
     for idx, param in global_params.iterrows():
         start_bit = param.bit_position
         end_bit = param.bit_position + param.width
-        overlapping = detailed_params[ (detailed_params.bit_position >= start_bit) & (detailed_params.bit_position <= end_bit) ]
+        overlapping = detailed_params[ (detailed_params.bit_position >= start_bit) & (detailed_params.bit_position < end_bit) ]
         if len(overlapping)>0:
+            if debug:
+                print('DEBUG: removing global parameter %s' % param.param_name)
+                print('DEBUG: overlaps with detailed parameters: %s' % " ".join(overlapping.param_name.tolist()))
             global_remove.append(param.param_name)
 
     params = params[ ~params.param_name.isin(global_remove) ]
@@ -63,7 +74,15 @@ def get_packet_format(apid=1076, sid=1):
 
         if start_bit > current_bit: # add padding
             fmt += 'pad:%i, ' % (start_bit-current_bit)
-        current_bit = start_bit + param.width
+            if debug:
+                print('DEBUG: adding pad of %d bits' % (start_bit-current_bit))
+            current_bit += (start_bit-current_bit)
+
+        current_bit += param.width
+
+        if debug:
+            print('DEBUG: parameter %s at bit position %d with width %d (after: %d)' % (param.param_name, param.bit_position, param.width, param.bit_position+param.width))
+            print('DEBUG: current bit counter: %d' % current_bit)
 
         # Determine type and hence correct format code
         if (param.ptc == 1) or (param.width==1):
@@ -149,7 +168,8 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
 
     for f in pkts.filename.unique():
 
-        if debug: print('DEBUG: processing file %s' % f)
+        if debug:
+            print('DEBUG: processing file %s' % f)
 
         # Open each file as a bitstream and filter the packet list to frames from this packet
         if on_disk:
@@ -174,6 +194,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
                 frame_data = s.readlist(fmt)
             except ReadError as e:
                 print('ERROR: %s (skipping packet)' % (e.msg))
+                asdffdg
                 del(obt[idx])
                 skipped += 1
                 continue
@@ -188,6 +209,8 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
 
     if calibrate:
 
+        if debug:
+            print('DEBUG: starting parameter calibration')
         # loop through parameters and calibrate each one
         for param in param_names:
             if param in hk_data.columns:
@@ -201,7 +224,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
 
 
 def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common.tlm_path, archfile='tm_archive_raw.h5',
-        calibrate=False, use_index=False, on_disk=False, chunksize=None):
+        calibrate=False, use_index=False, on_disk=False, chunksize=None, pack=True):
     """Writes a DataFrame of (optionally) calibrated TM data to an hdf5 archive.
 
     TM files (and optionally a TM index) are read from tlm_path, matching files
@@ -268,14 +291,16 @@ def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common
 
     store.root._v_attrs.calibrated = calibrate
 
-    if debug: print('DEBUG: indexing HDF5 tables')
+    if debug:
+        print('DEBUG: indexing HDF5 tables')
 
     store.create_table_index('HK1', columns=['index'], optlevel=9, kind='full')
     store.create_table_index('HK2', columns=['index'], optlevel=9, kind='full')
 
     store.close()
 
-    ptrepack()
+    if pack:
+        ptrepack(in_file=archfile, archive_path=archive_path)
 
     return
 
@@ -392,7 +417,7 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
             if not store.root._v_attrs.calibrated:
                 hk1_data[param] = ros_tm.calibrate('%s' % param, hk1_data[param].values)
 
-        elif param in hk2_params:
+        if param in hk2_params:
             hk2_data[param] = pd.Series(store.select_column('HK2',param).values, index=hk2_index)
             if not store.root._v_attrs.calibrated:
                 hk2_data[param] = ros_tm.calibrate('%s' % param, hk2_data[param].values)
@@ -405,11 +430,11 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
     if len(hk1_list)==0:
         if start is None: start = hk2_data.index.min()
         if end is None: end = hk2_data.index.max()
-        return hk2_data[ (hk2_data.index>start) & (hk2_data.index<end)]
+        return hk2_data[ (hk2_data.index>=start) & (hk2_data.index<=end)]
     elif len(hk2_list)==0:
         if start is None: start = hk1_data.index.min()
         if end is None: end = hk1_data.index.max()
-        return hk1_data[ (hk1_data.index>start) & (hk1_data.index<end)]
+        return hk1_data[ (hk1_data.index>=start) & (hk1_data.index<=end)]
     else:
         if start is None:
             start = min(hk1_data.index.min(), hk2_data.index.min())
@@ -417,7 +442,7 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
             end = max(hk1_data.index.max(), hk2_data.index.max())
 
         data = pd.concat([hk1_data, hk2_data]).sort_index()
-        return data[ (data.index>start) & (data.index<end) ]
+        return data[ (data.index>=start) & (data.index<=end) ]
 
 
 def plot(param, start=None, end=None, max_pts=10000, **kwargs):

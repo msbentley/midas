@@ -1570,7 +1570,7 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
 
         if units == 'real':
             data = (data - data.min()) * common.cal_factors[chan_idx]
-            plot1 = axis.imshow(data, origin='upper', interpolation='nearest', extent=[0,image.xlen_um,0,image.ylen_um], cmap=cmap)
+            plot1 = axis.imshow(data, origin='upper', interpolation='nearest', extent=[0,image.xlen_um,image.ylen_um,0], cmap=cmap)
             axis.set_xlabel('X (microns)')
             axis.set_ylabel('Y (microns)')
 

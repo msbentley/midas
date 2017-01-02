@@ -194,7 +194,6 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
                 frame_data = s.readlist(fmt)
             except ReadError as e:
                 print('ERROR: %s (skipping packet)' % (e.msg))
-                asdffdg
                 del(obt[idx])
                 skipped += 1
                 continue

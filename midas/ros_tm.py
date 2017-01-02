@@ -3759,7 +3759,7 @@ class tm:
             if use_archive:
                 import archive
                 params = ['NMDA0118','NMDA0142','NMDA0147','NMDA0181','NMDA0188','NMDA0231','NMDA0244','NMDA0245','NMDA0270','NMDA0271','NMDA0287','NMDA0298','NMDA0306','NMDA0347']
-                hk2 = archive.query(params=params, archive_path='/media/phys-mab/projects/midas')
+                hk2 = archive.query(params=params, archive_path=common.tlm_path)
             else:
                 hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
 
@@ -5716,11 +5716,12 @@ def load_lines(filename=None, ignore_image=True, expand_params=True):
     while 1:
         try:
             objs.append(pkl.load(f))
+
         except EOFError:
             break
 
     if len(objs)==0:
-        print('ERROR: file %s appears to be empty' % filename)
+        print('ERROR: file %s appears to be empty' % fname)
         return None
 
     lines = pd.concat(iter(objs), axis=0)

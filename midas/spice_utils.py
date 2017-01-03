@@ -197,7 +197,7 @@ def operational_kernels(no_ck=False):
     # RORB_DV_145_01___t19_00216.BSP
     rorb = glob.glob(os.path.join(spk_path, 'RORB_DV_???_??___T19_00???.BSP'))
     corb = glob.glob(os.path.join(spk_path, 'CORB_DV_???_??___T19_00???.BSP'))
-    ratt = glob.glob(os.path.join(ck_path,  'RATT_DV_???_??_??____00???.BC'))
+    ratt = glob.glob(os.path.join(ck_path,  'RATT_DV_???_??_??_T6_00???.BC'))
     catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_??____00???.BC'))
 
     sclk = glob.glob(os.path.join(sclk_path,  'ROS_??????_STEP.TSC'))
@@ -226,13 +226,13 @@ def operational_kernels(no_ck=False):
             'rorb_2': os.path.join(spk_path, 'RORB_DV_223_01___T19_00302.BSP'),
             'corb_1': os.path.join(spk_path, 'CORB_DV_145_01___T19_00216.BSP'),
             'corb_2': os.path.join(spk_path, 'CORB_DV_223_01___T19_00302.BSP'),
-            'ratt_1': os.path.join(ck_path,  'RATT_DV_145_01_01____00216.BC'),
-            'ratt_2': os.path.join(ck_path,  'RATT_DV_223_01_01____00302.BC'),
+            'ratt_1': os.path.join(ck_path,  'RATT_DV_145_01_01_T6_00216.BC'),
+            'ratt_2': os.path.join(ck_path,  'RATT_DV_223_01_01_T6_00302.BC'),
             'catt_1': os.path.join(ck_path,  'CATT_DV_145_01_______00216.BC'),
             'catt_2': os.path.join(ck_path,  'CATT_DV_223_01_______00302.BC'),
             'rorb': rorb, 'corb': corb, 'ratt': ratt, 'catt': catt, 'sclk': sclk }
 
-def get_geometry(start, end, timestep=3660., kernels=None, no_ck=False):
+def get_geometry(start='2014-03-01', end='2016-09-30', timestep=3660., kernels=None, no_ck=False):
     """Accepts a start and end date/time (either a string or a datetime object)
     and an optional timestep. Loads operational kernels, calculates all
     geometric data and returns a time-indexed dataframe"""

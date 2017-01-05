@@ -17,6 +17,9 @@ import pandas as pd
 from midas.dust import fulle_data
 import os, math
 
+import logging
+log = logging.getLogger(__name__)
+
 pd.options.mode.chained_assignment = None  # default='warn'
 
 # Default paths
@@ -258,7 +261,7 @@ def get_channel(channels):
     if type(channels) is not list: channels = [channels]
 
     if not set(channels) < set(data_channels):
-        print('ERROR: unrecognised data channel mnemonic')
+        log.error('unrecognised data channel mnemonic')
         return False
 
     return sum([2**data_channels.index(chan) for chan in channels])
@@ -278,7 +281,7 @@ def seg_to_facet(seg):
     """Accepts a wheel segment (0-1023) and returns the corresponding facet (0-63)"""
 
     if seg<0 or seg>1023:
-        print('ERROR: segment must be between 0 and 1023 - defaulting to zero')
+        log.error('segment must be between 0 and 1023 - defaulting to zero')
         return 0
 
     target = (seg+8) // 16
@@ -291,7 +294,7 @@ def opposite_facet(facet):
     """Returns the facet opposite on the wheel (input 0-63)"""
 
     if facet<0 or facet>63:
-        print('ERROR: facet must be between 0 and 63')
+        log.error('facet must be between 0 and 63')
         return False
 
     return (32+facet)%64
@@ -299,7 +302,7 @@ def opposite_facet(facet):
 def facet_to_seg(facet):
 
     if facet<0 or facet>63:
-        print('ERROR: facet must be between 0 and 63')
+        log.error('facet must be between 0 and 63')
         return False
 
     return facet*16
@@ -312,7 +315,7 @@ def seg_off_to_pos(offset):
     import math
 
     if (offset<-7) or (offset>7):
-        print('ERROR: segment offset must be in the range -7 to +7!')
+        log.error('segment offset must be in the range -7 to +7!')
         return None
 
     angle_per_seg = 360./1024.
@@ -367,4 +370,23 @@ def printtable(df, float_fmt=None):
     for row in df.itertuples():
             table.add_row(row[1:])
     print(table)
+    return
+
+def loglevel(level='info'):
+    """Sets the python logger level"""
+
+    level = level.lower()
+
+    levels = {
+        'error': logging.ERROR,
+        'warning': logging.WARNING,
+        'info': logging.INFO,
+        'debug': logging.DEBUG }
+
+    if level not in levels.keys():
+        log.warning('log level %s not valid' % level)
+        return None
+
+    logging.getLogger().setLevel(levels[level])
+
     return

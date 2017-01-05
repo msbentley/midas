@@ -8,8 +8,8 @@ from midas import common
 import numpy as np
 import matplotlib.pyplot as plt
 
-debug = False
-
+import logging
+log = logging.getLogger(__name__)
 
 def calc_duration(xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, avg=1,
     ctrl=False, mag_chans=0, mainscan_x=True, ctrl_ret=False, acreep=16):
@@ -42,8 +42,7 @@ def calc_duration(xpoints, ypoints, zretract, zsettle=50, xysettle=50, zstep=4, 
 
     duration = (line_time+ctrl_time+ctrl_ret_time+magnetic_time) * (num_lines+acreep)
 
-    if debug:
-        print('DEBUG: calculated duration: %3.2f seconds' % duration)
+    log.debug('calculated duration: %3.2f seconds' % duration)
 
     return duration
 
@@ -323,9 +322,6 @@ def read_fileinfo(filename):
 
                     num_scans += 1
 
-                    # if debug: print '%ix%i scan, %i types, XY settle=%i, Z settle=%i, retract=%i, Zstep=%i, avg=%i' % (xpoints, ypoints, num_types, z_settle, xy_settle, retract, zstep, avg)
-                    # if debug: print 'Actual time: %i s, predicted time %i s\n' % (scan_duration, predict)
-
     f.close()
 
 
@@ -364,7 +360,7 @@ def compare_predicted(query=None):
         images = images.query(query)
 
     if len(images)==0:
-        print('ERROR: no images to compare!')
+        log.error('no images to compare!')
         return None
 
     predicted = []

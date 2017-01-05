@@ -9,6 +9,9 @@ Mark S. Bentley (mark@lunartech.org), 2015"""
 
 from mpl_toolkits.mplot3d import proj3d
 
+import logging
+log = logging.getLogger(__name__)
+
 def orthogonal_proj(zfront, zback):
     """See https://stackoverflow.com/questions/23840756/how-to-disable-perspective-in-mplot3d"""
 

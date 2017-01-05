@@ -6,6 +6,9 @@ import numpy as np
 from midas import common, dds_utils, ros_tm, archive
 from datetime import date, datetime, timedelta
 
+import logging
+log = logging.getLogger(__name__)
+
 # Server specific directories
 log_dir = '/var/www/html/'
 event_dir = '/var/www/html/events/'
@@ -138,7 +141,7 @@ def run_daily():
         try:
             os.rename(os.path.join(common.tlm_path,'tlm_packet_index.hd5'), os.path.join(common.tlm_path,'tlm_packet_index.hd5.bak'))
         except OSError:
-            print('ERROR: could not back up old TLM index')
+            log.error('could not back up old TLM index')
         ros_tm.build_pkt_index()
         try:
             old_size = os.path.getsize(os.path.join(common.tlm_path,'tlm_packet_index.hd5.bak'))
@@ -151,7 +154,7 @@ def run_daily():
             except OSError:
                 pass
         else:
-            print('WARNING: new packet index smaller than old, keeping previous version!')
+            log.warning('new packet index smaller than old, keeping previous version!')
             try:
                 os.remove(os.path.join(common.tlm_path,'tlm_packet_index.hd5'))
                 os.rename(os.path.join(common.tlm_path,'tlm_packet_index.hd5.bak'), os.path.join(common.tlm_path,'tlm_packet_index.hd5'))
@@ -209,7 +212,7 @@ def image_hdf(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir, ou
     tm_files = sorted(glob.glob(os.path.join(src_path,src_files)))
 
     if len(tm_files)==0:
-        print('ERROR: no files matching pattern')
+        log.error('no files matching pattern')
         return False
 
     for f in tm_files:
@@ -239,7 +242,7 @@ def image_msgpack(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir
     tm_files = sorted(glob.glob(os.path.join(src_path,src_files)))
 
     if len(tm_files)==0:
-        print('ERROR: no files matching pattern')
+        log.error('no files matching pattern')
         return False
 
     for f in tm_files:
@@ -267,7 +270,7 @@ def image_pickle(src_path=tlm_dir, src_files='TLM__MD_M*.DAT', out_path=tlm_dir,
     tm_files = sorted(glob.glob(os.path.join(src_path,src_files)))
 
     if len(tm_files)==0:
-        print('ERROR: no files matching pattern')
+        log.error('no files matching pattern')
         return False
 
     for f in tm_files:
@@ -307,7 +310,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
 
     what=what.lower()
     if what not in what_types:
-        print('ERROR: what= must be one of %s' ", ".join(what_types) )
+        log.error('what= must be one of %s' ", ".join(what_types) )
         return False
 
     tm = ros_tm.tm()
@@ -325,7 +328,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
             import glob
             tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
             if len(tm_files)==0:
-                print('ERROR: no files matching pattern')
+                log.error('no files matching pattern')
                 return False
             for f in tm_files:
                 tm=ros_tm.tm(f)
@@ -343,7 +346,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
             import glob
             tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
             if len(tm_files)==0:
-                print('ERROR: no files matchin pattern')
+                log.error('no files matchin pattern')
                 return False
             for f in tm_files:
                 tm.get_pkts(f, append=True)
@@ -423,7 +426,7 @@ def generate_timelines(case='P'):
     evf_files = ros_tm.select_files(wildcard='EVF__MD_*%c_RSUXPIYZ.evf' % case.upper(), directory=common.ros_sgs_path, recursive=True)
 
     if len(itl_files) != len(evf_files):
-        print('ERROR: number of ITL and EVF files does not match!')
+        log.error('number of ITL and EVF files does not match!')
         return
 
     for itl, evf in zip(itl_files, evf_files):

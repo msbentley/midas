@@ -21,14 +21,14 @@ data = bcrutils.read('testfile.bcr')
 
 """
 
-debug = False
-
-# Numpy and Matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import sys, os, array, struct
 from midas import common
+
+import logging
+log = logging.getLogger(__name__)
 
 # Module level definitions
 
@@ -84,7 +84,7 @@ def read(filename):
 
     # First check if filename is valid
     if not os.path.isfile(filename):
-        print('ERROR: file %s not found' % (filename))
+        log.error('file %s not found' % (filename))
         return False
 
     for line in open(filename):    # Now make an array of x and y values for each pixel
@@ -219,7 +219,8 @@ def write(bcrdata):
         bcrfile.write(s.pack(bcrdata['data'][element]))
         byteswritten += 1
 
-    if debug: print 'Header size = ' + str(filesize) + ', writing ' + str(paddingsize) + ' padding bytes and ' + str(byteswritten) + ' data bytes'
+    log.debug('header size = ' + str(filesize) + ', writing ' + str(paddingsize) +
+        ' padding bytes and ' + str(byteswritten) + ' data bytes')
 
     # Close the file
     bcrfile.close()
@@ -619,7 +620,7 @@ def resize(bcr_in, zoom_factor, bcr_out):
     data = np.reshape(bcr['data'], (bcr['ypixels'], bcr['xpixels']))
     data = np.array(data, dtype=np.float64)
 
-    print('INFO: original image size %dx%d' % (bcr['xpixels'], bcr['ypixels']))
+    log.info('original image size %dx%d' % (bcr['xpixels'], bcr['ypixels']))
 
     # Resample via ndimage.interpolation - order = 0 = nearest neighbour
     newdata = zoom(data, zoom=zoom_factor, order=0)
@@ -632,6 +633,6 @@ def resize(bcr_in, zoom_factor, bcr_out):
 
     write(bcr)
 
-    print('INFO: resampled (zoom factor %3.2f) image size %dx%d' % (zoom_factor, bcr['xpixels'], bcr['ypixels']))
+    log.info('resampled (zoom factor %3.2f) image size %dx%d' % (zoom_factor, bcr['xpixels'], bcr['ypixels']))
 
     return

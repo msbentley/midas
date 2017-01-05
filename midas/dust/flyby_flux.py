@@ -14,6 +14,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatch
 from flyby_flux import *
 
+import logging
+log = logging.getLogger(__name__)
+
 def contiguous_regions(condition):
     """Finds contiguous True regions of the boolean array "condition". Returns
     a 2D array where the first column is the start index of the region and the
@@ -62,8 +65,8 @@ def run_flyby(meta_kernel, start_time, end_time, timestep, description, filename
 
     # Use the SPICE furnsh command to load several kernels (here the sample kernels and one leapsecond)
     if not os.path.isfile(meta_kernel):
-        print('Meta kernel not found - specify the full path')
-        return 0
+        log.error('Meta kernel %s not found' % meta_kernel)
+        return None
 
     spice.furnsh(meta_kernel) # furnish all kernels
 
@@ -459,12 +462,12 @@ def write_counts(bin_edges_mass,diameters,counts,width,height,filename):
     Inputs: mass bin edge (kg), diameter (microns), counts (int), width, height (microns) and a filename"""
 
     if (width <= 0.) or (height <= 0.):
-        print('Width and height must be positive!')
-        return 0
+        log.error('Width and height must be positive!')
+        return None
 
     if len(diameters) != len(counts):
-        print('Error: number of diameters and counts must be the same!')
-        return 0
+        log.error('number of diameters and counts must be the same!')
+        return None
 
     count_file = open(filename, 'w')
 
@@ -538,16 +541,16 @@ def read_counts(filename=''):
             elif param.lower() == 'height':
                 height = float(val.strip())
             else:
-                print 'Unknown parameter!'
-                return 0
+                log.error('Unknown parameter!')
+                return None
         elif len(line.split(',')) == 3:
             edge_tmp, diam_tmp, ct_tmp = line.split(',')
             edge.append(float(edge_tmp))
             diameter.append(float(diam_tmp))
             count.append(long(ct_tmp))
         else:
-            print ('Invalid data in file!')
-            return 0
+            log.error ('Invalid data in file!')
+            return None
 
     return edge, diameter,count,width,height
 
@@ -557,7 +560,7 @@ def generate_facet(scan_width, scan_height, diameter, count):
     and returns an array of particles positions (x,y,d) arranged over the given facet area."""
 
     if (len(diameter) != len(count) or len(diameter) <= 0):
-        # print('ERROR: number of diameter bins and counts must be equal and greater than zero!')
+        # log.error('number of diameter bins and counts must be equal and greater than zero!')
         return 0
 
     # Generate the random particle distribution and add to a list of tuples (x,y,d)
@@ -581,7 +584,7 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
     # FIXME: also, particle are generated that can overlap the edge of the exposure area
 
     if (len(diameter) != len(count) or len(diameter) <= 0):
-        print('ERROR: number of diameter bins and counts must be equal and greater than zero!')
+        log.error('number of diameter bins and counts must be equal and greater than zero!')
         return 0, plotfile
 
 
@@ -632,7 +635,7 @@ def view_facet(scan_width, scan_height, diameter, count, description, show_count
         # If x and y steps not specified, calculate to fit the exposure area
         xstep = np.floor(float(scan_width) / float(xpixels) / xstep_cal)
         ystep = np.floor(float(scan_height) / float(ypixels) / ystep_cal)
-        print('X and Y step sizes: ', str(xstep*xstep_cal), str(ystep*ystep_cal))
+        log.info('X and Y step sizes: ', str(xstep*xstep_cal), str(ystep*ystep_cal))
 
         xsteps = np.arange(xpixels) * xstep * xstep_cal
         ysteps = np.arange(ypixels) * ystep * ystep_cal
@@ -783,14 +786,14 @@ def generate_scan(particles, width, height, xpixels, ypixels, xstep='', ystep=''
     if (xstep == '' or ystep == ''):
         xstep = np.floor(float(width) / float(xpixels) / xstep_cal)
         ystep = np.floor(float(height) / float(ypixels) / ystep_cal)
-        print('X and Y step sizes: ', str(xstep*xstep_cal), str(ystep*ystep_cal))
+        log.info('X and Y step sizes: ', str(xstep*xstep_cal), str(ystep*ystep_cal))
     else:
         # or check that the requested number of pixels and x/y step fits within the scan area
         scan_width = xstep_cal * xstep * xpixels # cal in nm/bit
         scan_height = ystep_cal * ystep * ypixels # cal in nm/bit
 
         if (scan_width > width) or (scan_height > height):
-            print('Requested MIDAS scan size is larger than the calculated exposure size!')
+            log.warning('Requested MIDAS scan size is larger than the calculated exposure size!')
             return 0
 
     # Initialise AFM height array
@@ -1006,9 +1009,9 @@ def flyby():
     end_time_et = spice.str2et(bone_meta_case['end_time'])
 
     duration = end_time_et - start_time_et
-    # print 'DEBUG: duration = %f seconds' % (duration)
+    log.debug('DEBUG: duration = %f seconds' % (duration))
     num_weeks = np.round(duration / (7. * 24. * 60. * 60.))
-    print 'Number of weeks in meta case: %i' % (num_weeks)
+    log.info('Number of weeks in meta case: %i' % (num_weeks))
     bone_cases = []
 
     time_fmt = 'HR:MN:SC.### Mon DD, YYYY ::RND'
@@ -1017,7 +1020,7 @@ def flyby():
         month_num = int((week)/4.)+1
         week_num = week + 1
         if (week == (num_weeks-1)):
-            # print 'DEBUG: final week, setting end time to end of meta case'
+            log.debug('final week, setting end time to end of meta case')
             bone = { 'start_time' : spice.timout(start_time_et + week * 7.*24.*60.*60.,time_fmt),
                 'end_time' : bone_meta_case['end_time'],
                 'meta_kernel' : bone_meta_case['meta_kernel'],
@@ -1029,7 +1032,7 @@ def flyby():
                 'meta_kernel' : bone_meta_case['meta_kernel'],
                 'run_prefix' : bone_meta_case['run_prefix'] + '_week_%i' % (week_num),
                 'comment' : 'M%i' % (month_num) + ' ' + bone_meta_case['comment'] + ', week %i' % (week_num) }
-        # print 'DEBUG: Start time: %s, stop time: %s' % (bone['start_time'],bone['end_time'])
+        log.debug('Start time: %s, stop time: %s' % (bone['start_time'],bone['end_time']))
         bone_cases.append(bone)
 
     spice.unload(bone_meta_case['meta_kernel'])
@@ -1315,7 +1318,7 @@ def flyby():
 
     # Open a data file to write the results to
     summary_path = os.path.join(output_path,'bone_summary.csv')
-    print 'Writing summary to file: %s' % (summary_path)
+    log.info('Writing summary to file: %s' % (summary_path))
     summary_file = open(summary_path, 'w')
 
     # Write the header
@@ -1381,7 +1384,7 @@ def flyby():
         # Run for each of the possible scenarios of particle density, observational limit and
         # mass index for small particles...
 
-        print 'Running bone: %s, start time: %s, stop time: %s' % (comment, start_time, end_time)
+        log.info('Running bone: %s, start time: %s, stop time: %s' % (comment, start_time, end_time))
 
         # Use the SPICE kernels to iterate through the specified trajectory and return distance, speed etc.
         os.chdir(kernel_path) # SPICE looks for the kernels in the current directory
@@ -1530,7 +1533,7 @@ def flyby():
                             else:
                                 giada_count = cumulative[-1,9] * giada_size_factor * giada_time_factor
                                 giada_diam = mean_diam[9]
-                            # print 'GIADA count = %i for a diameter of %3.1f microns' % (giada_count, giada_diam*1.e6)
+                            log.debug('GIADA count = %i for a diameter of %3.1f microns' % (giada_count, giada_diam*1.e6))
 
                             # Plot the GIADA service (19,12) counts
                             fig = plt.figure()
@@ -1603,7 +1606,7 @@ def flyby():
                                     count_1um = final_count[4] # +final_count[5]
 
                             output_txt = ('%s,%.2f,%.2f,%s,%s,%s,%s,%d' % (run_prefix, scan_width, scan_height, fluffytext, divinetext, upper_lower, anitext, count_1um))
-                            print output_txt
+                            log.debug(output_txt)
                             summary_file.write(output_txt+'\n')
 
                             # For a "standard" case, write the 1 micron count to the summary table

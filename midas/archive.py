@@ -6,8 +6,6 @@ Mark S. Bentley (mark@lunartech.org), 2013
 
 """
 
-debug = False
-
 import os
 import numpy as np
 import pandas as pd
@@ -16,6 +14,9 @@ from pandas import HDFStore
 from midas import common, ros_tm
 
 archive_path = common.tlm_path
+
+import logging
+log = logging.getLogger(__name__)
 
 # Use https://code.google.com/p/python-bitstring/ to read the binary data (see also https://pythonhosted.org/bitstring/)
 
@@ -27,7 +28,7 @@ def get_packet_format(apid=1076, sid=1):
     packet = ros_tm.pid[ (ros_tm.pid.apid==apid) & (ros_tm.pid.sid==sid)].squeeze()
 
     if len(packet)==0:
-        print('ERROR: could not find packet with APID %i and SID %i' % (apid, sid))
+        log.error('could not find packet with APID %i and SID %i' % (apid, sid))
         return False, False
 
     pkt_name = ros_tm.pid[ (ros_tm.pid.apid==apid) & (ros_tm.pid.sid==sid) ].description.squeeze()
@@ -58,9 +59,8 @@ def get_packet_format(apid=1076, sid=1):
         end_bit = param.bit_position + param.width
         overlapping = detailed_params[ (detailed_params.bit_position >= start_bit) & (detailed_params.bit_position < end_bit) ]
         if len(overlapping)>0:
-            if debug:
-                print('DEBUG: removing global parameter %s' % param.param_name)
-                print('DEBUG: overlaps with detailed parameters: %s' % " ".join(overlapping.param_name.tolist()))
+            log.debug('removing global parameter %s' % param.param_name)
+            log.debug('overlaps with detailed parameters: %s' % " ".join(overlapping.param_name.tolist()))
             global_remove.append(param.param_name)
 
     params = params[ ~params.param_name.isin(global_remove) ]
@@ -74,15 +74,13 @@ def get_packet_format(apid=1076, sid=1):
 
         if start_bit > current_bit: # add padding
             fmt += 'pad:%i, ' % (start_bit-current_bit)
-            if debug:
-                print('DEBUG: adding pad of %d bits' % (start_bit-current_bit))
+            log.debug('adding pad of %d bits' % (start_bit-current_bit))
             current_bit += (start_bit-current_bit)
 
         current_bit += param.width
 
-        if debug:
-            print('DEBUG: parameter %s at bit position %d with width %d (after: %d)' % (param.param_name, param.bit_position, param.width, param.bit_position+param.width))
-            print('DEBUG: current bit counter: %d' % current_bit)
+        log.debug('parameter %s at bit position %d with width %d (after: %d)' % (param.param_name, param.bit_position, param.width, param.bit_position+param.width))
+        log.debug('current bit counter: %d' % current_bit)
 
         # Determine type and hence correct format code
         if (param.ptc == 1) or (param.width==1):
@@ -97,7 +95,7 @@ def get_packet_format(apid=1076, sid=1):
             elif param.pfc == 3:
                 fmt += 'uint:%i, ' % param.width  # remember this needs further processing!
         else:
-            print('ERROR: format code not recognised')
+            log.error('format code not recognised')
 
     fmt = fmt[:-2] # strip the trailing ', '
     param_names = params.param_name.tolist()
@@ -112,7 +110,7 @@ def get_packet_format(apid=1076, sid=1):
     status_params = [param[0] for param in status_params]
     status_len = dictionary = dict(zip(status_params, status_len))
 
-    print('INFO: packet format for %s created with length %i bits' % (pkt_name, current_bit))
+    log.info('packet format for %s created with length %i bits' % (pkt_name, current_bit))
 
     return pkt_name, fmt, param_names, param_desc, status_len
 
@@ -160,7 +158,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
     if tsync:
         pkts = pkts[ pkts.tsync ]
 
-    print('INFO: packet index complete (%i %s packets)' % (len(pkts),pkt_name))
+    log.info('packet index complete (%i %s packets)' % (len(pkts),pkt_name))
 
     hk_rows = []
     obt = []
@@ -168,8 +166,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
 
     for f in pkts.filename.unique():
 
-        if debug:
-            print('DEBUG: processing file %s' % f)
+        log.debug('processing file %s' % f)
 
         # Open each file as a bitstream and filter the packet list to frames from this packet
         if on_disk:
@@ -193,7 +190,7 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
             try:
                 frame_data = s.readlist(fmt)
             except ReadError as e:
-                print('ERROR: %s (skipping packet)' % (e.msg))
+                log.error('%s (skipping packet)' % (e.msg))
                 del(obt[idx])
                 skipped += 1
                 continue
@@ -204,18 +201,17 @@ def read_data(files, apid, sid, calibrate=False, tsync=True, use_index=False, on
     hk_data['obt'] = obt
     hk_data.set_index('obt', inplace=True)
 
-    print('INFO: data read complete (%i packets skipped)' % (skipped))
+    log.info('data read complete (%i packets skipped)' % (skipped))
 
     if calibrate:
 
-        if debug:
-            print('DEBUG: starting parameter calibration')
+        log.debug('starting parameter calibration')
         # loop through parameters and calibrate each one
         for param in param_names:
             if param in hk_data.columns:
                 hk_data['%s' % param] = ros_tm.calibrate('%s' % param,hk_data['%s' % param])
 
-        print('INFO: calibration complete')
+        log.info('calibration complete')
 
     hk_data._metadata = [pkt_name, dict(zip(param_names, param_desc)), status_len]
 
@@ -280,7 +276,7 @@ def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common
                 stop=(i+1)*chunksize
                 idx = selected[start:stop]
 
-                print('INFO: processing chunk %i of %i' % (i+1, num_hk//chunksize))
+                log.info('processing chunk %i of %i' % (i+1, num_hk//chunksize))
 
                 hk = read_data(files=None, apid=apid, sid=1, calibrate=calibrate, use_index=True, on_disk=on_disk, rows=idx)
                 store.append('HK1', hk, format='table', data_columns=True, min_itemsize=hk._metadata[2], index=False)
@@ -290,8 +286,7 @@ def create(files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=common
 
     store.root._v_attrs.calibrated = calibrate
 
-    if debug:
-        print('DEBUG: indexing HDF5 tables')
+    log.debug('indexing HDF5 tables')
 
     store.create_table_index('HK1', columns=['index'], optlevel=9, kind='full')
     store.create_table_index('HK2', columns=['index'], optlevel=9, kind='full')
@@ -319,14 +314,14 @@ def append(tlm_files='TLM__MD_M*.DAT', tlm_path=common.tlm_path, archive_path=co
     metadata = hk._metadata
     obt_max = store.select_column('HK1','index').max()
     hk = hk[hk.index>obt_max]
-    print('INFO: adding %i new HK1 frames to the archive' % len(hk))
+    log.info('adding %i new HK1 frames to the archive' % len(hk))
     store.append('HK1', hk, format='table', data_columns=True, min_itemsize=metadata[2], index=False, on_disk=on_disk)
 
     hk = read_data(files=os.path.join(tlm_path,tlm_files), apid=apid, sid=2, calibrate=calibrated)
     metadata = hk._metadata
     obt_max = store.select_column('HK2','index').max()
     hk = hk[hk.index>obt_max]
-    print('INFO: adding %i new HK2 frames to the archive' % len(hk))
+    log.info('adding %i new HK2 frames to the archive' % len(hk))
     store.append('HK2', hk, format='table', data_columns=True, min_itemsize=metadata[2], index=False)
 
     store.create_table_index('HK1',columns=['index'],optlevel=9,kind='full')
@@ -372,7 +367,7 @@ def ptrepack(in_file='tm_archive_raw.h5', out_file='tm_archive.h5', archive_path
         print "ERROR: ptrepack failed! Output: \n\n", e.output
         return False
 
-    # print('INFO: ptrepack output:\n\n %s' % ptrepack_cmd)
+    # log.info('ptrepack output:\n\n %s' % ptrepack_cmd)
 
     return ptrepack_cmd
 
@@ -393,7 +388,7 @@ def query(params, start=None, end=None, archive_path=common.tlm_path, archfile='
     hk2_params.remove('index')
 
     if not set(params).issubset(hk1_params + hk2_params):
-        print('ERROR: one or more parameters not found in the archive')
+        log.error('one or more parameters not found in the archive')
         return None
 
     # Work out which of the requested parameters is in HK1 and which in HK2

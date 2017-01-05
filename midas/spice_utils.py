@@ -9,10 +9,11 @@ import os, dateutil
 import numpy as np
 import spiceypy as spice
 
-debug = True
 km_to_au = (1/149598000.)
 kernel_path = common.kernel_path
 
+import logging
+log = logging.getLogger(__name__)
 
 def spk_interval(spk_list):
     """Calls brief and extracts the start and end of interval data from list of
@@ -40,7 +41,7 @@ def spk_interval(spk_list):
         spk_start = max(spk_start,start)
         spk_end = min(spk_end,end)
 
-    print('INFO: SPK kernels have interval %s - %s' % (spk_start, spk_end))
+    log.info('SPK kernels have interval %s - %s' % (spk_start, spk_end))
 
     return start, end
 
@@ -68,7 +69,7 @@ def ck_interval(ck_list, tls_file=os.path.join(kernel_path, 'lsk/NAIF0011.TLS'),
         ck_start = max(ck_start,start)
         ck_end = min(ck_end,end)
 
-    print('INFO: CK kernels have interval %s - %s' % (ck_start, ck_end))
+    log.info('CK kernels have interval %s - %s' % (ck_start, ck_end))
 
     return start, end
 
@@ -165,7 +166,7 @@ def mtp_kernels(mtp, case='P'):
     catt = glob.glob(os.path.join(ck_path,  'CATT_DV_???_??_______00???.BC'))
 
     if len(rorl)==0 or len(corl)==0 or len(ratm)==0 or len(catt)==0:
-        print('WARNING: incomplete set of RORL/CORL/RATM/CATT files found in folder')
+        log.warning('incomplete set of RORL/CORL/RATM/CATT files found in folder')
 
     # Find the latest file
     rorl = sorted(rorl, key=lambda x: ( int(os.path.basename(x)[12:14]), int(os.path.basename(x)[21:26])) )[-1] if len(rorl)>0 else None
@@ -203,7 +204,7 @@ def operational_kernels(no_ck=False):
     sclk = glob.glob(os.path.join(sclk_path,  'ROS_??????_STEP.TSC'))
 
     if len(rorb)==0 or len(corb)==0 or len(ratt)==0 or len(catt)==0:
-        print('ERROR: no matching SPICE files found in folder')
+        log.error('no matching SPICE files found in folder')
         return False
 
     # Find the latest file

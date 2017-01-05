@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+import logging
+log = logging.getLogger(__name__)
 
 def summarise_cdf(fluffy=False, upper_lower='upper', divine=True):
     """Summarise the cumulative distribution function for various cometocentric distances"""
@@ -169,7 +171,7 @@ def compare_massflux(distance=0.0, fluffy=False, upper_lower='upper', divine=Fal
 
     if upper_lower.lower() == 'lower':
         mass_flux_orig = np.array(data.flux_lower[dist_index])
-        print("Lower flux used")
+        log.info("Lower flux used")
     else:
         mass_flux_orig = np.array(data.flux_upper[dist_index])
 

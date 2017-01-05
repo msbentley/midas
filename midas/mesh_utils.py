@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 from midas import ros_tm, common
 
+import logging
+log = logging.getLogger(__name__)
 
 def vtk_to_stl(vtkfile, stlfile):
     """Convert StructuredGrid in a .vtk files to an STL file"""
@@ -19,7 +21,7 @@ def vtk_to_stl(vtkfile, stlfile):
     try:
         import vtk
     except ImportError:
-        print('ERROR: VTK module not found!')
+        log.error('VTK module not found!')
         return None
 
     reader = vtk.vtkStructuredGridReader()
@@ -62,7 +64,7 @@ def image_to_vtk(images, vtkfile=None, scaling=1.0):
         images = ros_tm.load_images(data=True).query('scan_file==@images')
 
     if len(images)==0:
-        print('ERROR: no matching images found!')
+        log.error('no matching images found!')
         return None
 
     for idx, image in images.iterrows():
@@ -83,11 +85,11 @@ def array_to_vtk(data, vtkfile, xlen=1.0, ylen=1.0, name=''):
     """Writes a 2D numpy array to a structured grid legacy ASCII VTK file. """
 
     if type(data) != np.ndarray:
-        print('ERROR: data must be in a numpy ndarray!')
+        log.error('data must be in a numpy ndarray!')
         return None
 
     if len(data.shape) != 2:
-        print('ERROR: data must be a 2D array!')
+        log.error('data must be a 2D array!')
         return None
 
     # fldata = data.view('float')

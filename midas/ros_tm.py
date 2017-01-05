@@ -14,8 +14,6 @@ scans, tm.get_params() to extract named TM parameters and tm.plot_params()
 to plot the same.
 """
 
-debug = False
-
 import struct, collections, pytz, os, math
 import pandas as pd
 import numpy as np
@@ -23,6 +21,9 @@ from datetime import datetime, timedelta
 from midas import common
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+
+import logging
+log = logging.getLogger(__name__)
 
 # datefmt='%m/%d/%Y %I:%M:%S %p'
 isofmt = '%Y-%m-%dT%H%M%SZ'
@@ -126,7 +127,7 @@ def calibrate(param_name, values):
             values = np.apply_along_axis(polycal, 0, values, calcurve)
 
         else:
-            print('ERROR: no numerical calcurve found with ID' % (param.cal_id))
+            log.error('no numerical calcurve found with ID' % (param.cal_id))
             return False
 
     elif param.cal_cat == 'S': # status parameter
@@ -168,7 +169,7 @@ def plot_line_scans(lines, units='real', label=None, align=False, title=None):
 
     if label is not None:
         if label not in lines.columns:
-            print('WARNING: requested label (%s) not found - disabling legend' % label)
+            log.warning('requested label (%s) not found - disabling legend' % label)
             label = None
             lab = ''
     else:
@@ -229,7 +230,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
         fscans = fscans[ fscans.tip_num==cantilever ]
 
     if len(fscans)==0:
-        print('ERROR: no frequency scans available (for selected cantilever)')
+        log.error('no frequency scans available (for selected cantilever)')
         return None
 
     if figure is None:
@@ -256,7 +257,7 @@ def plot_fscan(fscans, showfit=False, legend=True, cantilever=None, xmin=False, 
 
         if showfit and ~scan.is_phase:
             if not 'offset' in scan.index:
-                print('WARNING: no fit data in current frequency scan')
+                log.warning('no fit data in current frequency scan')
             else:
                 ax.plot(scan.frequency, lorentzian(scan.frequency, scan.offset, scan.fit_max-scan.offset, \
                         scan.res_freq, scan.half_width),label='Lorentzian fit')
@@ -360,12 +361,12 @@ def plot_ctrl_data(ctrldata, interactive=True, fix_scale=False, channels=['AC', 
 
     num_chans = len(channels)
     if num_chans==0:
-        print('ERROR: no valid channel provided')
+        log.error('no valid channel provided')
         return None
 
     numpoints = len(ctrldata)
     if numpoints==0:
-        print('WARNING: no control data passed')
+        log.warning('no control data passed')
         return None
 
     ctrl_fig = plt.figure()
@@ -540,7 +541,7 @@ def stp_from_name(name):
     """Simply returns the integer STP number from a scan or TLM filename"""
 
     if name[13].upper()!='S':
-        print('ERROR: this filename does not seem to contain an STP number...')
+        log.error('this filename does not seem to contain an STP number...')
         return None
 
     return int(name[14:17])
@@ -699,22 +700,22 @@ def calibrate_amplitude(ctrl, return_data=False):
 def image_from_lines(lines, slow_dir='L_H', get_hk=False):
 
     if len(lines[lines.sw_ver<661])>0:
-        print('WARNING: OBSW < 661 does not flag if lines come from images')
+        log.warning('OBSW < 661 does not flag if lines come from images')
     else:
         lines = lines.query('in_image')
         if len(lines)==0:
-            print('ERROR: no image-forming line scans')
+            log.error('no image-forming line scans')
             return None
 
     if lines.line_cnt.max()!=len(lines):
-        print('WARNING: %d lines available, but maximum line count is %d' % (len(lines),lines.line_cnt.max()))
+        log.warning('%d lines available, but maximum line count is %d' % (len(lines),lines.line_cnt.max()))
 
     # Do a few sanity checks on the provided lines
     cols = lines.columns.tolist()
     dropcols = ['obt', 'line_cnt', 'aborted', 'data', 'start_time'] # these are necessarily difference, even in a single image scan
     cols = [col for col in cols if col not in dropcols]
     if lines.duplicated(subset=cols).sum()+1 != len(lines):
-        print('ERROR: some metadata is different, make sure lines are from the same image scan!')
+        log.error('some metadata is different, make sure lines are from the same image scan!')
         return None
 
     # take meta-data from first line (should all be identical)
@@ -723,7 +724,7 @@ def image_from_lines(lines, slow_dir='L_H', get_hk=False):
     if not get_hk:
         slow_dir = slow_dir.upper()
         if slow_dir not in ['L_H','H_L']:
-            print('ERROR: slow_dir must be either L_H or H_L')
+            log.error('slow_dir must be either L_H or H_L')
             return None
     else:
         tlm = tm(lines.filename.unique()[0])
@@ -815,7 +816,7 @@ def to_bcr(images, outputdir='.'):
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
 
     if 'data' not in images.columns:
-        print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')
+        log.error('image data not found - be sure to run tm.get_images with info_only=False')
         return False
 
     images = images.sort_values( by=['filename', 'start_time'] )
@@ -912,7 +913,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
         if not images: return
 
     if 'data' not in images.columns:
-        print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')
+        log.error('image data not found - be sure to run tm.get_images with info_only=False')
         return None
 
     scan_count = 0
@@ -1106,9 +1107,9 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                 gwy.gwy_app_data_browser_remove(c)
 
             else:
-                print('WARNING: image contains no topography channel, no PNG produced')
+                log.warning('image contains no topography channel, no PNG produced')
 
-    print('INFO: written %i Gwyddion files to directory %s' % (scan_count, os.path.abspath(outputdir)))
+    log.info('written %i Gwyddion files to directory %s' % (scan_count, os.path.abspath(outputdir)))
 
     return filenames
 
@@ -1130,7 +1131,7 @@ def open_gwy(images, path=common.gwy_path):
     elif type(images) == list:
         gwyfiles = images
     else:
-        print('ERROR: unrecognised image type')
+        log.error('unrecognised image type')
         return None
 
     gwyfiles = [os.path.join(path,gwy+'.gwy') for gwy in gwyfiles]
@@ -1175,7 +1176,7 @@ def save_bcr(images, outputdir='.', write_meta=False):
     if images is None: return None
 
     if 'data' not in images.columns:
-        print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')
+        log.error('image data not found - be sure to run tm.get_images with info_only=False')
         return None
 
     bcrs = to_bcr(images,outputdir=outputdir)
@@ -1197,7 +1198,7 @@ def save_bcr(images, outputdir='.', write_meta=False):
             image.to_csv(meta_file, index=True, sep=':')
             bcr_idx += 1
 
-    print('INFO: written %i BCR files to directory %s' % (len(images), os.path.abspath(outputdir)))
+    log.info('written %i BCR files to directory %s' % (len(images), os.path.abspath(outputdir)))
 
     return
 
@@ -1219,19 +1220,19 @@ def img_crop(image, (xmin, xmax), (ymin, ymax)):
     newimage = image.copy()
 
     if (xmin<0) or (xmin>xmax) or (xmin>image.xsteps):
-        print('ERROR: xmin value out of range')
+        log.error('xmin value out of range')
         return None
 
     if (xmax<xmin) or (xmax>image.xsteps):
-        print('ERROR: xmax value out of range')
+        log.error('xmax value out of range')
         return None
 
     if (ymin<0) or (ymin>ymax) or (ymin>image.ysteps):
-        print('ERROR: ymin value out of range')
+        log.error('ymin value out of range')
         return None
 
     if (ymax<ymin) or (ymax>image.ysteps):
-        print('ERROR: ymax value out of range')
+        log.error('ymax value out of range')
         return None
 
     newimage['data'] = newimage['data'][ymin:ymax,xmin:xmax]
@@ -1256,7 +1257,7 @@ def img_scale(image, scale_factor):
     newimage = image.copy()
     data = np.array(image['data'], dtype=np.float64)
 
-    print('INFO: original image size %dx%d' % (data.shape[1], data.shape[0]))
+    log.info('original image size %dx%d' % (data.shape[1], data.shape[0]))
 
     # Resample via ndimage.interpolation - order = 0 = nearest neighbour
     newdata = zoom(data, zoom=scale_factor, mode='nearest', order=0)
@@ -1272,7 +1273,7 @@ def img_scale(image, scale_factor):
     newimage['y_step_nm'] = image['y_step_nm'] * 1./ scale_factor
 
 
-    print('INFO: resampled (zoom factor %3.2f) image size %dx%d' % (scale_factor, newdata.shape[1], newdata.shape[0]))
+    log.info('resampled (zoom factor %3.2f) image size %dx%d' % (scale_factor, newdata.shape[1], newdata.shape[0]))
 
     return newimage
 
@@ -1391,7 +1392,7 @@ def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_strip
         images = images.query(query)
 
     if len(images)==0:
-        print('ERROR: no images matching query')
+        log.error('no images matching query')
         return None
 
     facets = sorted(images.target.unique())
@@ -1409,7 +1410,7 @@ def show_facets(facet_select=None, query=None, savefig=None, cols=3,  show_strip
 
     num_facets = len(facets)
     if num_facets==0:
-        print('WARNING: no images found matching facets')
+        log.warning('no images found matching facets')
         return None
 
     images = images[ images.target.isin(facets) ]
@@ -1517,26 +1518,26 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
         images = load_images(data=True).query('scan_file==@images')
 
     if 'data' not in images.columns:
-        print('ERROR: image data not found - be sure to run tm.get_images with info_only=False')
+        log.error('image data not found - be sure to run tm.get_images with info_only=False')
         return False
 
     unit_types = ['real', 'dac', 'pix']
     units = units.lower()
     if units not in unit_types:
-        print('ERROR: unit type %s invalid' % units.lower() + " must be one of " + ", ".join(unit_types))
+        log.error('unit type %s invalid' % units.lower() + " must be one of " + ", ".join(unit_types))
         return None
 
     if rect is not None:
         units = 'dac'
         if len(units)==4:
-            print('ERROR: if rect= is given, 4 values must be passed (X,Y) origin and (width,height) as a tuple')
+            log.error('if rect= is given, 4 values must be passed (X,Y) origin and (width,height) as a tuple')
             return None
 
     if planesub is not None:
         planetypes = ['plane', 'poly']
         planesub = planesub.lower()
         if planesub not in planetypes:
-            print('ERROR: planesub type %s invalid' % planesub.lower() + " must be one of " + ", ".join(planetypes))
+            log.error('planesub type %s invalid' % planesub.lower() + " must be one of " + ", ".join(planetypes))
             return None
 
     if show_fscans: # for now just use pix, then identifying the line of the fscan is straightforward
@@ -1627,13 +1628,13 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
             hk2 = telem.pkts[ (telem.pkts.type==3) & (telem.pkts.subtype==25) & (telem.pkts.apid==1076) & (telem.pkts.sid==2) ]
 
             if len(fscans) > 0:
-                print('INFO: %i frequency re-tunes occured during the image at OBT %s' % (len(fscans), image.start_time))
+                log.info('%i frequency re-tunes occured during the image at OBT %s' % (len(fscans), image.start_time))
                 obts = fscans.start_time.values
                 for obt in obts:
 
                     frame = hk2[hk2.obt>obt].index
                     if len(frame)==0:
-                        print('WARNING: no HK2 frame found after frequency scan at %s' % image.start_time)
+                        log.warning('no HK2 frame found after frequency scan at %s' % image.start_time)
                         continue
                     else:
                         frame = frame[0]
@@ -1651,7 +1652,7 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
                         arrow_delta = (ystart-ystop)*0.025
                         axis.arrow(line, ystop-arrow_delta*2, 0, arrow_delta, head_width=4, head_length=abs(arrow_delta) , fc='k', ec='k', clip_on=False)
             else:
-                print('INFO: no frequency re-tunes occured during the image at OBT %s' % image.start_time)
+                log.info('no frequency re-tunes occured during the image at OBT %s' % image.start_time)
 
     if fig is None and show:
         plt.show()
@@ -1680,7 +1681,7 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
 
             image = load_images(data=True).query('scan_file==@scan_file').squeeze()
             if len(image)==0:
-                print('ERROR: could not find image %s' % scan_file)
+                log.error('could not find image %s' % scan_file)
                 return None
             try:
                 self.f = open(os.path.join(outpath, scan_file+'_cal.csv'), 'w')
@@ -1690,7 +1691,7 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
 
             if process_gwy:
                 if not os.path.isfile(self.gwy_file):
-                    print('ERROR: Gwyddion file %s not found' % self.gwy_file)
+                    log.error('Gwyddion file %s not found' % self.gwy_file)
                     return None
 
             self.fig, self.ax = show(image, units='real', planesub='poly', title=True, cbar=True,
@@ -1771,7 +1772,7 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
 
         def end_drag(self, event):
             if printdata:
-                print('INFO: point moved to: x = %3.3f, y = %3.3f on row %d' % (self.xy[self.drag_i][0], self.xy[self.drag_i][1], self.row[self.drag_i]))
+                log.info('point moved to: x = %3.3f, y = %3.3f on row %d' % (self.xy[self.drag_i][0], self.xy[self.drag_i][1], self.row[self.drag_i]))
             for cid in self.drag_cids:
                 self.fig.canvas.mpl_disconnect(cid)
 
@@ -1898,6 +1899,8 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
 
     if (type(images)==str) or (type(images)==list):
         images = load_images(data=False).query('scan_file==@images')
+    elif type(images)==pd.core.series.Series:
+        images = images.to_frame().T
 
     # filter out dummy scans
     images = images[ images.dummy==False ]
@@ -1912,11 +1915,11 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
         images = images[ images.target==facet ]
 
     if len(images.target.unique())>1:
-        print('ERROR: more than one target specified - filter images or use keyword segment=')
+        log.error('more than one target specified - filter images or use keyword segment=')
         return None
 
     if len(images)==0:
-        print('ERROR: no matching images for the given facet and segment')
+        log.error('no matching images for the given facet and segment')
         return None
 
     from matplotlib.patches import Rectangle
@@ -2057,8 +2060,7 @@ class tc:
 
         f = open(filename, 'rb')
         tc = bytearray(os.path.getsize(filename))
-        if debug:
-            print('DEBUG: file %s has length %d bytes' % (filename, (os.path.getsize(filename))))
+        log.debug('file %s has length %d bytes' % (filename, (os.path.getsize(filename))))
 
         f.readinto(tc)
 
@@ -2073,9 +2075,8 @@ class tc:
             # "pkt_id pkt_seq pkt_len ver_check pkt_type pkt_subtype pad
             dds_tc_header = dds_tc_header_names(*struct.unpack_from(dds_tc_header_fmt, tc, offset))
             tc_pkt_header = tc_pkt_header_names(*struct.unpack_from(tc_pkt_header_fmt, tc, offset + dds_tc_header_len))
-            if debug:
-                print('DEBUG: packet seq %d, type %d, subtype %d' %
-                    (tc_pkt_header.pkt_seq, tc_pkt_header.pkt_type, tc_pkt_header.pkt_subtype))
+            log.debug('packet seq %d, type %d, subtype %d' %
+                (tc_pkt_header.pkt_seq, tc_pkt_header.pkt_type, tc_pkt_header.pkt_subtype))
 
             offset = offset + (dds_tc_header_len + dds_tc_header.pkt_len)
             num_pkts += 1
@@ -2151,7 +2152,7 @@ class tc:
                 (pkts[4:num_words] & 0xFF == 0 ))[0]
 
 
-        print('INFO: file %s contains %i matching TC packets') % (filename, len(pkt_offsets))
+        log.info('file %s contains %i matching TC packets') % (filename, len(pkt_offsets))
 
         return pkt_offsets*2
 
@@ -2192,7 +2193,7 @@ class tc:
 
         for fl in filelist:
 
-            print('INFO: indexing TC history file %s' % fl)
+            log.info('indexing TC history file %s' % fl)
 
             if simple:
                 offsets = self.simple_locate_pkts(fl)
@@ -2200,7 +2201,7 @@ class tc:
                 offsets = self.locate_pkts(fl, apid=apid)
 
             if len(offsets) == 0:
-                print('ERROR: no packets found in file %s' % fl)
+                log.error('no packets found in file %s' % fl)
                 continue
 
             f = open(fl, 'rb')
@@ -2245,7 +2246,7 @@ class tc:
                 pkt_list.append(pkt)
 
         if len(pkt_list)==0:
-            print('ERROR: no valid frames found in TC file(s)')
+            log.error('no valid frames found in TC file(s)')
             return False
 
         # turn the packet list into a DataFrame, interpret the obt columns as a datetime
@@ -2306,7 +2307,7 @@ class tm:
             self.pkts = pd.read_pickle(filename)
 
         self.pkts.sort_values(by='obt', inplace=True)
-        print('INFO: packet index restored with %i packets' % (len(self.pkts)))
+        log.info('packet index restored with %i packets' % (len(self.pkts)))
 
 
     def query_index(self, filename=os.path.join(common.tlm_path, 'tlm_packet_index.hd5'),
@@ -2328,7 +2329,7 @@ class tm:
         what = what.lower()
 
         if (what != 'all') and (what not in what_types.keys()):
-            print('WARNING: what= must be set to all, hk, events or science. Defaulting to all.')
+            log.warning('what= must be set to all, hk, events or science. Defaulting to all.')
             what = 'all'
 
         if type(start)==str:
@@ -2384,7 +2385,7 @@ class tm:
                 selected = selected.intersection(col[ (col>start) & (col<end) ].index)
 
             if len(selected)==0:
-                print('WARNING: no packets match the criteria!')
+                log.warning('no packets match the criteria!')
                 return
 
             self.pkts = store.select(table, where=list(selected))
@@ -2399,7 +2400,7 @@ class tm:
 
         # reset the index to a monotonic increasing function, needed for selecting frames later
         self.pkts.index=range(len(self.pkts))
-        print('INFO: packet index restored with %i packets' % (len(self.pkts)))
+        log.info('packet index restored with %i packets' % (len(self.pkts)))
 
         store.close()
 
@@ -2411,7 +2412,7 @@ class tm:
 
         if apid is not None:
             if apid not in midas_apids:
-                print('ERROR: APID is not valid for MIDAS - defaulting to all APIDs')
+                log.error('APID is not valid for MIDAS - defaulting to all APIDs')
                 apids = midas_apids
             else:
                 if type(apid)!=list:
@@ -2425,7 +2426,7 @@ class tm:
             volume = (self.pkts[self.pkts.apid==apid].length+6).sum()
             dv.update( { apid: volume } )
             if output:
-                print('INFO: APID %d generated %3.2f MB' % (apid, volume/1024./1024.))
+                log.info('APID %d generated %3.2f MB' % (apid, volume/1024./1024.))
 
         return dv
 
@@ -2466,7 +2467,7 @@ class tm:
 
         for fl in filelist:
 
-            print('INFO: indexing TLM file %s' % fl)
+            log.info('indexing TLM file %s' % fl)
 
             # Scan the file for unique bit pattern to identify the start of the TM packets
             if simple:
@@ -2475,11 +2476,11 @@ class tm:
                 offsets = self.locate_pkts(fl, apid=apid, sftp=sftp)
 
                 if len(offsets) == 0: # no packets found
-                    print('WARNING: no packets found for given APID, trying fallback method...')
+                    log.warning('no packets found for given APID, trying fallback method...')
                     offsets = self.simple_locate_pkts(fl)
 
             if len(offsets) == 0:
-                print('ERROR: no packets found in file %s' % fl)
+                log.error('no packets found in file %s' % fl)
                 continue
 
             # Re-open the file and read into a bytearray
@@ -2522,22 +2523,17 @@ class tm:
                 pkt['obt'] = obt
                 pkt['filename'] = os.path.abspath(fl)
 
-                # print('DEBUG: pkt %i/%i has declared length %i, real len %i' % (pkt_header.pkt_type,pkt_header.pkt_subtype,pkt_header.pkt_len,offsets[idx+1]-offsets[idx]))
-
                 if pkt_header.pkt_len==0:
-                    # print('WARNING: packet with type (%i,%i) has zero length, but real length %i at byte offset %i' % (pkt_header.pkt_type,pkt_header.pkt_subtype,offsets[idx+1]-offsets[idx], offset))
-                    # print('WARNING: APID = %i' % (pkt_header.pkt_id & 0x7FF))
                     continue
 
                 # 07/07/2014: now using the pic.dat table to look up the location of p1val
                 # 29/08/2014: FIXME - just profiled the code and this causes a MASSIVE slowdown
                 #
-                # pkt_pic = pic[ (pic.pkt_type==pkt_header.pkt_type) & (pic.pkt_subtype==pkt_header.pkt_subtype)].squeeze()
                 pkt_pic = pic[ np.logical_and(pic[:,0]==pkt_header.pkt_type,pic[:,1]==pkt_header.pkt_subtype) ]
 
                 if len(pkt_pic)==0:
-                    print('WARNING: packet type (%i,%i) not found in the PIC' % (pkt_header.pkt_type,pkt_header.pkt_subtype))
-                    if debug: print('DEBUG: OBT: %s, APID: %i, SEQ: %i' % (pkt['obt'], pkt['apid'], pkt['seq']))
+                    log.warning('packet type (%i,%i) not found in the PIC' % (pkt_header.pkt_type,pkt_header.pkt_subtype))
+                    log.debug('OBT: %s, APID: %i, SEQ: %i' % (pkt['obt'], pkt['apid'], pkt['seq']))
                     continue
                 if pkt_pic[0][2] ==-1:
                     if pkt['apid'] in midas_apids:
@@ -2553,7 +2549,7 @@ class tm:
                     elif  pkt_pic[0][3]==32:
                         pkt['sid'], = struct.unpack_from('>I',tm,offset+pkt_pic[0][2])
                     else:
-                        print('ERROR: p1val location cannot be identified for this packet')
+                        log.error('p1val location cannot be identified for this packet')
                         return False
 
                 pkt_list.append(pkt)
@@ -2562,7 +2558,7 @@ class tm:
         tlm = pd.DataFrame(pkt_list)
 
         if len(tlm)==0:
-            print('ERROR: no valid frames found in TM file(s)')
+            log.error('no valid frames found in TM file(s)')
             return False
 
         tlm.obt = pd.to_datetime(tlm.obt)
@@ -2592,9 +2588,9 @@ class tm:
         if dedupe:
             # Remove duplicates (packets with the same OBT, APID and SID)
             tlm = tlm.drop_duplicates(subset=('obt','apid','sid'), keep='last')
-            print('INFO: %i duplicate packets removed' % ( (num_pkts)-len(tlm) ) )
+            log.info('%i duplicate packets removed' % ( (num_pkts)-len(tlm) ) )
 
-        print('INFO: %i packets read' % (len(tlm)) )
+        log.info('%i packets read' % (len(tlm)) )
 
         # Ignore invalid frames with zero lengths
         tlm = tlm[tlm.length>0]
@@ -2721,7 +2717,7 @@ class tm:
                 # spare (4 bits) - not used, set to zero
                 (pkts[6:num_words] & 0xBF00 == 0000 ) )[0]
 
-        # print('INFO: File %s contains %i matching TM packets') % (filename, len(pkt_offsets))
+        # log.info('File %s contains %i matching TM packets') % (filename, len(pkt_offsets))
 
         return pkt_offsets*2
 
@@ -2748,11 +2744,11 @@ class tm:
 
         num_pkts = len(pkts)
         if num_pkts == 0:
-            print('WARNING: no packets to read matching requested filters')
+            log.warning('no packets to read matching requested filters')
             return pkt_data
 
         if len(pkts.apid.unique()) + len(pkts.sid.unique()) != 2:
-            print('WARNING: multiple packets types cannot be read together, filter first')
+            log.warning('multiple packets types cannot be read together, filter first')
             return pkt_data
 
         filenames = pkts.filename.unique()
@@ -2762,7 +2758,7 @@ class tm:
                 f = sftp.sftp.open(filename, 'rb')
             else:
                 f = open(filename, 'rb')
-            if debug: print('DEBUG: opening binary file %s' % (filename))
+            log.debug('opening binary file %s' % (filename))
             for index,pkt in pkts[pkts.filename==filename].sort_values(by='offset').iterrows():
                 f.seek(pkt.offset+pkt_header_size)
                 bindata = f.read(pkt.length+1)
@@ -2781,12 +2777,12 @@ class tm:
         pkt_data = []
 
         if self.pkts is None:
-            print('WARNING: tm object not initialised, no packet list present')
+            log.warning('tm object not initialised, no packet list present')
             return None
 
         num_pkts = len(self.pkts)
         if num_pkts == 0:
-            print('WARNING: no packets found')
+            log.warning('no packets found')
             return None
 
         pkts = self.pkts.sort_values(by='obt')
@@ -2842,11 +2838,11 @@ class tm:
             shutter_open = shutter_open.iloc[0:-1]
 
         if len(shutter_open) == 0 or len(shutter_close)==0:
-            print('WARNING: not enough shutter events to calculate exposure')
+            log.warning('not enough shutter events to calculate exposure')
             return False
 
         if len(shutter_open) < len(shutter_close):
-            print('WARNING: shutter open/close count mismatch')
+            log.warning('shutter open/close count mismatch')
             return False
 
         # Use the event OBT to calculate start/stop of exposure
@@ -2863,7 +2859,7 @@ class tm:
         for idx, exp in exposures.iterrows():
             frame = hk2[hk2.obt>exp.start].index
             if len(frame)==0:
-                print('WARNING: no HK2 frame found after shutter open at %s' % exp.start)
+                log.warning('no HK2 frame found after shutter open at %s' % exp.start)
                 continue
             else:
                 frame = frame[0]
@@ -2909,7 +2905,7 @@ class tm:
             frame_before = hk1[hk1.obt<(ev.obt-timedelta(minutes=5))].index
             frame_after = hk1[hk1.obt>(ev.obt+timedelta(minutes=5))].index
             if len(frame_before)==0 or len(frame_after)==0:
-                print('WARNING: no HK2 frame found after shutter open at %s' % ev.obt)
+                log.warning('no HK2 frame found after shutter open at %s' % ev.obt)
                 continue
             else:
                 before = frame_before[-2]
@@ -2920,14 +2916,14 @@ class tm:
                 open_after = self.get_param('NMDD013B', frame=after)[1]
                 closed_after = self.get_param('NMDD013C', frame=after)[1]
 
-                if debug: print('DEBUG: before (o/c) %s/%s, after (o/c) %s/%s' % (open_before, closed_before, open_after, closed_after))
+                log.debug('before (o/c) %s/%s, after (o/c) %s/%s' % (open_before, closed_before, open_after, closed_after))
 
                 if (open_before=='OFF') & (closed_before=='ON') & (open_after=='ON') & (closed_after=='OFF'): # open
                     event.append('OPEN')
                 elif (open_before=='ON') & (closed_before=='OFF') & (open_after=='OFF') & (closed_after=='ON'): # close
                     event.append('CLOSE')
                 else:
-                    print('WARNING: unknown shutter event transition at %s, skipping...' % ev.obt)
+                    log.warning('unknown shutter event transition at %s, skipping...' % ev.obt)
                     event.append('UNKNOWN')
 
             # Get segment exposed from HK2
@@ -2952,11 +2948,11 @@ class tm:
             shutter_open = shutter_open.iloc[0:-1]
 
         if len(shutter_open) == 0 or len(shutter_close)==0:
-            print('WARNING: not enough shutter events to calculate exposure')
+            log.warning('not enough shutter events to calculate exposure')
             return False
 
         if len(shutter_open) < len(shutter_close):
-            print('WARNING: shutter open/close count mismatch')
+            log.warning('shutter open/close count mismatch')
             return False
 
         # Use the event OBT to calculate start/stop of exposure
@@ -3017,7 +3013,7 @@ class tm:
         for idx, exp in exposures.iterrows():
             frame = hk2[hk2.obt>exp.start].index
             if len(frame)==0:
-                print('WARNING: no HK2 frame found after shutter open at %s' % exp.start)
+                log.warning('no HK2 frame found after shutter open at %s' % exp.start)
                 continue
             else:
                 frame = frame[0]
@@ -3054,7 +3050,7 @@ class tm:
         event_severity = ['PROGRESS','ANOMALY - NO ACTION','ANOMALY - GROUND ACTION','ANOMALY - ONBOARD ACTION']
 
         if len(pkts) == 0:
-            print('WARNING: no events found')
+            log.warning('no events found')
             return False
 
         pkts['doy'] = pkts.obt.apply( lambda x: x.dayofyear )
@@ -3103,7 +3099,7 @@ class tm:
 
         uhoh = events[events.severity!='PROGRESS']
         if (len(uhoh)>0) and verbose:
-            print('WARNING: non-nominal events detected:\n')
+            log.warning('non-nominal events detected:\n')
             common.printtable(uhoh[['obt','event']])
 
         return events
@@ -3151,7 +3147,7 @@ class tm:
                 dds_time.append(dds_obt_epoch + delta_t)
 
                 # if dds_header.time_qual!=0:
-                #     print('WARNING: bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
+                #     log.warning('bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
 
             pkts.dds_time.loc[offsets.index] = dds_time
 
@@ -3185,8 +3181,7 @@ class tm:
         param = pcf[pcf.param_name==param].squeeze()
 
         pkt_info = pid.merge(plf[plf.param_name==param.param_name])
-        if debug:
-            print('DEBUG: parameter %s found in the following %i packet(s): ' % \
+        log.debug('parameter %s found in the following %i packet(s): ' % \
             (param.param_name, len(pkt_info)) + ", ".join(pkt_info.description.values))
 
         if value_after is not None:
@@ -3203,7 +3198,7 @@ class tm:
 
         if start and end:
             if start > end:
-                print('ERROR: start time must be before end!')
+                log.error('start time must be before end!')
                 return None
 
         # filter packet list to those containing the parameter in question
@@ -3227,13 +3222,12 @@ class tm:
         num_params = len(pkts)
 
         if num_params == 0:
-            print('ERROR: no matching TM packets found')
+            log.error('no matching TM packets found')
             return None
 
         # group packets by their SPID
         spids = pkts[pkts.spid.notnull()].spid.unique().astype(int)
-        if debug:
-            print('DEBUG: processing packets with SPIDs: %s' % spids)
+        log.debug('processing packets with SPIDs: %s' % spids)
 
         obt = []
         pkt_data = []
@@ -3265,7 +3259,7 @@ class tm:
             if param.pfc == 0: # boolean
                 values = np.array(pkt_data) # nothing to do, 1-bit bitstrings are already bools
             else:
-                print('ERROR: PTC 1 parameters must have PFC 0')
+                log.error('PTC 1 parameters must have PFC 0')
 
         # PTC = 2: enumerated parameter, max 32-bits
         # PFC 1-32, corresponds to width
@@ -3292,7 +3286,7 @@ class tm:
         # PTC = 8: ASCII string of PFC octets length (PFC > 0)
 
         else:
-            print('ERROR: PTC/PFC type not supported')
+            log.error('PTC/PFC type not supported')
 
         # Now calibrate the engineering value to a real unit
         if cal:
@@ -3325,12 +3319,11 @@ class tm:
 
         hk_img = np.zeros( (image.xsteps, image.ysteps) )
 
-        if debug:
-            print('DEBUG: image (%ix%i), main scan min/max: %i/%i, line scan min/max: %i/%i' % \
-                (image.xsteps, image.ysteps, main.min(), main.max(), line.min(), line.max()))
+        log.debug('image (%ix%i), main scan min/max: %i/%i, line scan min/max: %i/%i' % \
+            (image.xsteps, image.ysteps, main.min(), main.max(), line.min(), line.max()))
 
         if (len(line) != len(main)) or (len(line) != len(values)):
-            print('ERROR: mismatch of values, lines and main scan values - note that HK1 parameters not supported')
+            log.error('mismatch of values, lines and main scan values - note that HK1 parameters not supported')
             return
 
         for (idx, coord) in enumerate(zip(line,main)):
@@ -3367,15 +3360,15 @@ class tm:
 
         if start and end:
             if start > end:
-                print('ERROR: start time must be before end time!')
+                log.error('start time must be before end time!')
                 return None
 
         if len(units) > 2:
-            print('ERROR: cannot plot parameters with more than 2 different units on the same figure')
+            log.error('cannot plot parameters with more than 2 different units on the same figure')
             return False
 
         if 'S' in pcf[pcf.param_name.isin(param_names)].cal_cat.tolist():
-            print('ERROR: one or more parameters is non-numeric, cannot plot!')
+            log.error('one or more parameters is non-numeric, cannot plot!')
             return False
 
         if symbol:
@@ -3404,7 +3397,7 @@ class tm:
             data = self.get_param(param_name, start=start, end=end, tsync=True)
 
             if data is None:
-                print('WARNING: could not get data for parameter %s, skipping' % (param_name))
+                log.warning('could not get data for parameter %s, skipping' % (param_name))
                 continue
 
             param = pcf[pcf.param_name==param_name].squeeze()
@@ -3419,7 +3412,7 @@ class tm:
                 ax_right.set_ylabel( "%s" % (param.unit))
 
         if len(lines)==0:
-            print('ERROR: no data to plot')
+            log.error('no data to plot')
             return False
 
         if not start: start = data.index[0]
@@ -3496,7 +3489,7 @@ class tm:
                     42699] # KernelHello
                 events = events[-events.sid.isin(ignore_sids)]
             else:
-                print('WARNING: invalid event label, ignoring')
+                log.warning('invalid event label, ignoring')
                 events = pd.DataFrame()
 
             # Fixing mark/MIDAS#2 - filter events to given time range first
@@ -3614,7 +3607,7 @@ class tm:
         result = param_list[param_list.description.str.contains(search, case=False)]
 
         if len(result)==0:
-            print('WARNING: no parameters found containing search term "%s"' % (search))
+            log.warning('no parameters found containing search term "%s"' % (search))
             return False
 
         return result
@@ -3628,7 +3621,7 @@ class tm:
         # Filter events by SIDs for s/w TC acceptance and rejection
         ack = self.pkts[ (self.pkts.apid==1079) & ( (self.pkts.sid==42501) | (self.pkts.sid==42701) ) ]
         if len(ack)==0:
-            print('WARNING: no TC ACK packets found')
+            log.warning('no TC ACK packets found')
             return None
 
         pkts = pd.DataFrame()
@@ -3650,11 +3643,11 @@ class tm:
             tc = commands.description[ (commands.type==srv_type) & (commands.subtype==srv_subtype) ].tolist()
             if len(tc)==0:
                 tcs.append('UNKNOWN TC')
-                print('WARNING: unknown TC retrieving ACK status (type %i, subtype %i) at OBT %s' % (srv_type, srv_subtype, packet.obt))
+                log.warning('unknown TC retrieving ACK status (type %i, subtype %i) at OBT %s' % (srv_type, srv_subtype, packet.obt))
             elif (len(tc) > 1) & (len(np.unique(tc))==1):
                 tcs.append(tc[0])
             elif (len(tc) > 1) & (len(np.unique(tc))>1):
-                print('WARNING: more than one command matching type/subtype %i/%i' % ( srv_type, srv_subtype ))
+                log.warning('more than one command matching type/subtype %i/%i' % ( srv_type, srv_subtype ))
                 tcs.append(tc[0])
             else:
                 tcs.append(tc[0])
@@ -3690,7 +3683,7 @@ class tm:
             gap_start = pkts_apid.seq.iloc[start_rows]
             missing[apid] = zip(gap_start.index, gap_end.index)
 
-            print('INFO: %i missing packets in %i gaps for APID %i' % (missing_pkts.sum(), len(missing_pkts), apid))
+            log.info('%i missing packets in %i gaps for APID %i' % (missing_pkts.sum(), len(missing_pkts), apid))
 
             for gap in missing[apid]:
                 start = self.pkts.loc[gap[0]]
@@ -3706,7 +3699,7 @@ class tm:
                 cur_apid.append(apid)
 
         if len(count)==0:
-            print('INFO: no missing packets found')
+            log.info('no missing packets found')
             return False
         else:
 
@@ -3748,7 +3741,7 @@ class tm:
         line_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=132)
 
         if len(line_scan_pkts)==0:
-            print('WARNING: no line image packets found')
+            log.warning('no line image packets found')
             return False
 
         linescans = []
@@ -3758,7 +3751,8 @@ class tm:
         if expand_params:
             if use_archive:
                 import archive
-                params = ['NMDA0118','NMDA0142','NMDA0147','NMDA0181','NMDA0188','NMDA0231','NMDA0244','NMDA0245','NMDA0270','NMDA0271','NMDA0287','NMDA0298','NMDA0306','NMDA0347']
+                params = ['NMDA0118','NMDA0142','NMDA0147','NMDA0181','NMDA0188','NMDA0231','NMDA0244','NMDA0245',
+                    'NMDA0270','NMDA0271','NMDA0287','NMDA0298','NMDA0306','NMDA0347']
                 hk2 = archive.query(params=params, archive_path=common.tlm_path)
             else:
                 hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
@@ -3844,7 +3838,7 @@ class tm:
         if ignore_image:
             lines = lines[ (~lines.in_image) & (~lines.anti_creep) ]
             if len(lines)==0:
-                print('WARNING: ignore_image is set, but there are no lines not forming an image')
+                log.warning('ignore_image is set, but there are no lines not forming an image')
                 return None
 
         if expand_params:
@@ -3867,7 +3861,7 @@ class tm:
                 else:
                     frame = hk2[hk2.obt>line_start].index
                 if len(frame)==0:
-                    print('WARNING: no HK2 frame found after line scan at %s' % pkt.obt)
+                    log.warning('no HK2 frame found after line scan at %s' % pkt.obt)
                     in_image = True # hack to put NaNs in the table if no HK available
                 else:
                     frame = frame[0]
@@ -3933,7 +3927,7 @@ class tm:
 
         lines.drop( ['sw_major', 'sw_minor', 'sid', 'scan_mode_dir', 'sw_flags', 'mode_params', 'start_msw', 'start_lsw'], inplace=True, axis=1)
 
-        print('INFO: %i line scans extracted' % (len(lines)))
+        log.info('%i line scans extracted' % (len(lines)))
 
         return lines
 
@@ -3950,7 +3944,7 @@ class tm:
         ctrl_data_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=133)
 
         if len(ctrl_data_pkts)==0:
-            print('WARNING: no control data packets found')
+            log.warning('no control data packets found')
             return None
 
         # M.S.Bentley 23/09/2014 - using df to collect ctrl data meta info
@@ -4081,7 +4075,7 @@ class tm:
             ctrl_data['op_pt_lo'] = [data['op_pt_lo'] for data in control]
             ctrl_data['op_pt_hi'] = [data['op_pt_hi'] for data in control]
 
-        print('INFO: %i control data scans extracted' % (len(ctrl_data)))
+        log.info('%i control data scans extracted' % (len(ctrl_data)))
 
         return ctrl_data
 
@@ -4108,7 +4102,7 @@ class tm:
         fvec_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=134)
 
         if len(fvec_pkts)==0:
-            print('WARNING: no feature vector packets found')
+            log.warning('no feature vector packets found')
             return False
 
         feature_out = pd.DataFrame([], columns=fvec_names._fields)
@@ -4137,7 +4131,7 @@ class tm:
             current_feature['obt'] = pkt.obt
             feature_out = feature_out.append(current_feature)
 
-        print('INFO: %i feature vectors extracted' % len(feature))
+        log.info('%i feature vectors extracted' % len(feature))
 
         if header:
             header = pd.DataFrame(header)
@@ -4172,11 +4166,10 @@ class tm:
 
         # filter image header packets
         img_header_pkts = self.read_pkts(pkts=None, pkt_type=20, subtype=3, apid=1084, sid=129)
-        if debug:
-            print('DEBUG: %i image header packets found' % (len(img_header_pkts)))
+        log.debug('%i image header packets found' % (len(img_header_pkts)))
 
         if len(img_header_pkts) == 0:
-            print('INFO: no images found')
+            log.info('no images found')
             return None
 
         # Find the index of HK2 packets, used to extract anciliary info
@@ -4186,7 +4179,7 @@ class tm:
         # Loop over header packets, unpack the header values and append them to a list
         for idx,pkt in img_header_pkts.iterrows():
             image_header.append(image_header_names(*struct.unpack(image_header_fmt,pkt['data'][0:image_header_size])))
-            if debug: print('DEBUG: processing file %s' % pkt.filename)
+            log.debug('processing file %s' % pkt.filename)
             filename.append(pkt.filename) # src filename needed to correctly name scans
 
         # structure definition for the individual image packets
@@ -4198,18 +4191,18 @@ class tm:
         if not info_only:
 
             # filter image packets
-            if debug: print('DEBUG: starting image data packet unpack')
+            log.debug('starting image data packet unpack')
             img_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=130)
-            if debug: print('DEBUG: %i image packets found' % (len(img_pkts)))
+            log.debug('%i image packets found' % (len(img_pkts)))
 
             image_data = [] # holds image packet headers and data
 
-            if debug: print('DEBUG: unpacking image packet headers and image data')
+            log.debug('unpacking image packet headers and image data')
 
             # loop through image packets and unpack the image packet header and image data
             # THIS EATS LOTS OF RAM
             for count, (idx, pkt) in enumerate(img_pkts.iterrows()):
-                if debug: print('DEBUG: image packet %i of %i' % (count+1, len(img_pkts)))
+                log.debug('image packet %i of %i' % (count+1, len(img_pkts)))
                 image = {}
                 image['header'] = image_names(*struct.unpack(image_fmt,pkt['data'][0:image_size]))
                 if image['header'].channel in [1, 4, 32768]: # ZS, S2, ST
@@ -4220,7 +4213,7 @@ class tm:
                     image['data'] = struct.unpack(">1024h",pkt['data'][image_size:image_size+2048])
                 image_data.append(image)
 
-            if debug: print('DEBUG: all image packet data read, processing..')
+            log.debug('all image packet data read, processing..')
 
             # convert the image packet headers to a pandas dataframe for easy filtering
             img_data=pd.DataFrame([img['header'] for img in image_data],columns=image_names._fields)
@@ -4236,7 +4229,7 @@ class tm:
             # for each image header packet
             for idx, image in enumerate(image_header):
 
-                if debug: print('DEBUG: processing image %i of %i' % (idx+1, len(image_header)))
+                log.debug('processing image %i of %i' % (idx+1, len(image_header)))
 
                 imagedict = {}
                 imagedict['info'] = image # image header into -> image['info']
@@ -4244,13 +4237,13 @@ class tm:
                 # Now match the packets to the corresponding header by OBT and channel
                 data = img_data[ (img_data.start_time==image.start_time) & (img_data.channel==image.channel) ]
                 data = data.sort_values(by='pkt_num')
-                if debug: print('DEBUG: %i image data packets expected, %i packets found' % (image.num_pkts, len(data)) )
+                log.debug('%i image data packets expected, %i packets found' % (image.num_pkts, len(data)) )
 
                 if len(data) < image.num_pkts:
-                    print('WARNING: image at %s: missing image packets' % (obt_to_iso(image.start_time)))
+                    log.warning('image at %s: missing image packets' % (obt_to_iso(image.start_time)))
                     # continue
                 elif len(data) > image.num_pkts:
-                    print('ERROR: image at %s: too many image packets (%i instead of %i) - image may be corrupt!' % (obt_to_iso(image.start_time),len(data),image.num_pkts))
+                    log.error('image at %s: too many image packets (%i instead of %i) - image may be corrupt!' % (obt_to_iso(image.start_time),len(data),image.num_pkts))
                     data = data.drop_duplicates(subset=('start_time','pkt_num'), keep='last')
 
                 # Use the xsteps and ysteps values from the header to mash together and reform the data
@@ -4260,11 +4253,11 @@ class tm:
                 if skip_badsize:
 
                     if (xsteps==0) or (ysteps==0):
-                        print('INFO: image at %s: invalid image dimensions (%i,%i), skipping...' % (obt_to_iso(image.start_time),xsteps,ysteps))
+                        log.info('image at %s: invalid image dimensions (%i,%i), skipping...' % (obt_to_iso(image.start_time),xsteps,ysteps))
                         continue
 
                     if (image.x_step==0) or (image.y_step==0):
-                        print('INFO: image at %s: invalid image step size (%i,%i), skipping....' % (obt_to_iso(image.start_time), image.x_step, image.y_step))
+                        log.info('image at %s: invalid image step size (%i,%i), skipping....' % (obt_to_iso(image.start_time), image.x_step, image.y_step))
                         continue
 
                 main_y = bool(image.scan_type & 2**15) # False = X, True = Y
@@ -4276,7 +4269,7 @@ class tm:
                 # while pkt_idx <= image.num_pkts:
                 for pkt_num in range(1,image.num_pkts+1):
                     if pkt_num not in data.pkt_num.tolist():
-                        if debug: print('DEBUG: inserting one missing packet at packet number %i' % pkt_num)
+                        log.debug('inserting one missing packet at packet number %i' % pkt_num)
                         image_array.extend([65535]*1024)
                     else:
                         image_array.extend(image_data[ data.index[pkt_idx-1] ]['data'])
@@ -4287,7 +4280,7 @@ class tm:
                 if not rawdata and not info_only:
 
                     if len(image_array) != xsteps*ysteps:
-                        print('ERROR: image at %s: number of data points (%i) doesn\'t match image dimensions (%ix%i=%i)'
+                        log.error('image at %s: number of data points (%i) doesn\'t match image dimensions (%ix%i=%i)'
                             % (obt_to_iso(image.start_time),len(image_array),xsteps,ysteps,xsteps*ysteps))
                         continue
 
@@ -4398,7 +4391,7 @@ class tm:
             for idx, img in old_images.iterrows():
                 frame = hk2[hk2.obt>img.start_time].index
                 if len(frame)==0:
-                    print('WARNING: no HK2 frame found after scan start at %s' % img.start_time)
+                    log.warning('no HK2 frame found after scan start at %s' % img.start_time)
                     continue
                 else:
                     frame = frame[0]
@@ -4441,7 +4434,7 @@ class tm:
 
                 frame = hk2[hk2.obt>time].index
                 if len(frame)==0:
-                    print('WARNING: no HK2 frame found after scan start at %s' % time)
+                    log.warning('no HK2 frame found after scan start at %s' % time)
                     continue
                 else:
                     frame = frame[0]
@@ -4479,7 +4472,7 @@ class tm:
         num_images = len(images)
         images = images.drop_duplicates(subset=['start_time','channel'])
         if len(images)<num_images:
-            print('WARNING: duplicate images or image headers detected and removed!')
+            log.warning('duplicate images or image headers detected and removed!')
 
         # Remove dummy scans
         if len(images)>0:
@@ -4490,7 +4483,7 @@ class tm:
             images = images[ ~images.dummy ]
 
         if len(images)==0:
-            print('WARNING: only dummy images found!')
+            log.warning('only dummy images found!')
             return None
 
         # Add the origin of the scan, in microns, from the wheel centre
@@ -4562,7 +4555,7 @@ class tm:
             if add_retr:
                 images = check_retract(images, boolmask=False)
 
-        print('INFO: %i images found' % (len(info.start_time.unique())))
+        log.info('%i images found' % (len(info.start_time.unique())))
 
         # Use categories instead of pure strings for columns where the input range is limited
         catcols = {
@@ -4598,7 +4591,7 @@ class tm:
         freq_scan_pkts = self.read_pkts(self.pkts, pkt_type=20, subtype=3, apid=1084, sid=131)
 
         if len(freq_scan_pkts)==0:
-            print('WARNING: no frequency scan packets found')
+            log.warning('no frequency scan packets found')
             return False
 
         # convert the fscan packet header (everything up to the scan data) into a df
@@ -4623,7 +4616,7 @@ class tm:
             single_scan = fscans[fscans.start_time==start]
             single_scan  = single_scan.sort_values(by='fscan_cycle',ascending=True)
             if not 1 in single_scan.fscan_cycle.tolist():
-                print('ERROR: missing frequency scan packets, skipping scan')
+                log.error('missing frequency scan packets, skipping scan')
                 continue
             else:
                 first_pkt = single_scan[single_scan.fscan_cycle==1].iloc[0]
@@ -4632,7 +4625,7 @@ class tm:
             num_scans = first_pkt.num_scans
 
             if len(single_scan) != num_scans:
-                print('ERROR: missing frequency scan packets, skipping scan')
+                log.error('missing frequency scan packets, skipping scan')
                 continue
 
             # take the scan info from the first packet where generic to entire scan
@@ -4655,7 +4648,7 @@ class tm:
                 duration = common.fscan_duration(num_scans)
                 frame = hk2[hk2.obt>(start_time+duration)].index
                 if len(frame)==0:
-                    print('WARNING: no HK2 frame found after frequency scan at %s' % start)
+                    log.warning('no HK2 frame found after frequency scan at %s' % start)
                     continue
                 else:
                     frame = frame[0]
@@ -4709,7 +4702,7 @@ class tm:
                 scan['info']['op_pt_hi'] = self.get_param('NMDA0246', frame=frame)[1]
 
             if printdata:
-                print('INFO: cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \
+                log.info('cantilever %i/%i with gain/exc %i/%i has peak amplitude %3.2f V at frequency %3.2f Hz' % \
                     (scan['info']['cant_block'], scan['info']['tip_num'], \
                     scan['info']['ac_gain'], scan['info']['exc_lvl'], \
                     scan['info']['max_amp'], scan['info']['max_freq']) )
@@ -4748,7 +4741,7 @@ class tm:
                 try:
                     popt, pcov = curve_fit(lorentzian,scan['frequency'],scan['amplitude'],p0=[offset, amp, cen, wid])
                 except RuntimeError:
-                    print('WARNING: problem with curvefit, skipping this scan...')
+                    log.warning('problem with curvefit, skipping this scan...')
                     amp_scans.remove(idx)
                     continue
 
@@ -4764,7 +4757,7 @@ class tm:
 
                 scan['fit_params'] = fit_params
 
-        print('INFO: %i frequency scans found and extracted' % (len(freqscans)))
+        log.info('%i frequency scans found and extracted' % (len(freqscans)))
 
         # Convert to a DataFrame for return
         scans = pd.DataFrame( [scan['info'] for scan in freqscans], columns=freqscans[0]['info'].keys())
@@ -4791,7 +4784,7 @@ class tm:
 
         # Filter packets to find the ApproachFinished event
         srf_found = self.pkts[ (self.pkts.apid==1079) & (self.pkts.sid==42664) ]
-        print('INFO: %i ApproachFinished events found' % len(srf_found))
+        log.info('%i ApproachFinished events found' % len(srf_found))
 
         # Filter HK2 packets
         hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
@@ -4803,7 +4796,7 @@ class tm:
             approach = {}
             frame = hk2[hk2.obt>event.obt].index
             if len(frame)==0:
-                print('WARNING: no HK2 frame found after approach at %s' % event.obt)
+                log.warning('no HK2 frame found after approach at %s' % event.obt)
                 continue
             else:
                 frame = frame[0]
@@ -4847,7 +4840,7 @@ class tm:
         if cantilever is None:
             cantilever=range(1,17)
         elif type(cantilever) not in [list, int]:
-            print('WARNING: cantilever= must be an integer or list of integers')
+            log.warning('cantilever= must be an integer or list of integers')
         elif type(cantilever)==int:
             cantilever=[cantilever]
 
@@ -4883,7 +4876,7 @@ class tm:
         """Produces a summary of target usage (exposures, image scans)"""
 
         if (target<1) or (target>64):
-            print('ERROR: target= must be between 1 and 64')
+            log.error('target= must be between 1 and 64')
             return None
 
         if images is None:
@@ -4905,7 +4898,7 @@ class tm:
             exposures.drop(['end','target', 'duration'], inplace=True, axis=1)
 
         if len(exposures)==0 and len(images)==0:
-            print('WARNING: target %d has no exposures or images' % target)
+            log.warning('target %d has no exposures or images' % target)
             return None
 
         history = pd.concat([exposures, images]).sort_values(by='start')
@@ -4994,13 +4987,13 @@ class tm:
         hk2_frame = hk2[hk2.obt > start_obt].index
 
         if len(hk1_frame)==0:
-            print('WARNING: no HK1 frame found after OBT %s' % obt)
+            log.warning('no HK1 frame found after OBT %s' % obt)
             return None
         else:
             hk1_frame = hk1_frame[0]
 
         if len(hk2_frame)==0:
-            print('WARNING: no HK2 frame found after OBT %s' % obt)
+            log.warning('no HK2 frame found after OBT %s' % obt)
             return None
         else:
             hk2_frame = hk2_frame[0]
@@ -5030,20 +5023,20 @@ class tm:
             # get from event history
             start_ev = events[ (events.sid==42656) & (events.obt>(start_obt-time_win)) & (events.obt<start_obt) ]  # EvFullScanStarted
             if len(start_ev)==0:
-                print('ERROR: no start time found within %d seconds, using OBT %s' % (time_win.seconds, start_obt))
+                log.error('no start time found within %d seconds, using OBT %s' % (time_win.seconds, start_obt))
                 meta.update({'start_time': start_obt})
             elif len(start_ev)>1:
-                print('WARNING: more than one start event in window - selecting last')
+                log.warning('more than one start event in window - selecting last')
                 meta.update({'start_time': start_ev.iloc[-1].obt})
             else:
                 meta.update({'start_time': start_ev.iloc[0].obt})
 
             end_ev = events[  (events.sid==42513) & (events.obt>(end_obt)) & (events.obt<(end_obt+time_win)) ]  # EvScanFinished
             if len(end_ev)==0:
-                print('ERROR: no end time found within %d seconds' % time_win.seconds)
+                log.error('no end time found within %d seconds' % time_win.seconds)
                 meta.update({'end_time': end_obt})
             elif len(end_ev)>1:
-                print('WARNING: more than one end event in window - selecting first')
+                log.warning('more than one end event in window - selecting first')
                 meta.update({'end_time': end_ev.iloc[0].obt})
             else:
                 meta.update({'end_time': end_ev.iloc[0].obt})
@@ -5145,7 +5138,7 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
     longest_filename = len(max(tm_files, key=len))
 
     if len(tm_files)==0:
-        print('ERROR: no files matching pattern')
+        log.error('no files matching pattern')
         return False
 
     for f in tm_files:
@@ -5162,7 +5155,7 @@ def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_fi
         try:
             store.append(table, telem.pkts, format='table', min_itemsize={'filename': longest_filename}, data_columns=['obt','apid','filename'])
         except Exception as e:
-            print('ERROR: error appending to file: %s' % e)
+            log.error('error appending to file: %s' % e)
             store.close()
             return None
 
@@ -5223,13 +5216,13 @@ def height_diff(images, mode='diff'):
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
 
     if mode not in ['diff', 'above', 'bool']:
-        print('ERROR: mode must be one of: diff, above or bool!')
+        log.error('mode must be one of: diff, above or bool!')
         return None
 
     topo_images = images[ images.channel=='ZS']
 
     if len(topo_images)==0:
-        print('ERROR: no topography channels present in images')
+        log.error('no topography channels present in images')
         return None
 
     for idx, image in topo_images.iterrows():
@@ -5353,7 +5346,7 @@ def simple_get_pkts(filename, dds_header=True, verbose=False):
     apids = pkt_list.apid.unique()
     for apid in apids:
         if apid not in midas_apids:
-            print('WARNING: APID %i not a MIDAS APID' % (apid))
+            log.warning('APID %i not a MIDAS APID' % (apid))
 
     return pkt_list
 
@@ -5655,7 +5648,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
                 break
 
         if len(objs)==0:
-            print('ERROR: file %s appears to be empty' % filename)
+            log.error('file %s appears to be empty' % filename)
             return None
 
         images = pd.concat(iter(objs), axis=0)
@@ -5721,12 +5714,14 @@ def load_lines(filename=None, ignore_image=True, expand_params=True):
             break
 
     if len(objs)==0:
-        print('ERROR: file %s appears to be empty' % fname)
+        log.error('file %s appears to be empty' % fname)
         return None
 
     lines = pd.concat(iter(objs), axis=0)
     lines.sort_values(by='obt', inplace=True)
     lines.reset_index(inplace=True, drop=True)
+
+    log.info('%d lines restored' % len(lines))
 
     return lines
 
@@ -5748,7 +5743,7 @@ def load_manual_scans(filename=os.path.join(common.config_path, 'manual_images.p
             break
 
     if len(objs)==0:
-        print('ERROR: file %s appears to be empty' % filename)
+        log.error('file %s appears to be empty' % filename)
         return None
 
     images = pd.concat(iter(objs), axis=0)
@@ -5824,7 +5819,7 @@ def wheel_aborts():
 
         frame = hk2[hk2.obt < evt.start_obt].index
         if len(frame)==0:
-            print('WARNING: no HK2 frame found before wheel start at %s' % evt.start_obt)
+            log.warning('no HK2 frame found before wheel start at %s' % evt.start_obt)
             seg_from.append(None)
         else:
             frame = frame[-1]
@@ -5832,7 +5827,7 @@ def wheel_aborts():
 
         frame = hk2[hk2.obt < evt.obt].index
         if len(frame)==0:
-            print('WARNING: no HK2 frame found after wheel start at %s' % evt.start_obt)
+            log.warning('no HK2 frame found after wheel start at %s' % evt.start_obt)
             seg_to.append(None)
         else:
             frame = frame[-1]
@@ -6033,7 +6028,7 @@ def compare_power(mtp, stp, case='P', ax=None, show_events=None, start=None, end
                 42699] # KernelHello
             events = events[-events.sid.isin(ignore_sids)]
         else:
-            print('WARNING: invalid event label, ignoring')
+            log.warning('invalid event label, ignoring')
             events = pd.DataFrame()
 
         # Fixing mark/MIDAS#2 - filter events to given time range first
@@ -6054,4 +6049,4 @@ def compare_power(mtp, stp, case='P', ax=None, show_events=None, start=None, end
 
 if __name__ == "__main__":
 
-    print('WARNING: this module cannot be called interactively')
+    log.warning('this module cannot be called interactively')

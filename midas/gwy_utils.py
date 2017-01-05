@@ -11,13 +11,16 @@ import pandas as pd
 import numpy as np
 import os
 
+import logging
+log = logging.getLogger(__name__)
+
 def extract_masks(gwy_file, channel=None, return_df=False):
     """Looks for mask channels within the Gwyddion file and returns these
     masks as a list of numpy arrays. If channel= is given a string, only
     channels with names containing this string are returned."""
 
     if not os.path.isfile(gwy_file):
-        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        log.error('Gwyddion file %s does not exist!' % gwy_file)
         return None
 
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
@@ -32,7 +35,7 @@ def extract_masks(gwy_file, channel=None, return_df=False):
         masks.append(int(m.group('i')))
     masks = sorted(masks)
     if len(masks) == 0:
-        print('WARNING: No masks found in Gwyddion file %s' % gwy_file)
+        log.warning('No masks found in Gwyddion file %s' % gwy_file)
         return None
 
     # If requested, find only those channels contaning substring "channel"
@@ -45,7 +48,7 @@ def extract_masks(gwy_file, channel=None, return_df=False):
                 matching.append(mask)
 
         if len(matching) == 0:
-            print('WARNING: No masks in channels matching "%s" found' %
+            log.warning('No masks in channels matching "%s" found' %
                   (channel))
             return None
 
@@ -65,7 +68,7 @@ def extract_masks(gwy_file, channel=None, return_df=False):
             mask_data.append(data)
 
     if len(mask_data)>1:
-        print('INFO: %d masks extracted from Gwyddion file %s' %
+        log.info('%d masks extracted from Gwyddion file %s' %
           (len(mask_data), gwy_file))
 
     if len(mask_data)==1:
@@ -87,7 +90,7 @@ def list_chans(gwy_file, filter=None, log=False, masked=False, info=False, match
         masked = False
 
     if not os.path.isfile(gwy_file):
-        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        log.error('Gwyddion file %s does not exist!' % gwy_file)
         return None
 
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
@@ -152,7 +155,7 @@ def add_mask(gwy_file, mask, chan_name):
     dimensions match"""
 
     if not os.path.isfile(gwy_file):
-        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        log.error('Gwyddion file %s does not exist!' % gwy_file)
         return None
 
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
@@ -166,7 +169,7 @@ def add_mask(gwy_file, mask, chan_name):
         channels.append(int(m.group('i')))
     channels = sorted(channels)
     if len(channels) == 0:
-        print('WARNING: No data channels found in Gwyddion file %s' % gwy_file)
+        log.warning('No data channels found in Gwyddion file %s' % gwy_file)
         return None
 
     selected = None
@@ -177,7 +180,7 @@ def add_mask(gwy_file, mask, chan_name):
             selected = channel
             break
     if selected is None:
-        print('WARNING: channel %s not found!' % chan_name)
+        log.warning('channel %s not found!' % chan_name)
         return None
 
     datafield = C.get_value_by_name('/%d/data' % selected)
@@ -186,7 +189,7 @@ def add_mask(gwy_file, mask, chan_name):
     ypix = datafield.get_yres()
 
     if mask.shape != (xpix, ypix):
-        print('ERROR: mask shape (%d,%d) does not match image shape (%d,%d)' % (mask.shape[0], mask.shape[1], xpix, ypix))
+        log.error('mask shape (%d,%d) does not match image shape (%d,%d)' % (mask.shape[0], mask.shape[1], xpix, ypix))
 
     new_idx = max(channels) + 1
 
@@ -207,7 +210,7 @@ def get_data(gwy_file, chan_name=None):
     the first channel if channel=None."""
 
     if not os.path.isfile(gwy_file):
-        print('ERROR: Gwyddion file %s does not exist!' % gwy_file)
+        log.error('Gwyddion file %s does not exist!' % gwy_file)
         return None
 
     C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
@@ -221,11 +224,11 @@ def get_data(gwy_file, chan_name=None):
         channels.append(int(m.group('i')))
     channels = sorted(channels)
     if len(channels) == 0:
-        print('WARNING: No data channels found in Gwyddion file %s' % gwy_file)
+        log.warning('No data channels found in Gwyddion file %s' % gwy_file)
         return None, None, None
 
     if chan_name is None:
-        print('INFO: No channel specified, using %s' % C.get_value_by_name('/%d/data/title' % channels[0]))
+        log.info('No channel specified, using %s' % C.get_value_by_name('/%d/data/title' % channels[0]))
         selected = channels[0]
     else:
         selected = None
@@ -235,7 +238,7 @@ def get_data(gwy_file, chan_name=None):
                 selected = channel
                 break
         if selected is None:
-            print('WARNING: channel not found!')
+            log.warning('channel not found!')
             return None, None, None
 
     datafield = C.get_value_by_name('/%d/data' % selected)
@@ -258,7 +261,7 @@ def get_meta(gwyfile, channel=None):
     meta data for the first channel will be returned."""
 
     if not os.path.isfile(gwyfile):
-        print('ERROR: Gwyddion file %s does not exist!' % gwyfile)
+        log.error('Gwyddion file %s does not exist!' % gwyfile)
         return None
 
     C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
@@ -268,10 +271,10 @@ def get_meta(gwyfile, channel=None):
     selected = None
 
     if len(channels)==0:
-        print('ERROR: no channels matching %s in file %s' % (channel, gwyfile))
+        log.error('no channels matching %s in file %s' % (channel, gwyfile))
         return None
     elif len(channels)>1 and channel is not None:
-        print('ERROR: more than one channel matching %s in file %s' % (channel, gwyfile))
+        log.error('more than one channel matching %s in file %s' % (channel, gwyfile))
         return None
     elif channel is None: # find first channel
         for key in sorted(channels.keys()):
@@ -286,7 +289,7 @@ def get_meta(gwyfile, channel=None):
     metadata = {}
 
     if not C.contains_by_name('/%d/meta' % selected):
-        print('ERROR: channel contains no meta data')
+        log.error('channel contains no meta data')
         return None
 
     meta = C.get_value_by_name('/%d/meta' % selected)
@@ -304,7 +307,7 @@ def write_meta(gwyfile, metadata, channel=None):
     named channel."""
 
     if not os.path.isfile(gwyfile):
-        print('ERROR: Gwyddion file %s does not exist!' % gwyfile)
+        log.error('Gwyddion file %s does not exist!' % gwyfile)
         return None
 
     C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
@@ -313,10 +316,10 @@ def write_meta(gwyfile, metadata, channel=None):
     selected = None
 
     if len(channels)==0 and channel is not None:
-        print('ERROR: no channels matching %s in file %s' % (channel, gwyfile))
+        log.error('no channels matching %s in file %s' % (channel, gwyfile))
         return None
     elif len(channels)>1 and channel is not None:
-        print('ERROR: more than one channel matching %s in file %s' % (channel, gwyfile))
+        log.error('more than one channel matching %s in file %s' % (channel, gwyfile))
         return None
     elif channel is None: # find first channel
         selected = min(channels.keys())
@@ -343,13 +346,13 @@ def rename_channels(gwyfile, search, replace):
     with the value given in replace"""
 
     if not os.path.isfile(gwyfile):
-        print('ERROR: Gwyddion file %s does not exist!' % gwyfile)
+        log.error('Gwyddion file %s does not exist!' % gwyfile)
         return None
 
     channels = list_chans(gwyfile, filter=search)
 
     if len(channels)==0:
-        print('ERROR: no channels matching %s in file %s' % (search, gwyfile))
+        log.error('no channels matching %s in file %s' % (search, gwyfile))
         return None
 
     C = gwy.gwy_file_load(gwyfile, gwy.RUN_NONINTERACTIVE)
@@ -372,7 +375,7 @@ def gwy_to_bcr(gwy_file, channel, bcrfile=None):
     xlen, ylen, data = get_data(gwy_file, chan_name=channel)
 
     if data is None:
-        print('ERROR: no valid data found for channel %s in GWY file %s' % (
+        log.error('no valid data found for channel %s in GWY file %s' % (
             channel, gwy_file) )
         return None
 
@@ -411,7 +414,7 @@ def get_grain_data(gwy_file, chan_name=None, datatype=None):
         return None
 
     if len(channels)==0:
-        print('ERROR: no channels matching %s in file %s' % (chan_name, gwy_file))
+        log.error('no channels matching %s in file %s' % (chan_name, gwy_file))
         return None
 
     masks = extract_masks(gwy_file, channel=chan_name, return_df=True)
@@ -428,7 +431,7 @@ def get_grain_data(gwy_file, chan_name=None, datatype=None):
     if datatype is not None:
         selected = [item for item in grain_types if item in datatype]
         if len(selected)==0 and datatype is not None:
-            print('WARNING: cannot find specified grain data type, defaulting to all')
+            log.warning('cannot find specified grain data type, defaulting to all')
             datatype = None
             selected = grain_types
     else:
@@ -461,7 +464,7 @@ def read_log(gwy_file, channel=None):
         return None
 
     if len(channels)==0:
-        print('ERROR: no channels matching %s in file %s' % (chan_name, gwy_file))
+        log.error('no channels matching %s in file %s' % (chan_name, gwy_file))
         return None
 
     C = gwy.gwy_file_load(gwy_file,gwy.RUN_NONINTERACTIVE)
@@ -489,7 +492,7 @@ def read_log(gwy_file, channel=None):
     for channel in channels.keys():
         log = C.get_value_by_name('/%d/data/log' % channel)
         if log is None:
-            print('WARNING: no log found for channel ID %d' % channel)
+            log.warning('no log found for channel ID %d' % channel)
             continue
         logs = []
         for step in range(log.get_length()):
@@ -514,7 +517,7 @@ def gwy_to_vtk(gwy_file, vtk_file, channel=None):
     the channel can be specified with the channel= parameter"""
 
     if not os.path.isfile(gwy_file):
-        print('ERROR: Gwyddion file %s not found' % gwy_file)
+        log.error('Gwyddion file %s not found' % gwy_file)
         return None
 
     if channel is None:
@@ -525,10 +528,10 @@ def gwy_to_vtk(gwy_file, vtk_file, channel=None):
         if len(channels)==0:
             channels = list_chans(gwy_file)
             idx = min(channels.keys())
-            print('WARNING: selected channel not found, using %s' % channels[idx])
+            log.warning('selected channel not found, using %s' % channels[idx])
         elif len(channels)>1:
             idx = min(channels.keys())
-            print('WARNING: more than one channel matching filter, selecting %s' % channels[idx])
+            log.warning('more than one channel matching filter, selecting %s' % channels[idx])
 
         else:
             idx = channels.keys()[0]
@@ -538,5 +541,47 @@ def gwy_to_vtk(gwy_file, vtk_file, channel=None):
     gwy.gwy_app_data_browser_select_data_field(C, idx)
     gwy.gwy_file_save(C, vtk_file, gwy.RUN_NONINTERACTIVE)
     gwy.gwy_app_data_browser_remove(C)
+
+    return
+
+
+def polynomial_distort(gwy_file, coeff_x, coeff_y, channel=None, new_chan=None):
+    """Apply a polynomial distortion to the selected file/channel.
+
+    If new_chan=None the original channel is overwritten, otherwise a new
+    channel is created with the given name. Coefficients are also added
+    as meta-data to this channel."""
+
+    if len(coeff_x)!=10 or len(coeff_y)!=10:
+        log.error('X and Y coefficients must both be 10 items in length')
+        return None
+
+    if not os.path.isfile(gwy_file):
+        log.error('Gwyddion file %s not found' % gwy_file)
+        return None
+
+    if channel is None:
+        channels = list_chans(gwy_file)
+        idx = min(channels.keys())
+    else:
+        channels = list_chans(gwy_file, filter=channel)
+        if len(channels)==0:
+            channels = list_chans(gwy_file)
+            idx = min(channels.keys())
+            log.warning('selected channel not found, using %s' % channels[idx])
+        elif len(channels)>1:
+            idx = min(channels.keys())
+            log.warning('more than one channel matching filter, selecting %s' % channels[idx])
+
+        else:
+            idx = channels.keys()[0]
+
+    C = gwy.gwy_file_load(gwy_file, gwy.RUN_NONINTERACTIVE)
+
+    datafield = C.get_value_by_name('/%d/data' % idx)
+    newdata = datafield.new_alike(nullme=True)
+
+    # distort(dest, invtrans, user_data, interp, exterior, fill_value)
+    # datafield.distort(newdata, invtrans=?, interp=gwy.INTERPOLATION_ROUND, exterior=gwy.EXTERIOR_BORDER_EXTEND)
 
     return

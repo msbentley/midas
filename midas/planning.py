@@ -22,7 +22,8 @@ from dateutil import parser
 
 from midas import common, ros_tm
 
-debug = False
+import logging
+log = logging.getLogger(__name__)
 
 # Date format example:  28-September-2014_10:00:00
 dateformat = "%d-%b-%Y_%H:%M:%S"
@@ -188,7 +189,7 @@ def date_to_obs(date):
     matching = obs[ (obs.start<=date) & (obs.end>=date) ]
 
     if len(matching)!=1:
-        print('ERROR: could not find an observation matching date %s' % date)
+        log.error('could not find an observation matching date %s' % date)
         return False
 
     return matching.squeeze()
@@ -205,7 +206,7 @@ def get_cycles(ltp, case='P', suffix=''):
     # else:
 
     if case.lower() not in ['a', 'b', 'c', 'p', 'h']:
-        print('ERROR: case must be A, B, C, P or H!')
+        log.error('case must be A, B, C, P or H!')
         return False
 
     case = case.upper()
@@ -219,7 +220,7 @@ def get_cycles(ltp, case='P', suffix=''):
     #     'c': os.path.join(ros_config_path, 'ros_mtp_stp_vstp_c.def') }
 
     #    if case.lower() not in cycle_files.keys():
-    #        print('ERROR: case must be A, B or C!')
+    #        log.error('case must be A, B or C!')
     #        return False
 
     #    cycle_file = cycle_files[case.lower()]
@@ -253,7 +254,7 @@ def get_stp(ltp, stp, case='p', suffix=''):
     stp_end = cycles[cycles.STP==stp+1].VSTP1.squeeze()
 
     if type(stp_start) !=pd.tslib.Timestamp or type(stp_end) != pd.tslib.Timestamp:
-        print('ERROR: data for STP %i invalid' % stp)
+        log.error('data for STP %i invalid' % stp)
         return None, None
 
     return stp_start,stp_end
@@ -304,7 +305,7 @@ def get_mtp(ltp, mtp, case='p', suffix=''):
         vstp = last_stp.VSTP1
         mtp_end = [ last_stp[ 'VSTP%i' % num ] for num in range(1,6) if last_stp[ 'VSTP%i' % num ] >= vstp ]
         mtp_end = mtp_end[0]
-        print('WARNING: no data for MTP %i, start of last VSTP in MTP %i is at %s' % (mtp+1, mtp, mtp_end))
+        log.warning('no data for MTP %i, start of last VSTP in MTP %i is at %s' % (mtp+1, mtp, mtp_end))
     else:
         mtp_end = cycles[cycles.MTP==mtp+1].sort_values(by='VSTP1').VSTP1.iloc[0]
 
@@ -361,7 +362,7 @@ def pstp_itl(itl_file, evf_file):
     stp_itl = eps_utils.parse_itl(itl_file)
     sqs = [sq.sqname for sq in stp_itl.timeline]
     if placeholder not in sqs:
-        print('ERROR: no PSTP high res scan placeholder found in this ITL')
+        log.error('no PSTP high res scan placeholder found in this ITL')
         return False
 
     # Find the sequence containiner the placeholder
@@ -375,12 +376,12 @@ def pstp_itl(itl_file, evf_file):
     count = int(pstp_sq.options.val)
     event_time = event_list[ (event_list.event_id==event) & (event_list.obs_id==count) ]
     if len(event_time)==0:
-        print('ERROR: no event matching ID %s and count %i found in EVF' % (event, count))
+        log.error('no event matching ID %s and count %i found in EVF' % (event, count))
         return False
     event_time = event_time.time.squeeze()
     pstp_time = event_time + pstp_sq.time
 
-    print('INFO: PSTP placeholder sequence starts at absolute time %s' % pstp_time)
+    log.info('PSTP placeholder sequence starts at absolute time %s' % pstp_time)
 
     # Find the details of the subsequent SQ to calculate the PSTP duration
     next_sq = stp_itl.timeline[pstp_idx+1]
@@ -389,7 +390,7 @@ def pstp_itl(itl_file, evf_file):
     next_time = event_list[ (event_list.event_id==next_event) & (event_list.obs_id==next_count) ].time.squeeze()
     next_time += next_sq.time
     duration = next_time - pstp_time
-    print('INFO: following sequence starts at %s, PSTP duration %s' % (next_time, duration))
+    log.info('following sequence starts at %s, PSTP duration %s' % (next_time, duration))
 
     # Create an ITL containing the scan sequence
 
@@ -519,7 +520,7 @@ def generate_pdor(itl_file, pdor_file=None, evf_file=None, comments=True):
         if evf_file is not None:
             event_time = event_list[ (event_list.event_id==event) & (event_list.obs_id==count) ]
             if len(event_time) != 1:
-                print('ERROR: cannot find event %s (COUNT=%d) in EVF file' % (event, count))
+                log.error('cannot find event %s (COUNT=%d) in EVF file' % (event, count))
                 return False
                 event_time = event_time.time.squeeze()
         sq_time = event_time + sequence.time
@@ -573,14 +574,14 @@ def load_stp(directory, stp=False, load_obs=True):
         itl=glob.glob(os.path.join(directory, 'ITLS_MD_M0??_S???_01_?_RSM?PIM?.itl'))
 
     if (len(evf)==0) or (len(itl)==0):
-        print('ERROR: no matching EVF/ITL files found in folder %s' % (directory))
+        log.error('no matching EVF/ITL files found in folder %s' % (directory))
         return False
 
     # Find the latest file - sort first by RS counter, then PI counter
     evf = sorted(evf, key=lambda x: ( int(os.path.basename(x)[26]), int(os.path.basename(x)[30])) )[-1]
     itl = sorted(itl, key=lambda x: ( int(os.path.basename(x)[26]), int(os.path.basename(x)[30])) )[-1]
 
-    print('INFO: using input files:\n    EVF %s\n    ITL %s' % (evf, itl))
+    log.info('using input files:\n    EVF %s\n    ITL %s' % (evf, itl))
 
     itl_start, itl_end, version, timeline = read_itlm(itl)
     evf_start, evf_end, events = read_evf(evf)
@@ -669,7 +670,7 @@ def read_evf(filename):
             logging.error('invalid syntax in EVF file %s' % (filename))
             return(None)
 
-    print('INFO: %i events read from EVF file %s' % (len(event_list), os.path.basename(filename)))
+    log.info('%i events read from EVF file %s' % (len(event_list), os.path.basename(filename)))
 
     return( mtp_start, mtp_end, event_list )
 
@@ -755,11 +756,11 @@ def resolve_time(itl_file, evf_file, html=False, expand_params=False):
     evf_start, evf_end, event_list = read_evf(evf_file)
 
     if event_list is None:
-        print('WARNING: no events found in EVF file')
+        log.warning('no events found in EVF file')
         return None
 
     if len(itl.timeline) == 0:
-        print('WARNING: no timeline entries found in ITL file')
+        log.warning('no timeline entries found in ITL file')
         return None
 
     event_list = pd.DataFrame(event_list)
@@ -852,7 +853,7 @@ def locate_mtp(mtp, case):
     ltp_dir = [folder for folder in ltp_dirs if folder.startswith(ltp_case)]
 
     if len(ltp_dir)==0:
-        print('ERROR: no LTP folder found in ROS_SGS for MTP %i, case %c' % (mtp, case.upper()))
+        log.error('no LTP folder found in ROS_SGS for MTP %i, case %c' % (mtp, case.upper()))
         return None
     elif len(ltp_dir)==1:
         ltp_dir = ltp_dir[0]
@@ -865,7 +866,7 @@ def locate_mtp(mtp, case):
     # now we have found the correct LTP folder, check for the MTP directory
     mtp_dir = os.path.join(ltp_dir,'MTP%03i%c' % (mtp, case.upper()))
     if not os.path.isdir(mtp_dir):
-        print('ERROR: no MTP folder found in ROS_SGS for MTP %i, case %c' % (mtp, case.upper()))
+        log.error('no MTP folder found in ROS_SGS for MTP %i, case %c' % (mtp, case.upper()))
         return None
 
     return os.path.join(ltp_dir,mtp_dir)
@@ -1128,12 +1129,12 @@ class ptrm:
         ptrm = glob.glob(os.path.join(directory,'PTRM_PL_M???______01_?_RSM?PIM0.ROS'))
 
         if (len(ptrm)==0):
-            print('ERROR: no PTRM files found in folder %s' % (directory))
+            log.error('no PTRM files found in folder %s' % (directory))
             return False
 
         # Find the latest file - sort first by RS counter, then PI counter
         ptrm = sorted(ptrm, key=lambda x: ( int(os.path.basename(x)[26]) )) [-1]
-        print('INFO: using PTRM file %s' % ptrm)
+        log.info('using PTRM file %s' % ptrm)
 
         return ptrm
 
@@ -1149,7 +1150,7 @@ class ptrm:
         slot_num = [int(comment.text.split('SLOT')[1]) for comment in comments if 'SLOT' in comment.text]
 
         if len(slots)==0:
-            print('WARNING: PTR file %s contains no EoM orbit slots!' % self.filename)
+            log.warning('PTR file %s contains no EoM orbit slots!' % self.filename)
             return None
 
         start_list = []
@@ -1178,7 +1179,7 @@ class ptrm:
         from lxml import etree
 
         if not os.path.isfile(filename):
-            print('ERROR: file %s cannot be found or opened' % (filename))
+            log.error('file %s cannot be found or opened' % (filename))
             return None
 
         # open and parse the XML file
@@ -1247,7 +1248,7 @@ class ptrm:
         if selected:
             num_obs = len(observations)
             if (selected < 0) or (selected > num_obs):
-                print('ERROR: selected observation is out of range')
+                log.error('selected observation is out of range')
                 return False
 
         midas_blocks = []
@@ -1369,12 +1370,12 @@ class ptrm:
 
         if type(selected) != bool:
             if type(observations)==bool:
-                print('WARNING: if selected is set, observations must be given!')
+                log.warning('if selected is set, observations must be given!')
                 selected = False
             elif (type(selected) != int):
-                print('WARNING: keyword selected must be an integer')
+                log.warning('keyword selected must be an integer')
             elif (selected > len(observations)):
-                print('WARNING: keyword selected must be an integer less than %i' % (len(observations)))
+                log.warning('keyword selected must be an integer less than %i' % (len(observations)))
                 selected = False
             else:
                 observations = observations.iloc[[selected]]
@@ -1482,14 +1483,14 @@ class itl:
         self.min_zr = 0
 
         if self.shut_open:
-            print('INFO: shutter state is OPEN! Remember to close if necessary')
+            log.info('shutter state is OPEN! Remember to close if necessary')
         else:
-            print('INFO: shutter state is CLOSED!')
+            log.info('shutter state is CLOSED!')
 
         model_list = ['QM', 'FS', 'FM']
         model = model.upper()
         if model not in model_list:
-            print('WARNING: invalid MIDAS model specified, defaulting to the FM')
+            log.warning('invalid MIDAS model specified, defaulting to the FM')
             model = 'FM'
 
         self.model = model
@@ -1613,13 +1614,13 @@ class itl:
             self.time = end_time
             self.abs_time = obs.start_time + self.time
 
-            print('INFO: %s: %s (duration %s)' % (start, procedure['template'], real_duration))
+            log.info('%s: %s (duration %s)' % (start, procedure['template'], real_duration))
 
             if end_time > self.current_block['offset'] + self.current_block['duration']:
                 exceeded = -remaining # end_time - self.current_block['offset'] + self.current_block['duration']
-                print('WARNING: observation is %s too long for block %i' % (exceeded, self.current_block['index']))
+                log.warning('observation is %s too long for block %i' % (exceeded, self.current_block['index']))
             else:
-                print('INFO: %s left in observation %s (%d), block %i' %
+                log.info('%s left in observation %s (%d), block %i' %
                     (remaining, self.current_obs.obs_type, self.current_obs.obs_id, self.current_block['index']))
 
         # Add the ITL regardless (some time over-runs are "soft")
@@ -1636,8 +1637,8 @@ class itl:
 
         remaining = self.current_block['offset'] + self.current_block['duration'] - self.time
 
-        print('INFO: duration of activity WAIT: %s' % (duration))
-        print('INFO: %s left in block %i' % (remaining,self.current_block['index']))
+        log.info('duration of activity WAIT: %s' % (duration))
+        log.info('%s left in block %i' % (remaining,self.current_block['index']))
 
     def wait_until(self, abs_time):
         """Insert a pause until the abs_time (if it's in the future!), update time pointers"""
@@ -1645,7 +1646,7 @@ class itl:
         if type(abs_time) not in [pd.Timestamp, datetime]:
             abs_time = parser.parse(abs_time)
         if abs_time < self.abs_time:
-            print('ERROR: specified time (%s) is before current time (%s)!' % (abs_time, self.abs_time))
+            log.error('specified time (%s) is before current time (%s)!' % (abs_time, self.abs_time))
             return None
 
         self.wait(abs_time-self.abs_time)
@@ -1669,7 +1670,7 @@ class itl:
         print('End_time:   %s' % (datetime.strftime(itl_end,dateformat)), file=f)
 
         [f.write(fragment) for fragment in self.itl]
-        print('INFO: written %i ITL fragments to %s' % (len(self.itl), filename))
+        log.info('written %i ITL fragments to %s' % (len(self.itl), filename))
         f.close()
 
 
@@ -1681,7 +1682,7 @@ class itl:
         timedelta as argument."""
 
         if index>=len(blocks):
-            print('ERROR: requested block does not exist')
+            log.error('requested block does not exist')
             return
 
         current_block = blocks.iloc[index].squeeze()
@@ -1694,7 +1695,7 @@ class itl:
             'offset': timedelta(seconds=current_block.offset/np.timedelta64(1, 's'))
         })
 
-        print('INFO: block %i (of %i) has duration %s' % (index, len(blocks)-1, self.current_block['duration']))
+        log.info('block %i (of %i) has duration %s' % (index, len(blocks)-1, self.current_block['duration']))
 
         self.time = self.current_block['offset'] + offset
         self.abs_time = self.current_obs.start_time + self.time
@@ -1742,7 +1743,7 @@ class itl:
         duration = timedelta(minutes=1)
 
         if len(cmds)>20:
-            print('ERROR: max 20 TCMDs can be given')
+            log.error('max 20 TCMDs can be given')
             return None
 
         if as_hex:
@@ -1870,14 +1871,14 @@ class itl:
         proc['template'] = 'SUBSYS_ONOFF'
 
         # if block1_on and block2_on:
-        #     print('WARNING: both cantilever blocks should not be powered simultaneously')
+        #     log.warning('both cantilever blocks should not be powered simultaneously')
         #     return False
 
         block1 = True # if self.cantilever <= 8 else False
         block2 = True # if self.cantilever > 8 else False
 
         # if (block1 and block2_on) or (block2 and block1_on):
-        #     print('WARNING: this will change the powered cantilever block')
+        #     log.warning('this will change the powered cantilever block')
 
 
         proc['params'] = {
@@ -1899,7 +1900,7 @@ class itl:
         proc = {}
 
         if (lin_pos<-10 or lin_pos>10):
-            print('ERROR: specified linear position out of range!')
+            log.error('specified linear position out of range!')
 
         proc['template'] = 'LIN_ABS'
         proc['params'] = {
@@ -1915,7 +1916,7 @@ class itl:
         proc = {}
 
         if (facet<0) or (facet>63):
-            print('ERROR: facet number must be between 0 and 63')
+            log.error('facet number must be between 0 and 63')
             return False
 
         proc['template'] = 'EXPOSE'
@@ -1925,7 +1926,7 @@ class itl:
         self.generate(proc)
 
         if duration is None:
-            print('WARNING: no exposure duration specified, remember to issue CLOSE_SHUTTER sequence!')
+            log.warning('no exposure duration specified, remember to issue CLOSE_SHUTTER sequence!')
         else:
             self.wait(duration)
             self.close_shutter()
@@ -1976,10 +1977,10 @@ class itl:
         """Selects a feature (rank 1 to rank n) for subsequent zoom scan"""
 
         if feature<1:
-            print('ERROR: feature number must be >1 (1 is highest ranking feature)')
+            log.error('feature number must be >1 (1 is highest ranking feature)')
             return None
         elif feature==1:
-            print('INFO: highest ranking (default) feature selected - did you want to do this?')
+            log.info('highest ranking (default) feature selected - did you want to do this?')
 
         proc = {}
         proc['template'] = 'ZOOM_FEAT'
@@ -1998,11 +1999,11 @@ class itl:
         # bit 14 set = newest = 16384
         if 0<= dset_id <= 32768:
             if dset_id==16384:
-                print('INFO: selecting newest data set')
+                log.info('selecting newest data set')
             elif dset_id==32768:
-                print('INFO: selecting oldest data set')
+                log.info('selecting oldest data set')
             else:
-                print('INFO: selecting dataset %d' % dset_id)
+                log.info('selecting dataset %d' % dset_id)
 
             proc = {}
             proc['template'] = 'SEL_DSET'
@@ -2013,7 +2014,7 @@ class itl:
             self.generate(proc, duration=timedelta(minutes=1))
 
         else:
-            print('ERROR: dataset ID %d is invalid!' % dset_id)
+            log.error('dataset ID %d is invalid!' % dset_id)
             return None
 
         return
@@ -2024,7 +2025,7 @@ class itl:
         proc['template'] = 'WHEEL'
 
         if ((segment<0) or (segment>1023)):
-            print('ERROR: invalid segment number')
+            log.error('invalid segment number')
             return None
 
         # eng = 21 + raw*42
@@ -2034,7 +2035,7 @@ class itl:
         # RAW 1 = 63 us - 15 mins?
 
         if ((pwidth - 21) % 42) != 0:
-            print('ERROR: pulse width cannot be converted to raw value')
+            log.error('pulse width cannot be converted to raw value')
             return None
 
         duration = {
@@ -2058,11 +2059,11 @@ class itl:
         proc['template'] = 'XYZ_MOVE'
 
         if not(0 <= x_dac <= 65535) or not(0 <= y_dac <= 65535) or not(0 <= z_dac <= 65535):
-            print('ERROR: DAC values must be between 0 and 65535')
+            log.error('DAC values must be between 0 and 65535')
             return None
 
         if scan_mode not in common.scan_type:
-            print('ERROR: scan mode must be one of %s' % common.scan_type)
+            log.error('scan mode must be one of %s' % common.scan_type)
             return None
 
         proc['params'] = {
@@ -2129,11 +2130,11 @@ class itl:
         proc['template'] = 'SETUP'
 
         if (wheel_auto<0) or (wheel_auto>3):
-            print('ERROR: wheel auto-retry must be in the range 0-3')
+            log.error('wheel auto-retry must be in the range 0-3')
             return None
 
         if adaptive and not calc_retract:
-            print('WARNING: adaptive Z retraction can only be used with automatic retraction calculation. Setting now!')
+            log.warning('adaptive Z retraction can only be used with automatic retraction calculation. Setting now!')
             calc_retract = True
 
         # Build the software flags word
@@ -2155,19 +2156,19 @@ class itl:
         if adaptive: sw_flags     += 0x8000 # bit 15
 
         if not(0 <= auto_thresh <= 65535):
-            print('ERROR: auto exposure dust count threshold must be between 0 and 65535 - setting default 32768')
+            log.error('auto exposure dust count threshold must be between 0 and 65535 - setting default 32768')
             auto_thresh = 32768
 
         if not(0 <= auto_trig <= 65535):
-            print('ERROR: auto exposure trigger count must be between 0 and 65535 - setting default 10')
+            log.error('auto exposure trigger count must be between 0 and 65535 - setting default 10')
             auto_trig = 10
 
         if not(0 <= auto_seg <= 1023):
-            print('ERROR: auto exposure wheel segment must be between 0 and 1023 - setting default 0')
+            log.error('auto exposure wheel segment must be between 0 and 1023 - setting default 0')
             auto_seg = 0
 
         if not(0 <= acreep <= 7):
-            print('ERROR: anti-creep factor must be between 0 (2**0) and 7 (2**7) - setting default 4')
+            log.error('anti-creep factor must be between 0 (2**0) and 7 (2**7) - setting default 4')
             auto_seg = 0
 
         self.acreep = acreep
@@ -2185,7 +2186,7 @@ class itl:
         y_zoom = int(y_zoom)
 
         if (x_zoom % 32 != 0) or (y_zoom % 32 != 0):
-            print('ERROR: the number of pixels in X and Y for zooming must be a multiple of 32 - setting default 256')
+            log.error('the number of pixels in X and Y for zooming must be a multiple of 32 - setting default 256')
             x_zoom = 256
             y_zoom = 256
 
@@ -2232,73 +2233,73 @@ class itl:
         ypixels=int(ypixels)
 
         if self.shut_open:
-            print('WARNING: scan commanded with the shutter open!')
+            log.warning('scan commanded with the shutter open!')
 
         # check for bad values!
 
         if set_pt:
             if common.is_bad(set_pt):
-                print('WARNING: set point value %3.2f%% is flagged as bad!' % set_pt)
+                log.warning('set point value %3.2f%% is flagged as bad!' % set_pt)
 
         if common.is_bad(fadj):
-            print('WARNING: frequency adjust value %3.2f%% is flagged as bad!' % fadj)
+            log.warning('frequency adjust value %3.2f%% is flagged as bad!' % fadj)
 
         if op_amp:
             if common.is_bad(op_amp, is_neg=True):
-                print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+                log.warning('working point value %3.2f%% is flagged as bad!' % op_amp)
             if fadj > abs(op_amp):
-                print('WARNING: frequency adjust > working point (will trigger every line) - is this intended?')
+                log.warning('frequency adjust > working point (will trigger every line) - is this intended?')
 
 
         # validate inputs
         if (cantilever<1) or (cantilever>16):
-            print('ERROR: cantilever number must be between 1 and 16')
+            log.error('cantilever number must be between 1 and 16')
             return False
 
         self.cantilever = cantilever
 
         if (facet<0) or (facet>63):
-            print('ERROR: facet number must be between 0 and 63')
+            log.error('facet number must be between 0 and 63')
             return False
 
         if (xpixels%32!=0) or (ypixels%32!=0):
-            print('ERROR: number of X and Y pixels must be a multiple of 32')
+            log.error('number of X and Y pixels must be a multiple of 32')
 
         if (fadj<0.) or (fadj>100.):
-            print('ERROR: frequency adjust must be between 0 and 100%')
+            log.error('frequency adjust must be between 0 and 100%')
             return False
 
         if (xpixels * ypixels * len(channels)) > common.memory_size:
-            print('ERROR: memory capacity for a single image exceeded - reduce number of pixels or channels')
+            log.error('memory capacity for a single image exceeded - reduce number of pixels or channels')
             return False
 
         if safety_factor < 1.0:
-            print('WARNING: safety factor is < 1 - be sure you want to do this! ')
+            log.warning('safety factor is < 1 - be sure you want to do this! ')
 
         if not auto:
             if openloop:
                 if xstep != ystep:
-                    print('WARNING: X and Y steps are different (%d and %d) but we are in open loop' % (xstep, ystep))
+                    log.warning('X and Y steps are different (%d and %d) but we are in open loop' % (xstep, ystep))
             else:
                 if xstep == ystep:
-                    print('WARNING: X and Y steps are equal, but we are in hybrid mode!')
+                    log.warning('X and Y steps are equal, but we are in hybrid mode!')
 
         if contact:
             scan_mode='CON'
             if 'PH' in channels:
-                print('WARNING: phase channel not relevant in contact mode')
+                log.warning('phase channel not relevant in contact mode')
         elif magnetic:
             scan_mode='MAG'
-            print('INFO: to enable additional magnetic measurements, use InstrumentSetup')
+            log.info('to enable additional magnetic measurements, use InstrumentSetup')
             if retr_m1<=0:
-                print('WARNING: magnetic mode selected, but magnetic retraction height <= 0!')
+                log.warning('magnetic mode selected, but magnetic retraction height <= 0!')
             if 'M1' not in channels:
-                print('WARNING: at least one magnetic channel should be returned in magnetic mode')
+                log.warning('at least one magnetic channel should be returned in magnetic mode')
         else:
             scan_mode='DYN'
 
         if 'ZS' not in channels:
-            print('WARNING: topography channel not requested, are you sure you intended this?')
+            log.warning('topography channel not requested, are you sure you intended this?')
 
         #  This is an analogue value in the range +5V (minimum; Z piezo fully retracted) to -5V (maximum; Z piezo fully elongated)
         # defining the Z piezo start position to be set after an successful approach.
@@ -2306,7 +2307,7 @@ class itl:
         # Because of measurement errors of the analogue signals, the maximum and minimum values (+5V, -5V) must not be used (approach does probably not converge)
 
         if not (-4.9 < zapp_pos < 4.9):
-            print('ERROR: Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
+            log.error('Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
             return False
 
         self.xsteps = xpixels
@@ -2327,7 +2328,7 @@ class itl:
         xend = xorigin + xstep * xpixels
         yend = yorigin + ystep * ypixels
         if (xend>65535) or (yend>65535):
-            print('ERROR: command scan exceeds possible DAC positions (%d,%d)' % (xend, yend))
+            log.error('command scan exceeds possible DAC positions (%d,%d)' % (xend, yend))
             return None
 
         # Calculate the approach position (DAC values)
@@ -2347,10 +2348,10 @@ class itl:
         dtype = common.get_channel(channels)
         ntypes = bin(dtype).count("1")
         if not dtype:
-            print('ERROR: invalid datatype')
+            log.error('invalid datatype')
             return False
 
-        if debug: print('DEBUG: number of data types: %d' % ntypes)
+        log.debug('number of data types: %d' % ntypes)
 
         mag_chans = 1 if magnetic else 0
         if self.retr_m2 > 0: mag_chans += 1
@@ -2360,7 +2361,7 @@ class itl:
         if auto:
             xpixels = self.xsteps
             ypixels = self.ysteps
-            print('INFO: calculating duration based on the following x/y steps: (%d,%d)' % (xpixels,ypixels))
+            log.info('calculating duration based on the following x/y steps: (%d,%d)' % (xpixels,ypixels))
 
         duration_s = scanning.calc_duration(
             xpoints=xpixels, ypoints=ypixels,
@@ -2388,12 +2389,12 @@ class itl:
         else:
             line_data_bytes = 0
 
-        if debug: print('DEBUG: line data (bytes): %d' % line_data_bytes)
+        log.debug('line data (bytes): %d' % line_data_bytes)
 
         # data from image scan headers and packets
         image_data_bytes = ntypes * (80 + 2096 * xpixels * ypixels / 1024)
 
-        if debug: print('DEBUG: image data (bytes): %d' % image_data_bytes)
+        log.debug('image data (bytes): %d' % image_data_bytes)
 
         data_bytes = image_data_bytes + line_data_bytes
 
@@ -2404,14 +2405,14 @@ class itl:
         # Add additional data rate if control data packets are enabled
         if ctrl_data:
             if not self.ctrl_full:
-                print('WARNING: Control data in image requested but not set in InstrumentSetup!')
+                log.warning('Control data in image requested but not set in InstrumentSetup!')
             else:
                 data_bytes += (32 * 32 * 2096)
 
         if xfer_mode==0:
             data_bytes = 0
 
-        if debug: print('DEBUG: scan generates %d bytes' % data_bytes)
+        log.debug('scan generates %d bytes' % data_bytes)
         data_rate = (data_bytes*8/duration_s)
 
         # If an abort is requested, execute that first
@@ -2430,7 +2431,7 @@ class itl:
         else:
             seg_facet = common.seg_to_facet(segment)
             if seg_facet != facet:
-                print('ERROR: selected segment and facet do not agree!')
+                log.error('selected segment and facet do not agree!')
                 return False
 
         # Linear and wheel move params
@@ -2723,13 +2724,13 @@ class itl:
         self.cantilever = cantilever
 
         if common.is_bad(set_pt):
-            print('WARNING: set point value %3.2f%% is flagged as bad!' % set_pt)
+            log.warning('set point value %3.2f%% is flagged as bad!' % set_pt)
 
         if common.is_bad(fadj):
-            print('WARNING: frequency adjust value %3.2f%% is flagged as bad!' % fadj)
+            log.warning('frequency adjust value %3.2f%% is flagged as bad!' % fadj)
 
         if common.is_bad(op_amp, is_neg=True):
-            print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+            log.warning('working point value %3.2f%% is flagged as bad!' % op_amp)
 
 
         # calculate start frequency based on step size and number of scans
@@ -2807,7 +2808,7 @@ class itl:
 
         for scan_count in range(0,num_tiles):
             offset = tip_offset[scan_count]
-            print('INFO: starting scan at linear offset %3.3f' % offset)
+            log.info('starting scan at linear offset %3.3f' % offset)
 
             self.scan(cantilever=cantilever, facet=facet, channels=channels, openloop=openloop, xpixels=xpixels,
                 ypixels=ypixels, xstep=xstep, ystep=ystep, xlh=xlh, ylh=ylh, mainscan_x=mainscan_x,
@@ -2905,24 +2906,24 @@ class itl:
             if (check_shape >=0) & (check_shape <=3):
                 mode += 0x1000 * check_shape
             else:
-                print('WARNING: invalid shape criteria, disabling')
+                log.warning('invalid shape criteria, disabling')
 
         # SetFvectLpercPar (%) - <height_thresh>
         if 0.0 >= height_thresh >= 100.0:
-            print('WARNING: invalid height threshold, must be between 0 and 100%')
+            log.warning('invalid height threshold, must be between 0 and 100%')
             height_thresh = 50.0
 
         if common.is_bad(height_thresh):
-            print('WARNING: height threshold value %3.2f%% is flagged as bad!' % height_thresh)
+            log.warning('height threshold value %3.2f%% is flagged as bad!' % height_thresh)
 
         # SetFvectRatioPar (%) - <pix_area_ratio>
         if 0.0 >= pix_area <= 100.0:
-            print('WARNING: invalid pixel/area ratio, must be between 0 and 100%')
+            log.warning('invalid pixel/area ratio, must be between 0 and 100%')
             pix_area = 50.0
 
         # SetFvectZfactorPar (%) - <zoom_factor>
         if 5.0 >= zoom >= 5105.0:
-            print('WARNING: zoom factor must be between 5% and 5105%')
+            log.warning('zoom factor must be between 5% and 5105%')
             zoom = 100.0
 
         proc['params'] = {
@@ -2940,7 +2941,7 @@ class itl:
             if 0<= dset_id <= 32768:
                 self.select_dset(dset_id)
             else:
-                print('ERROR: dataset ID %d is invalid!' % dset_id)
+                log.error('dataset ID %d is invalid!' % dset_id)
                 return None
 
         self.generate(proc, timedelta(minutes=5))
@@ -2972,7 +2973,7 @@ class itl:
         if contact: set_start=False
 
         if self.shut_open:
-            print('WARNING: scan commanded with the shutter open!')
+            log.warning('scan commanded with the shutter open!')
 
         channels=['ZS'] # topography data always returned
 
@@ -2991,47 +2992,47 @@ class itl:
 
         if set_pt:
             if common.is_bad(set_pt):
-                print('WARNING: set point value %3.2f%% is flagged as bad!' % set_pt)
+                log.warning('set point value %3.2f%% is flagged as bad!' % set_pt)
 
         if common.is_bad(fadj):
-            print('WARNING: frequency adjust value %3.2f%% is flagged as bad!' % fadj)
+            log.warning('frequency adjust value %3.2f%% is flagged as bad!' % fadj)
 
         if op_amp:
             if common.is_bad(op_amp, is_neg=True):
-                print('WARNING: working point value %3.2f%% is flagged as bad!' % op_amp)
+                log.warning('working point value %3.2f%% is flagged as bad!' % op_amp)
             if fadj > abs(op_amp):
-                print('WARNING: frequency adjust > working point (will trigger every line) - is this intended?')
+                log.warning('frequency adjust > working point (will trigger every line) - is this intended?')
 
         if (cantilever<1) or (cantilever>16):
-            print('ERROR: cantilever number must be between 1 and 16')
+            log.error('cantilever number must be between 1 and 16')
             return False
 
         if (facet<0) or (facet>63):
-            print('ERROR: facet number must be between 0 and 63')
+            log.error('facet number must be between 0 and 63')
             return False
 
         if (xpixels%32!=0) or (ypixels%32!=0):
-            print('ERROR: number of X and Y pixels must be a multiple of 32')
+            log.error('number of X and Y pixels must be a multiple of 32')
 
         if (fadj<0.) or (fadj>100.):
-            print('ERROR: frequency adjust must be between 0 and 100%')
+            log.error('frequency adjust must be between 0 and 100%')
             return False
 
         if not (-4.9 < zapp_pos < 4.9):
-            print('ERROR: Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
+            log.error('Z position after approach (zapp_pos) outside of the range -4.9 - +4.9 V')
             return False
 
         if contact:
             scan_mode='CON'
             if 'PH' in channels:
-                print('WARNING: phase channel not relevant in contact mode')
+                log.warning('phase channel not relevant in contact mode')
         elif magnetic:
             scan_mode='MAG'
-            print('INFO: to enable additional magnetic measurements, use InstrumentSetup')
+            log.info('to enable additional magnetic measurements, use InstrumentSetup')
             if retr_m1<=0:
-                print('WARNING: magnetic mode selected, but magnetic retraction height <= 0!')
+                log.warning('magnetic mode selected, but magnetic retraction height <= 0!')
             if 'M1' not in channels:
-                print('WARNING: at least one magnetic channel should be returned in magnetic mode')
+                log.warning('at least one magnetic channel should be returned in magnetic mode')
         else:
             scan_mode='DYN'
 
@@ -3053,7 +3054,7 @@ class itl:
         dtype = common.get_channel(channels)
         ntypes = bin(dtype).count("1")
         if not dtype:
-            print('ERROR: invalid datatype')
+            log.error('invalid datatype')
             return False
 
         if mainscan_x:
@@ -3083,7 +3084,7 @@ class itl:
         else:
             seg_facet = common.seg_to_facet(segment)
             if seg_facet != facet:
-                print('ERROR: selected segment and facet do not agree!')
+                log.error('selected segment and facet do not agree!')
                 return False
 
         # Set up the list of parameters for this template - these will be replaced in the template
@@ -3167,7 +3168,7 @@ class itl:
         parameters (frequency, block power, etc.)"""
 
         if (cant_num<1) or (cant_num>16):
-            print('ERROR: cantilever number must be between 1 and 16')
+            log.error('cantilever number must be between 1 and 16')
             return False
 
         # resonance frequency, used to calculate alternative windows
@@ -3194,7 +3195,7 @@ class itl:
             ac_gain = [2,2,1,3,3,4,5,3, 7,2,2,4,2,2,1,2]
 
         else:
-            print('ERROR: invalid MIDAS model specified!')
+            log.error('invalid MIDAS model specified!')
             return False
 
 
@@ -3233,7 +3234,7 @@ class itl:
         on the selected cantilever"""
 
         if (cant_num<1) or (cant_num>16):
-            print('ERROR: cantilever number must be between 1 and 16')
+            log.error('cantilever number must be between 1 and 16')
             return False
 
         return common.lin_centre_pos_fm[cant_num-1] if self.model=='FM' else common.lin_centre_pos_fs[cant_num-1]
@@ -3246,7 +3247,7 @@ class itl:
         centre = self.tip_centre(cant_num)
         offset = (distance + common.tip_offset[cant_num-1]) * common.linearcal
         if abs(offset) > common.lin_max_offset:
-            print('WARNING: linear stage out of range for tip %i' % cant_num)
+            log.warning('linear stage out of range for tip %i' % cant_num)
             return False
         offset_v = centre + offset
         v_per_bit = 20./65535.
@@ -3366,7 +3367,7 @@ def filename_counter(filename, to_stp=True, increment_by=0):
     # EVF__MD_M006_S015_01_A_RSM0PIM0.evf - example format
 
     if filename[0:4] != 'ITLS' and filename[0:4] != 'EVF_':
-        print('ERROR: filename prefix not ITLS or EVF_')
+        log.error('filename prefix not ITLS or EVF_')
         return False
 
     filename = list(filename)
@@ -3464,7 +3465,7 @@ def schedule(observations):
                 'seg_num_exp' : segment }
 
             hours = obs['duration'] / np.timedelta64(1, 'h')
-            logging.debug('facet %i scheduled for %3.2f exposure' % (facet, hours))
+            log.debug('facet %i scheduled for %3.2f exposure' % (facet, hours))
 
             # add the parameters to the observation definition
             procedures.append(procedure)
@@ -3485,7 +3486,7 @@ def schedule(observations):
                     scan['xysettle'], scan['zretract'], \
                     scan['zstep'], scan['avg'])
 
-                logging.debug('calculated scan duration: %3.2f h' % (scandur/60./60.))
+                log.debug('calculated scan duration: %3.2f h' % (scandur/60./60.))
 
                 if scandur <= duration: # schedule this scan
                     pass
@@ -3560,7 +3561,7 @@ def upload_fs(localfile, directory='fs_commanding', serverfile=None):
     put_result = ftp.storlines('STOR ' + filename, f)
     f.close()
 
-    if debug: print('DEBUG: FTP results (put): %s ' % (put_result))
+    log.debug('FTP results (put): %s ' % (put_result))
 
     return
 
@@ -3577,7 +3578,7 @@ def read_geom(geom_file):
         'velocity.dat': ['velocity_ms'] }
 
     if geom_file not in geom_files.keys():
-        print('ERROR: geometry file %s not recognised' % geom_file )
+        log.error('geometry file %s not recognised' % geom_file )
         return None
 
     cols = ['time']

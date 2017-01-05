@@ -17,9 +17,9 @@ from matplotlib.widgets import  RectangleSelector
 from matplotlib.patches import Rectangle
 from pylab import rcParams
 from matplotlib import gridspec
-# from datetime import timedelta
 
-
+import logging
+log = logging.getLogger(__name__)
 
 class followup:
 

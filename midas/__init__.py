@@ -9,3 +9,10 @@ __all__ = ['common', 'ros_tm', 'dds_utils', 'planning', 'eps_utils', 'spice_util
 	'analysis', 'bcrutils', 'plotutils', 'scanning']
 
 from midas import *
+
+# Set up the root logger
+
+import logging, sys
+logging.basicConfig(format='%(levelname)s (%(name)s): %(message)s',
+                     level=logging.INFO, stream=sys.stdout)
+

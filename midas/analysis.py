@@ -19,6 +19,9 @@ import numpy as np
 grain_cat_file = 'grain_cat.csv'
 grain_cat_file = os.path.join(common.config_path, grain_cat_file)
 
+import logging
+log = logging.getLogger(__name__)
+
 
 def read_grain_cat(grain_cat_file=grain_cat_file):
     """Read the grain catalogue file"""
@@ -59,7 +62,7 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
         target = images
 
     if len(images) == 0:
-        print('ERROR: no images match these criteria')
+        log.error('no images match these criteria')
         return None
 
     cols = ['left', 'right']
@@ -141,7 +144,7 @@ def find_followup(same_tip=True, image_index=None, sourcepath=common.tlm_path):
         tm_files = sorted(
             glob.glob(os.path.join(common.tlm_path, 'TLM__MD*.DAT')))
         if len(tm_files) == 0:
-            print('ERROR: no files matching pattern')
+            log.error('no files matching pattern')
             return False
         for f in tm_files:
             tm.get_pkts(f, append=True)
@@ -183,10 +186,9 @@ def find_followup(same_tip=True, image_index=None, sourcepath=common.tlm_path):
         matches = matches[matches.start_time > img.end_time]
 
         if len(matches) == 0:
-            print(
-                'WARNING: no subsequent images found for particle %i, skipping' % pcle)
+            log.warning('no subsequent images found for particle %i, skipping' % pcle)
         else:
-            print('INFO: %i subsequent images found containing the position of particle %i' % (
+            log.info('%i subsequent images found containing the position of particle %i' % (
                 len(matches), pcle))
             matches['particle'] = pcle
             followup = followup.append(matches, ignore_index=True)
@@ -213,7 +215,7 @@ def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=c
         tm_files = sorted(
             glob.glob(os.path.join(common.tlm_path, 'TLM__MD*.DAT')))
         if len(tm_files) == 0:
-            print('ERROR: no files matching pattern')
+            log.error('no files matching pattern')
             return False
         for f in tm_files:
             tm.get_pkts(f, append=True)
@@ -263,19 +265,16 @@ def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=c
                           (img_seg.y_orig_um < yc_microns) & (yc_microns < img_seg.y_orig_um + img_seg.ylen_um)]
 
         if len(matches) == 0:
-            print(
-                'INFO: no images found containing the position of particle %i' % pcle)
+            log.info('no images found containing the position of particle %i' % pcle)
         else:
-            print('INFO: %i images found containing the position of particle %i' % (
+            log.info('%i images found containing the position of particle %i' % (
                 len(matches), pcle))
 
         # The last scan of this position is assumed to contain no grain, and hence be our
         # last pre-scan (by the definition of the entry in the grain catalogue)
         pre_scan = matches[matches.end_time < img.start_time]
         if len(pre_scan) == 0:
-            print('WARNING: no pre-scan found for particle %i, skipping' %
-                  pcle)
-            # exposures = None
+            log.warning('no pre-scan found for particle %i, skipping' % pcle)
             continue
         else:
             pre_scan = pre_scan.iloc[-1]
@@ -286,12 +285,9 @@ def find_exposures(same_tip=True, tlm_index=None, image_index=None, sourcepath=c
             exp = (all_exposures[(all_exposures.target == img.target) &
                                  (all_exposures.start > pre_scan.end_time) & (all_exposures.end < img.start_time)])
 
-            # print('INFO: particle %i found after %i exposures with total duration %s' % (pcle, len(exposures), duration))
-            print('INFO: particle %i found after %i exposures' %
-                  (pcle, len(exp)))
+            log.info('particle %i found after %i exposures' % (pcle, len(exp)))
 
             # add particle number and pre-scan (last scan before collection)
-            # image nanme
             exp['particle'] = pcle
             exp['prescan'] = pre_scan.scan_file
 
@@ -376,7 +372,7 @@ def read_grain_stats(basename, path='.'):
 
 
     if len(files)==0:
-        print('ERROR: no files matching pattern: %s' % basename)
+        log.error('no files matching pattern: %s' % basename)
         return None
 
     with open(files[0], 'r') as f:
@@ -401,7 +397,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     # Get all masked channels matching the sub-particle filter
     channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True)
     if len(channels)==0:
-        print('ERROR: no channels found matching: %s' % chan)
+        log.error('no channels found matching: %s' % chan)
         return None
 
     # Get meta-data from the first channel of the GWY file
@@ -430,7 +426,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
         region = regions[0]
 
         if pcle.count() != int(region.area):
-            print('WARNING: region count does not match mask count (>1 grain per mask)')
+            log.warning('region count does not match mask count (>1 grain per mask)')
 
         subpcle = {
 
@@ -649,7 +645,7 @@ def plot_subpcles(pcle_data, num_cols=3, scale=False, title=None, savefile=None,
 
         if title is not None:
             if title not in pcle_data.columns:
-                print('WARNING: label %s not valid for the title' % title)
+                log.warning('label %s not valid for the title' % title)
                 title_txt = pcle['name']
             else:
                 title_txt = '%s: %s' % (title, pcle['%s' % title])
@@ -714,7 +710,7 @@ def plot_pcles(pcles, figure=None, axis=None, show_stripes=True, zoom_out=False,
 
             if label is not None:
                 if (label not in pcles.columns) and (label!='index'):
-                    print('WARNING: specified label %s not found!' % label)
+                    log.warning('specified label %s not found!' % label)
                     label = None
                 else:
                     # plot at centre of bounding box - in microns!
@@ -809,7 +805,7 @@ def exposure_summary(start='2014-08-06', print_stats=False, fontsize=14):
     plt.show()
 
     if print_stats:
-        print('Fraction of time exposing: %3.2f%%' % (100.*(exposures.duration.sum()/(end-start)))  )
+        log.info('Fraction of time exposing: %3.2f%%' % (100.*(exposures.duration.sum()/(end-start)))  )
 
     return fig, ax
 
@@ -860,13 +856,13 @@ def get_pcles(gwyfile, chan='particle'):
     # Get all masked channels matching the particle filter
     channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True, matchstart=True)
     if channels is None:
-        print('ERROR: no channels found matching: %s' % chan)
+        log.error('no channels found matching: %s' % chan)
         return None
 
     # Get meta-data from topography channel
     meta = gwy_utils.get_meta(gwyfile, channel='Topography (Z piezo position set value)')
     if meta is None:
-        print('ERROR: no meta-data available')
+        log.error('no meta-data available')
         return None
 
     # Calculate the pixel area (simply x_step*y_step)
@@ -916,7 +912,7 @@ def get_pcles(gwyfile, chan='particle'):
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
 
-    print('INFO: Gwyddion file %s processed with %d particles' % (gwyfile, len(pcle_data)))
+    log.info('Gwyddion file %s processed with %d particles' % (gwyfile, len(pcle_data)))
 
     return pcle_data
 
@@ -935,13 +931,13 @@ def dbase_build(dbase='particles.msg', gwy_path='.', gwy_pattern='*.gwy', chan='
 
     gwy_files = sorted(glob.glob(os.path.join(gwy_path, gwy_pattern)))
     if len(gwy_files) == 0:
-        print('ERROR: no files matching pattern %s found in folder %s' % (gwy_pattern, gwy_path))
+        log.error('no files matching pattern %s found in folder %s' % (gwy_pattern, gwy_path))
 
     for idx, gwyfile in enumerate(gwy_files):
 
         pcles = get_pcles(gwyfile, chan=chan)
         if pcles is None:
-            print('WARNING: Gwyddion file %s contains no particles!' % gwyfile)
+            log.warning('Gwyddion file %s contains no particles!' % gwyfile)
             continue
 
         if 'database' not in locals() and 'database' not in globals():
@@ -955,7 +951,7 @@ def dbase_build(dbase='particles.msg', gwy_path='.', gwy_pattern='*.gwy', chan='
     pkl_f = open(dbase, 'wb')
     pkl.dump(database, file=pkl_f, protocol=pkl.HIGHEST_PROTOCOL)
 
-    print('INFO: particle database created with %d particles' % len(database))
+    log.info('particle database created with %d particles' % len(database))
 
     return
 
@@ -977,7 +973,7 @@ def dbase_load(dbase='particles.msg', pcle_only=False):
             break
 
     if len(objs)==0:
-        print('ERROR: file %s appears to be empty' % dbase)
+        log.error('file %s appears to be empty' % dbase)
         return None
 
     pcles = pd.concat(iter(objs), axis=0)
@@ -999,7 +995,7 @@ def dbase_load(dbase='particles.msg', pcle_only=False):
     pcles['bb_width'] = (pcles.right-pcles.left)*pcles.x_step_nm/1.e3
     pcles['bb_height'] = (pcles.down-pcles.up)*pcles.y_step_nm/1.e3
 
-    print('INFO: particle database restored with %d particles' % len(pcles))
+    log.info('particle database restored with %d particles' % len(pcles))
 
     return pcles
 

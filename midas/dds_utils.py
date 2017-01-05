@@ -1,12 +1,13 @@
 #!/usr/bin/python
 """dds_utils.py - module to interact with the ESA DDS"""
 
-debug = True
-
 import pandas as pd
 import os, time, socket
 from midas import common, ros_tm, socks
 from dateutil import parser
+
+import logging
+log = logging.getLogger(__name__)
 
 # Global module level definitions
 dds_req_params = ['request-id', 'filename', 'directory', 'apid', 'start_time', 'end_time']
@@ -69,11 +70,11 @@ def validate_xml(xml, schema_file, isfile=False):
                 schema.validate(etree.parse(f))
         else:
             schema.validate(etree.fromstring(xml))
-            if debug: print('DEBUG: XML validation against schema %s successful' % (schema_file))
+            log.debug('XML validation against schema %s successful' % (schema_file))
         return True
     except etree.XMLSyntaxError as e:
-        print('ERROR: XML parse error: %s' % e)
-        print('INFO: error occured at line %d column %d' % e.position)
+        log.error('XML parse error: %s' % e)
+        log.info('error occured at line %d column %d' % e.position)
         return False
     except IOError as e:
         print "ERROR: I/O error({0}): {1}".format(e.errno, e.strerror)
@@ -86,13 +87,13 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
     import re, datetime
 
     if not os.path.isfile(template_file):
-        print('ERROR: template file %s not found' % (template_file))
+        log.error('template file %s not found' % (template_file))
         return 0
 
     # validate inputs
     # if apid is not None:
     #     if apid not in ros_tm.midas_apids:
-    #         print('WARNING: APID %i invalid for MIDAS' % apid)
+    #         log.warning('APID %i invalid for MIDAS' % apid)
 
     if type(start_time)!=pd.Timestamp:
         start_time = pd.Timestamp(start_time)
@@ -101,7 +102,7 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
         end_time = pd.Timestamp(end_time)
 
     if (type(start_time) or type(end_time)) is not pd.Timestamp:
-        print('ERROR: start and end times must be given as a Timestamp!')
+        log.error('start and end times must be given as a Timestamp!')
         return False
 
     # start_time = start_time.isoformat()
@@ -121,7 +122,7 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
     request = request.replace(":","")
 
     if target and target not in dds_targets:
-        print('ERROR: invalid DDS target server %s' % target)
+        log.error('invalid DDS target server %s' % target)
         return False
     elif not target:
         target = 'home'
@@ -152,19 +153,19 @@ def generate_request(start_time, end_time, apid, sid, pkt_type=None, pkt_subtype
 
     # check we have an equal number of open and close tags
     if len(opentag) != len(closetag):
-        print('ERROR: template file %s has %i open and %i closing tags - must be equal!' \
+        log.error('template file %s has %i open and %i closing tags - must be equal!' \
             % (template_file, len(opentag), len(closetag)))
 
     # get the list of unique tags
     tags = [template[opentag[n]+1:closetag[n]] for n in range(len(opentag))]
     tags = list(set(tags))
 
-    if debug: print('DEBUG: XML template file %s opened with %i unique tags' % (template_file, len(tags)))
+    log.debug('XML template file %s opened with %i unique tags' % (template_file, len(tags)))
 
     # check that all tags are included in the params dictionary
     matches = sum([True for key in tags if key in request_params])
     if matches < len(tags):
-        print('ERROR: %i tags in template %s but only %i parameters given' % \
+        log.error('%i tags in template %s but only %i parameters given' % \
             (len(tags), template_file, len(['params'])))
         return False
 
@@ -207,7 +208,7 @@ def submit_request(template, request, socks):
         ftp = ftplib.FTP('rodda.esoc.ops.esa.int', timeout=30)
         ftp.login('roreq', 'rod6$')
     except Exception as e:
-        print('ERROR: exception: %s' % e)
+        log.error('exception: %s' % e)
         return None, None
 
 
@@ -219,7 +220,7 @@ def submit_request(template, request, socks):
     put_result = ftp.storlines('STOR %s.tmp' % request, buf)
     rename_result = ftp.rename('%s.tmp' % request ,'%s.XML' % request)
 
-    if debug: print 'DEBUG: FTP results (put, rename): %s %s' % (put_result, rename_result)
+    log.debug('FTP results (put, rename): %s %s' % (put_result, rename_result))
 
     if socks:
         tunnel.kill()
@@ -251,7 +252,7 @@ def request_data_by_apid(start_time, end_time, apid=False, target=False, socks=F
 
     for ap in aplist:
         # (start_time, end_time, apid, sid, pkt_type=None, pkt_subtype=None, template_file=template_file, target=False)
-        print('INFO: building request for APID %d' % ap)
+        log.info('building request for APID %d' % ap)
         xml, request_id = generate_request(start_time=st, end_time=et, apid=ap, sid=None, pkt_type=None,
             pkt_subtype=None, template_file=template_file, target=target)
         filenames.append(request_id+'.DAT')
@@ -260,10 +261,10 @@ def request_data_by_apid(start_time, end_time, apid=False, target=False, socks=F
             submit_request(xml, request_id, socks)
             pass
         else:
-            print('ERROR: problem validating XML against schema, request not submitted')
+            log.error('problem validating XML against schema, request not submitted')
             return None, None
 
-    print('INFO: %d requests submitted to the DDS' % len(filenames))
+    log.info('%d requests submitted to the DDS' % len(filenames))
 
     return filenames, aplist
 
@@ -279,7 +280,7 @@ def get_data(start_time, end_time, outputfile=False, outputpath='.', apid=False,
 
     filenames, aplist = request_data_by_apid(start_time, end_time, apid=apid, socks=socks)
 
-    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    log.info('waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
     filelist = get_files(filenames, outputpath=outputpath, apid=aplist, outputfile=outputfile, delfiles=delfiles, max_retry=max_retry, retry_delay=retry_delay)
@@ -298,12 +299,12 @@ def request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, target=
     if apid is not None:
         packet = ros_tm.pid[ (ros_tm.pid.apid==apid) & (ros_tm.pid.type==pkt_type) & (ros_tm.pid.subtype==pkt_subtype) & (ros_tm.pid.sid==sid) ]
         if len(packet)==0:
-            print('ERROR: no packet found in the database for APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
+            log.error('no packet found in the database for APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
             return False
         elif len(packet)>1:
-            print('ERROR: more than one packet found matching APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
+            log.error('more than one packet found matching APID %i, SID %i, type %i, subtype %i' % (apid, sid, pkt_type, pkt_subtype))
         else:
-            print('INFO: building request for packet %s' % packet.description.squeeze())
+            log.info('building request for packet %s' % packet.description.squeeze())
 
     # start_time, end_time, apid, pkt_type=None, pkt_subtype=None, template_file=template_file, target=False
     xml, request_id = generate_request(start_time=st, end_time=et, apid=apid, sid=sid, pkt_type=pkt_type, pkt_subtype=pkt_subtype, template_file=template_file, target=target)
@@ -313,10 +314,10 @@ def request_data(start_time, end_time, apid, sid, pkt_type, pkt_subtype, target=
         submit_request(xml, request_id, socks)
         pass
     else:
-        print('ERROR: problem validating XML against schema. Request not submitted')
+        log.error('problem validating XML against schema. Request not submitted')
         return None
 
-    print('INFO: request submitted to the DDS')
+    log.info('request submitted to the DDS')
 
     return filename
 
@@ -326,7 +327,7 @@ def get_data_since(start_time, outputfile, outputpath='.', apid=False, socks=Fal
 
     filenames, aplist = request_data_by_apid_since(start_time, apid=apid, socks=socks)
 
-    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    log.info('waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
     filelist = get_files(filenames, outputpath=outputpath, apid=aplist, outputfile=outputfile, max_retry=max_retry, retry_delay=retry_delay)
@@ -402,7 +403,7 @@ def get_files(filenames, outputpath, apid=False, outputfile=False, delfiles=True
                 tm.get_pkts(localfile, append=True, simple=True)
 
             tm.write_pkts(outputfile, outputpath=outputpath, strip_dds=strip_dds)
-            print('INFO: combined TM written to file %s' % (outputfile))
+            log.info('combined TM written to file %s' % (outputfile))
 
     if delfiles and outputfile: [os.remove(localfile) for localfile in retrieved]
 
@@ -434,21 +435,19 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
 
         # refresh list of files available on the server
         files = ssh.sftp.listdir()
-        if debug:
-            print('DEBUG: list of files on server: %s' % " ".join(files))
+        log.debug('list of files on server: %s' % " ".join(files))
 
         for filename in remaining:
 
-            if debug: print('DEBUG: processing file %s' % (filename))
+            log.debug('processing file %s' % (filename))
 
             if filename not in files:
-                if debug:
-                    print('WARNING: file %s not found on the server' % (filename))
+                log.warning('file %s not found on the server' % (filename))
                 continue
 
             stat = ssh.sftp.stat(filename)
             if stat.st_size==0:
-                print('WARNING: file %s has zero size, skipping...' % (filename))
+                log.warning('file %s has zero size, skipping...' % (filename))
                 remaining.remove(filename)
                 ssh.sftp.remove(filename)
                 continue
@@ -457,16 +456,16 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
                 ssh.sftp.get(filename, os.path.join(localpath,filename))
                 ssh.sftp.remove(filename)
             except Exception as e:
-                print('ERROR: error getting/deleting file %s' % filename)
-                print('ERROR: exception: %s' % e)
+                log.error('error getting/deleting file %s' % filename)
+                log.error('exception: %s' % e)
                 continue
             remaining.remove(filename)
             retrieved.append( os.path.join(localpath,filename) )
-            print('INFO: file %s retrieved and removed from the server' % (filename))
+            log.info('file %s retrieved and removed from the server' % (filename))
 
         if len(remaining)==0: break
 
-        print('INFO: %i files remaining, waiting %i minutes to retry (attempt %i/%i)' %
+        log.info('%i files remaining, waiting %i minutes to retry (attempt %i/%i)' %
             (len(remaining), retry_delay, retry+1, max_retry))
 
         retry += 1
@@ -476,7 +475,7 @@ def retrieve_data(filelist, localpath='.', max_retry=5, retry_delay=2):
     ssh.close()
 
     if len(remaining) > 0:
-        print('WARNING: unable to retrieve %i files' % (len(remaining)))
+        log.warning('unable to retrieve %i files' % (len(remaining)))
         print(remaining)
 
     return retrieved
@@ -504,7 +503,7 @@ def get_timecorr(outputpath='.', socks=False, max_retry=5, retry_delay=5):
     # filenames, aplist = request_data_by_apid(start_time, end_time, apid=1966, socks=socks, template_file=tcp_template)
     filename = request_data(start_time, end_time, apid=apid, sid=sid, pkt_type=pkt_type, pkt_subtype=subtype, socks=socks, template_file=single_template)
 
-    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    log.info('waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
     filelist = get_files(filename, outputpath=outputpath, apid=apid, outputfile='TLM__MD_TIMECORR.DAT', max_retry=max_retry, retry_delay=retry_delay)
@@ -525,7 +524,7 @@ def get_tc_history(start_time, end_time, outputpath='.', outputfile='CMH.DAT', s
     if filename is None:
         return None
 
-    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    log.info('waiting for DDS to service requests before starting retrieval...')
 
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
@@ -564,7 +563,7 @@ def get_single_pkt(start_time, end_time, apid, sid, pkt_type, pkt_subtype, outpu
     if filename is None:
         return None
 
-    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    log.info('waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
     filelist = get_files(filename, outputpath=outputpath, apid=apid, outputfile=outputfile, delfiles=delfiles, max_retry=max_retry, retry_delay=retry_delay)
@@ -590,7 +589,7 @@ def get_pkts_from_list(start_time, end_time, filename, outputfile=False, outputp
             # returns apids, filelist
             filename, apid = request_data_by_apid(start_time=start_time, end_time=end_time, apid=int(packet.apid))
             if filename is None:
-                print('ERROR: something went wrong building the request, skipping')
+                log.error('something went wrong building the request, skipping')
             else:
                 filelist.append(filename[0])
 
@@ -604,7 +603,7 @@ def get_pkts_from_list(start_time, end_time, filename, outputfile=False, outputp
 
         time.sleep(10) # try to avoid problems at the DDS end
 
-    print('INFO: waiting for DDS to service requests before starting retrieval...')
+    log.info('waiting for DDS to service requests before starting retrieval...')
     time.sleep(dds_wait_time) # wait a few minutes before accessing the data via SFTP
 
     gotfiles = get_files(filelist, outputpath=outputpath, apid=False,
@@ -626,18 +625,18 @@ def add_observations(evf_file):
     # Extract MTP and STP cycle from filename
     # e.g. EVF__MD_M004_S005_01_A_RSM0PIM1.evf
     if evffile[0:4] != 'EVF_':
-        print('ERROR: EVF files must start with prefix EVF_')
+        log.error('EVF files must start with prefix EVF_')
         return False
 
     if evffile[5:7] != 'MD':
-        print('ERROR: EVF file is not for the MIDAS instrument!')
+        log.error('EVF file is not for the MIDAS instrument!')
         return False
 
     mtp = int(evffile[9:12])
     stp = int(evffile[14:17])
     case = evffile[21]
     if case not in planning.activity_case_types:
-        print('ERROR: activity case %s invalid' % (case))
+        log.error('activity case %s invalid' % (case))
         return False
     rorl = int(evffile[18:20])
 
@@ -720,13 +719,13 @@ def get_aux_observations(outputdir='.', pkt_file=pkt_file, max_retry=20, retry_d
         padded_name = obs.observation + (20-len(obs.observation)) * '_'
         aux_filename = 'TLM__SC_M%03d_S%03d_%s_COUNT_%02d.DAT' % (obs.mtp, obs.stp, padded_name, obs.cnt)
 
-        print('INFO: requesting data for auxiliary file %s' % aux_filename)
+        log.info('requesting data for auxiliary file %s' % aux_filename)
 
         reqfiles, gotfiles = get_pkts_from_list(start, end, pkt_file, outputfile=aux_filename, outputpath=outputdir,
             delfiles=True, max_retry=max_retry, retry_delay=retry_delay)
 
         if len(gotfiles)<len(reqfiles):
-            print('WARNING: only %d of %d requested files retrieved for aux file %s' % (len(gotfiles), len(reqfiles), aux_filename))
+            log.warning('only %d of %d requested files retrieved for aux file %s' % (len(gotfiles), len(reqfiles), aux_filename))
 
     return
 
@@ -755,10 +754,10 @@ def get_new_observations(outputdir='.', mtpstp_dir=True, get_aux=True, max_retry
 
     if len(new_obs)==0: # nothing to see here
 
-        print('INFO: no new observations available for retrieval')
+        log.info('no new observations available for retrieval')
         return []
     else:
-        print('INFO: %i new observation(s) available for retrieval' % (len(new_obs)))
+        log.info('%i new observation(s) available for retrieval' % (len(new_obs)))
 
     # Now do the following for each observation:
     # -- build DDS requests
@@ -810,7 +809,7 @@ def get_new_observations(outputdir='.', mtpstp_dir=True, get_aux=True, max_retry
 
         if len(filelist)==0:
             # If no files are returned, remove the observation from the list and flag a warning
-            print('WARNING: no files retrieved for observation %s' % obs_filename)
+            log.warning('no files retrieved for observation %s' % obs_filename)
             obs_filenames.remove(os.path.join(stp_dir,obs_filename))
 
         # Update the status of this observation - only if the end time is >12 hours in the past
@@ -833,7 +832,7 @@ class sftp():
             self.client = paramiko.SSHClient()
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self.client.connect(sftpURL, username=sftpUser, password=sftpPass)
-            print('INFO: opening connection to %s@%s' % (sftpUser,sftpURL))
+            log.info('opening connection to %s@%s' % (sftpUser,sftpURL))
             self.sftp = self.client.open_sftp()
             return 0
 
@@ -843,7 +842,7 @@ class sftp():
 
     def close(self):
         self.sftp.close()
-        print('INFO: closing SSH connection')
+        log.info('closing SSH connection')
 
 
 def open_tunnel():
@@ -856,7 +855,6 @@ def open_tunnel():
         user = os.getlogin()
     server = 'midas.iwf.oeaw.ac.at'
     address = user+'@'+server
-    # print('DEBUG: connecting to proxy server as: %s' % address)
     tunnel = subprocess.Popen( ['ssh', '-N', address, '-D1080'] )
 
     return tunnel
@@ -870,8 +868,8 @@ def get_fdyn_files(directory='.'):
     try:
         ssh.open()
     except Exception as e:
-        print('ERROR: could not connect to server')
-        print('ERROR: %s' % e)
+        log.error('could not connect to server')
+        log.error('%s' % e)
         return None
 
     retrieved = []
@@ -885,15 +883,15 @@ def get_fdyn_files(directory='.'):
             ssh.sftp.get(f, os.path.join(directory,f))
             ssh.sftp.remove(f)
         except Exception as e:
-            print('ERROR: could not retrieve file %s' % f)
-            print('ERROR: %s' % e)
+            log.error('could not retrieve file %s' % f)
+            log.error('%s' % e)
             continue
 
         retrieved.append(f)
 
     ssh.close()
 
-    print('INFO: %d FDyn files retrieved and removed from the server' % len(retrieved))
+    log.info('%d FDyn files retrieved and removed from the server' % len(retrieved))
 
     return retrieved
 
@@ -919,7 +917,7 @@ def get_sgs_files(directory=common.ops_path):
     ok_files = [f for f in files if f.split('.')[-1] in allowed_extensions]
 
     if len(ok_files)<len(files):
-        print('WARNING: %i unknown files found, skipping these' % (len(files)-len(ok_files)))
+        log.warning('%i unknown files found, skipping these' % (len(files)-len(ok_files)))
 
     retrieve = []
 
@@ -929,20 +927,20 @@ def get_sgs_files(directory=common.ops_path):
         mtpdir = os.path.join(directory,'MTP%03i%c' % (mtp, case))
         if not os.path.exists(mtpdir):
             os.makedirs(mtpdir)
-            print('INFO: creating new directory %s' % mtpdir)
+            log.info('creating new directory %s' % mtpdir)
         try:
             ssh.sftp.get(f, os.path.join(mtpdir,f))
             ssh.sftp.remove(f)
         except Exception as e:
-            print('ERROR: could not retrieve file %s' % f)
-            print('ERROR: %s' % e)
+            log.error('could not retrieve file %s' % f)
+            log.error('%s' % e)
             continue
 
         retrieved.append(f)
 
     ssh.close()
 
-    print('INFO: %i OFPM files retrieved from the server' % len(retrieved))
+    log.info('%i OFPM files retrieved from the server' % len(retrieved))
 
 
     return retrieved
@@ -950,4 +948,4 @@ def get_sgs_files(directory=common.ops_path):
 
 if __name__ == "__main__":
 
-    print('WARNING: this module cannot be called directly')
+    log.warning('this module cannot be called directly')

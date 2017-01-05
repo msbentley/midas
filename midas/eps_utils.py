@@ -3,7 +3,6 @@
 eps_utils.py - a collection of utilities for dealing withe EPS inputs, for
 example ITL timeline files, and outputs (e.g. power and data profiles)."""
 
-debug = False
 import numpy as np
 import pandas as pd
 import os
@@ -12,6 +11,8 @@ from midas import common, planning
 from datetime import timedelta
 from dateutil import parser
 
+import logging
+log = logging.getLogger(__name__)
 
 def parse_itl(filename, header=True):
 
@@ -140,7 +141,7 @@ def parse_itl(filename, header=True):
         print err
         return None
 
-    print('INFO: Timeline file %s read successfully with %i entries' %
+    log.info('Timeline file %s read successfully with %i entries' %
           (os.path.basename(filename), len(itl.timeline)))
 
     return itl
@@ -183,7 +184,7 @@ def run_eps(itl_file, evf_file, ros_sgs=False, por=False, mtp=False, case=False,
         command_string.extend(['-f', 'por', '-o', por])
 
     if showcmd:
-        print('INFO: EPS is running with command line:\n %s' % " ".join(command_string))
+        log.info('EPS is running with command line:\n %s' % " ".join(command_string))
 
     try:
         epscmd = subprocess.check_output(
@@ -231,11 +232,11 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
             scen = glob.glob(os.path.join(mtp_folder, 'SCENARIOS',
                                           'SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
         if len(scen) > 1:
-            print('ERROR: more than one scenario file present!')
+            log.error('more than one scenario file present!')
             return None
 
         if len(scen)==0:
-            print('ERROR: cannot find scenario file %s' % ('SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
+            log.error('cannot find scenario file %s' % ('SCEN_MTP%03i%c_01_01_________PTRM.ini' % (mtp, case.upper())))
             return None
 
         # Open the scenario file and find the eventInputFile (EVF) file entry
@@ -249,7 +250,7 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
         f.close()
 
         if not evf:
-            print('ERROR: eventInputFile entry not found in scenario file %s' % scen)
+            log.error('eventInputFile entry not found in scenario file %s' % scen)
             return
 
     else:
@@ -261,7 +262,7 @@ def run_mtp(mtp, case='P', outfolder=None, showout=False, showcmd=False, disable
         mtp_folder, 'TLIS_PL_M%03i______01_%c_OPS?????.itl' % (mtp, case.upper())))
 
     if len(itl) != 1:  # or (len(evf)>1 or len(evf)==0):
-        print('ERROR: cannot find latest TLIS ITL file')
+        log.error('cannot find latest TLIS ITL file')
         return None
 
     os.chdir(mtp_folder)
@@ -283,7 +284,7 @@ def read_latency(directory='.'):
 
     dsfile = os.path.join(directory, 'DS_latency.out')
     if not os.path.isfile(dsfile):
-        print('ERROR: DS_latency.out file not found in directory %s' % (directory))
+        log.error('DS_latency.out file not found in directory %s' % (directory))
         return None
 
     cols = ['time', 'max', 'ALICE', 'CONSERT', 'COSIMA', 'GIADA', 'MIDAS', 'MIRO', 'ROSINA', 'RPC', 'SR_SCI',
@@ -314,7 +315,7 @@ def read_modes(directory='.', expand_modes=True):
 
     modesfile = os.path.join(directory, 'modes.out')
     if not os.path.isfile(modesfile):
-        print('ERROR: modes.out file not found in directory %s' % (directory))
+        log.error('modes.out file not found in directory %s' % (directory))
         return None
 
     cols = ['time', 'ROSETTA', 'ANTENNA', 'ALICE', 'CONSERT', 'COSIMA', 'GIADA', 'LANDER', 'MIDAS', 'MIRO', 'NAVCAM',
@@ -342,12 +343,12 @@ def read_output(directory='.', ng=True):
 
     powerfile = os.path.join(directory, 'power_avg.out')
     if not os.path.isfile(powerfile):
-        print('ERROR: power_avg.out file not found in directory %s' % (directory))
+        log.error('power_avg.out file not found in directory %s' % (directory))
         return False
 
     datafile = os.path.join(directory, 'data_rate_avg.out')
     if not os.path.isfile(datafile):
-        print('ERROR: data_rate_avg.out file not found in directory %s' %
+        log.error('data_rate_avg.out file not found in directory %s' %
               (directory))
         return False
 
@@ -498,21 +499,21 @@ def count_tcs(eps_path, actions_file='actions.out', start=None, end=None, instru
     actions_file = os.path.join(eps_path, actions_file)
 
     if instrument not in common.instruments.keys():
-        print('ERROR: instrument name %s is invalid' % instrument)
+        log.error('instrument name %s is invalid' % instrument)
         return None
 
     if start is not None:
         if type(start) == str:
             start = pd.Timestamp(start)
         elif type(start) != pd.tslib.Timestamp:
-            print('ERROR: start= must be a string or a Timestamp')
+            log.error('start= must be a string or a Timestamp')
             return None
 
     if end is not None:
         if type(end) == str:
             end = pd.Timestamp(end)
         elif type(end) != pd.tslib.Timestamp:
-            print('ERROR: end= must be a string or a Timestamp')
+            log.error('end= must be a string or a Timestamp')
             return None
 
     tcs = []
@@ -552,7 +553,7 @@ def count_all_tcs(eps_path, mtp=None, stp=None):
 
     if stp is not None:
         if mtp is None:
-            print('ERROR: specify MTP and STP')
+            log.error('specify MTP and STP')
             return None
         ltp = planning.ltp_from_mtp(mtp)
         start, end = planning.get_stp(ltp=ltp, stp=stp)

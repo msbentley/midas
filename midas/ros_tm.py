@@ -2512,7 +2512,7 @@ class tm:
                 if self.model=='FM' and pkt['tsync']:
                     obt = self.correlate_time(obt_s)
                 else:
-                    obt = obt_epoch + timedelta(seconds=obt_s)
+                    obt = obt_epoch + timedelta(seconds=long(obt_s))
 
                 pkt['offset'] = offset
                 pkt['type'] = pkt_header.pkt_type

@@ -3151,7 +3151,7 @@ class tm:
             pkts.dds_time = pkts.dds_time.astype(pd.Timestamp)
             pkts.dds_time.loc[offsets.index] = dds_time
 
-        # pkts.dds_time = pd.to_datetime(pkts.dds_time, errors='raise')
+        pkts.dds_time = pd.to_datetime(pkts.dds_time, errors='raise')
 
         return pkts
 

@@ -3145,13 +3145,13 @@ class tm:
                 # 19/06/14 - datetime does NOT take leap seconds etc. into account
                 delta_t = timedelta(seconds=dds_header.scet1, microseconds=dds_header.scet2)
                 dds_time.append(dds_obt_epoch + delta_t)
+                if dds_header.time_qual != 0:
+                    log.debug('bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
 
-                # if dds_header.time_qual!=0:
-                #     log.warning('bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
-
+            pkts.dds_time = pkts.dds_time.astype(pd.Timestamp)
             pkts.dds_time.loc[offsets.index] = dds_time
 
-        pkts.dds_time = pd.to_datetime(pkts.dds_time, errors='raise')
+        # pkts.dds_time = pd.to_datetime(pkts.dds_time, errors='raise')
 
         return pkts
 

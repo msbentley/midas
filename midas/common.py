@@ -390,3 +390,45 @@ def loglevel(level='info'):
     logging.getLogger().setLevel(levels[level])
 
     return
+
+
+def logfile(filename=None):
+    """Sets a log file for output of MIDAS log data. If filename=None any current
+    file logger is closed"""
+
+    # get the root logger
+    logger = logging.getLogger()
+
+    # get all handlers
+    handlers = logger.handlers
+
+    if len(handlers)>2:
+        log.error('more than 2 log handlers defined - this should not be!')
+        return None
+
+    # find the stream handler to extract its formatter
+    stream = None
+    for handler in handlers:
+        if not isinstance(handler, logging.FileHandler):
+            stream = handler
+    if stream is None:
+        log.error('no stream handler defined!')
+        return None
+    fmt = stream.formatter._fmt
+    log.debug('stream logger has format: %s' % fmt)
+
+    fhand = None
+    for handler in handlers:
+        if isinstance(handler, logging.FileHandler):
+            if filename is None:
+                logger.removeHandler(handler)
+                log.info('removing file logging')
+            else:
+                fhand = handler
+    if (fhand is None) and (filename is not None):
+        hdlr = logging.FileHandler(filename)
+        formatter = logging.Formatter(fmt)
+        hdlr.setFormatter(formatter)
+        logger.addHandler(hdlr)
+        logger.setLevel(logger.getEffectiveLevel())
+        log.info('adding file logger')

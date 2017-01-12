@@ -5679,7 +5679,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
     return images
 
 
-def load_lines(filename=None, ignore_image=True, expand_params=True):
+def load_lines(filename=None, ignore_image=True):
     """Loads a line scan dataframe from disk. The options ignore_image and
     exppand_params are used as per get_line_scans() and simply define which
     of four data files are loaded. If filename is given, then this file is
@@ -5691,25 +5691,14 @@ def load_lines(filename=None, ignore_image=True, expand_params=True):
     if filename is not None:
         fname = filename
     else:
-        if ignore_image:
-            if expand_params:
-                fname = 'lines_expanded_no_image.pkl'
-            else:
-                fname = 'lines_no_expand_no_image.pkl'
-        else:
-            if expand_params:
-                fname = 'lines_expanded_images.pkl'
-            else:
-                fname = 'lines_no_expand_images.pkl'
+        fname = 'lines.pkl'
         fname = os.path.join(common.tlm_path, fname)
-
     f = open(fname, 'rb')
 
     objs = []
     while 1:
         try:
             objs.append(pkl.load(f))
-
         except EOFError:
             break
 
@@ -5718,6 +5707,11 @@ def load_lines(filename=None, ignore_image=True, expand_params=True):
         return None
 
     lines = pd.concat(iter(objs), axis=0)
+
+    if ignore_image:
+        lines = lines[ ((~lines.in_image) & (lines.sw_ver<661)) |
+            ( (lines.sw_ver>=661) & ~(lines.anti_creep) & ~(lines.in_image) ) ]
+
     lines.sort_values(by='obt', inplace=True)
     lines.reset_index(inplace=True, drop=True)
 

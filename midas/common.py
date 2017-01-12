@@ -421,6 +421,7 @@ def logfile(filename=None):
     for handler in handlers:
         if isinstance(handler, logging.FileHandler):
             if filename is None:
+                handler.close()
                 logger.removeHandler(handler)
                 log.info('removing file logging')
             else:
@@ -431,4 +432,4 @@ def logfile(filename=None):
         hdlr.setFormatter(formatter)
         logger.addHandler(hdlr)
         logger.setLevel(logger.getEffectiveLevel())
-        log.info('adding file logger')
+        log.info('adding file logger: %s' % filename)

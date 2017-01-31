@@ -3051,7 +3051,7 @@ class tm:
 
         if len(pkts) == 0:
             log.warning('no events found')
-            return False
+            return None
 
         pkts['doy'] = pkts.obt.apply( lambda x: x.dayofyear )
         pkts.rename(columns={'description':'event'}, inplace=True)
@@ -3436,69 +3436,73 @@ class tm:
 
             events = self.get_events(ignore_giada=True, verbose=False)
 
-            if label_events=='scan':
-                # 42656 - EvFullScanStarted
-                # 42756 - EvFullScanAborted
-                # 42513 - EvScanFinished
-                # 42713 - EvScanAborted
-                scan_events = [42656, 42756, 42513, 42713]
-                events = events[events.sid.isin(scan_events)]
+            if events is not None:
 
-            elif label_events=='wheel':
-                # 42904 - EvSegSearchTimeout
-                # 42592 - EvSegmentFound
-                # 42591 - EvSearchForRefPulse
-                scan_events = [42904, 42592, 42591]
-                events = events[events.sid.isin(scan_events)]
+                if label_events=='scan':
+                    # 42656 - EvFullScanStarted
+                    # 42756 - EvFullScanAborted
+                    # 42513 - EvScanFinished
+                    # 42713 - EvScanAborted
+                    scan_events = [42656, 42756, 42513, 42713]
+                    events = events[events.sid.isin(scan_events)]
 
-            elif label_events=='fscan':
-                # 42641 - EvFScanStarted
-                # 42645 - EvAutoFScanFinshed
-                scan_events = [42641, 42645]
-                events = events[events.sid.isin(scan_events)]
+                elif label_events=='wheel':
+                    # 42904 - EvSegSearchTimeout
+                    # 42592 - EvSegmentFound
+                    # 42591 - EvSearchForRefPulse
+                    scan_events = [42904, 42592, 42591]
+                    events = events[events.sid.isin(scan_events)]
 
-            elif label_events=='lines':
-                # 42655 - EvLineScanStarted
-                # 42611 - EvLineScanFinished
-                scan_events = [42655, 42611]
-                events = events[events.sid.isin(scan_events)]
+                elif label_events=='fscan':
+                    # 42641 - EvFScanStarted
+                    # 42645 - EvAutoFScanFinshed
+                    scan_events = [42641, 42645]
+                    events = events[events.sid.isin(scan_events)]
 
-            elif label_events=='approach':
-                # 42662 - EvApproachStarted
-                # 42664 - EvApproachFinished
-                # 42762 - EvApproachAborted
-                # 42764 - EvAppContact
-                # 42765 - EvAppError
-                # 42766 - EvApproachStuck
-                # 42906 - EvApproachTimeout
-                # 42916 - EvMoveAbortedApp
-                # 42917 - EvAppAbortedLin
-                # 42623	- EvSurfaceFound
-                # 42665	- EvZpiezoFineAdj
-                app_events = [42662, 42664, 42762, 42764, 42765, 42766, 42906, 42916, 42917, 42623, 42665 ]
-                events = events[events.sid.isin(app_events)]
-            elif label_events=='all':
-                # Ignore events that don't bring much diagonstic info or flood the plot
-                ignore_sids = [ \
-                    42501, # TC accept
-                    42701, # TC reject
-                    42611, # EvLineScanFinished
-                    42512, # EvScanProgress
-                    42642, # EvFScanCycleStarted
-                    42643, # EvFScanCycleFinished
-                    42699] # KernelHello
-                events = events[-events.sid.isin(ignore_sids)]
+                elif label_events=='lines':
+                    # 42655 - EvLineScanStarted
+                    # 42611 - EvLineScanFinished
+                    scan_events = [42655, 42611]
+                    events = events[events.sid.isin(scan_events)]
+
+                elif label_events=='approach':
+                    # 42662 - EvApproachStarted
+                    # 42664 - EvApproachFinished
+                    # 42762 - EvApproachAborted
+                    # 42764 - EvAppContact
+                    # 42765 - EvAppError
+                    # 42766 - EvApproachStuck
+                    # 42906 - EvApproachTimeout
+                    # 42916 - EvMoveAbortedApp
+                    # 42917 - EvAppAbortedLin
+                    # 42623	- EvSurfaceFound
+                    # 42665	- EvZpiezoFineAdj
+                    app_events = [42662, 42664, 42762, 42764, 42765, 42766, 42906, 42916, 42917, 42623, 42665 ]
+                    events = events[events.sid.isin(app_events)]
+                elif label_events=='all':
+                    # Ignore events that don't bring much diagonstic info or flood the plot
+                    ignore_sids = [ \
+                        42501, # TC accept
+                        42701, # TC reject
+                        42611, # EvLineScanFinished
+                        42512, # EvScanProgress
+                        42642, # EvFScanCycleStarted
+                        42643, # EvFScanCycleFinished
+                        42699] # KernelHello
+                    events = events[-events.sid.isin(ignore_sids)]
+                else:
+                    log.warning('invalid event label, ignoring')
+                    events = pd.DataFrame()
+
+                # Fixing mark/MIDAS#2 - filter events to given time range first
+                events = events[ (events.obt>start) & (events.obt<end) ]
+
+                for idx, event in events.iterrows():
+                    ax_left.axvline(event.obt,color='r')
+                    trans = transforms.blended_transform_factory(ax_left.transData, ax_left.transAxes)
+                    ax_left.text(event.obt,0.9,event.event,rotation=90, transform=trans, clip_on=True)
             else:
-                log.warning('invalid event label, ignoring')
-                events = pd.DataFrame()
-
-            # Fixing mark/MIDAS#2 - filter events to given time range first
-            events = events[ (events.obt>start) & (events.obt<end) ]
-
-            for idx, event in events.iterrows():
-                ax_left.axvline(event.obt,color='r')
-                trans = transforms.blended_transform_factory(ax_left.transData, ax_left.transAxes)
-                ax_left.text(event.obt,0.9,event.event,rotation=90, transform=trans, clip_on=True)
+                log.warning('labelling of events requested, but TM files contains no event data')
 
         plot_fig.tight_layout()
 

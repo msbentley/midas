@@ -3828,7 +3828,7 @@ class tm:
                 len(start_times[start_times<row.obt])>0 else pd.NaT, axis=1)
 
         lines['start_time'][lines.sw_ver>=666] = lines.apply( lambda row:
-            obt_to_datetime(row.start_msw*65535+row.start_lsw), axis=1 )
+            self.correlate_time(row.start_msw*65536+row.start_lsw), axis=1 )
 
         # correct scans in early OBSW versions prior to re-centering
         # lines['tip_offset'][lines.obsw_ver<645] += (0.243/common.linearcal)
@@ -4319,8 +4319,8 @@ class tm:
         if rawheader: return info
 
         # Calibrate and calculate anything which doesn't directly come from the header words
-        info.start_time = pd.to_datetime(info.start_time.apply( lambda obt: np.nan if obt==0 else obt_to_datetime(obt) ))
-        info.end_time = pd.to_datetime(info.end_time.apply( lambda obt: np.nan if obt==0 else obt_to_datetime(obt) ))
+        info.start_time = pd.to_datetime(info.start_time.apply( lambda obt: np.nan if obt==0 else self.correlate_time(obt) ))
+        info.end_time = pd.to_datetime(info.end_time.apply( lambda obt: np.nan if obt==0 else self.correlate_time(obt) ))
         info['duration'] = info.end_time-info.start_time
         info['filename'] = pd.Series([name for name in filename])
         info['lin_pos'] = info.lin_pos.apply( lambda pos: pos*20./65535.)

@@ -3853,6 +3853,8 @@ class tm:
 
             for idx, line in lines.iterrows():
 
+                log.debug('Processing expanded parameters for line %i' % idx)
+
                 # line_start = line.obt if line.start_time is pd.NaT else line.start_time
                 if line.start_time is pd.NaT:
                     line_start = line.obt
@@ -4244,10 +4246,10 @@ class tm:
                 log.debug('%i image data packets expected, %i packets found' % (image.num_pkts, len(data)) )
 
                 if len(data) < image.num_pkts:
-                    log.warning('image at %s: missing image packets' % (obt_to_iso(image.start_time)))
+                    log.warning('image at %s: missing image packets' % (self.correlate_time(image.start_time)))
                     # continue
                 elif len(data) > image.num_pkts:
-                    log.error('image at %s: too many image packets (%i instead of %i) - image may be corrupt!' % (obt_to_iso(image.start_time),len(data),image.num_pkts))
+                    log.error('image at %s: too many image packets (%i instead of %i) - image may be corrupt!' % (self.correlate_time(image.start_time),len(data),image.num_pkts))
                     data = data.drop_duplicates(subset=('start_time','pkt_num'), keep='last')
 
                 # Use the xsteps and ysteps values from the header to mash together and reform the data
@@ -4257,11 +4259,11 @@ class tm:
                 if skip_badsize:
 
                     if (xsteps==0) or (ysteps==0):
-                        log.info('image at %s: invalid image dimensions (%i,%i), skipping...' % (obt_to_iso(image.start_time),xsteps,ysteps))
+                        log.info('image at %s: invalid image dimensions (%i,%i), skipping...' % (self.correlate_time(image.start_time),xsteps,ysteps))
                         continue
 
                     if (image.x_step==0) or (image.y_step==0):
-                        log.info('image at %s: invalid image step size (%i,%i), skipping....' % (obt_to_iso(image.start_time), image.x_step, image.y_step))
+                        log.info('image at %s: invalid image step size (%i,%i), skipping....' % (self.correlate_time(image.start_time), image.x_step, image.y_step))
                         continue
 
                 main_y = bool(image.scan_type & 2**15) # False = X, True = Y
@@ -4285,7 +4287,7 @@ class tm:
 
                     if len(image_array) != xsteps*ysteps:
                         log.error('image at %s: number of data points (%i) doesn\'t match image dimensions (%ix%i=%i)'
-                            % (obt_to_iso(image.start_time),len(image_array),xsteps,ysteps,xsteps*ysteps))
+                            % (self.correlate_time(image.start_time),len(image_array),xsteps,ysteps,xsteps*ysteps))
                         continue
 
                     # Need to invert for Z piezo/topography since 0=piezo retracted (image max height).
@@ -5679,6 +5681,8 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
 
     if sourcepath is not None:
         images.filename = images.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
+
+    log.info('%d images restored' % len(images))
 
     return images
 

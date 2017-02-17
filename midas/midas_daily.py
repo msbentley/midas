@@ -350,7 +350,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
                 return False
             for f in tm_files:
                 tm.get_pkts(f, append=True)
-                tm.pkts = tm.pkts[ ((tm.pkts.apid==1084) & ((tm.pkts.sid==129) | (tm.pkts.sid==130))) & ((tm.pkts.apid==1076) & (tm.pkts.sid==2)) ]
+                tm.pkts = tm.pkts[ ((tm.pkts.apid==1084) & ((tm.pkts.sid==129) | (tm.pkts.sid==130))) | ((tm.pkts.apid==1076) & (tm.pkts.sid==2)) ]
 
         # Extract image data
         images = tm.get_images(info_only=True, expand_params=True)

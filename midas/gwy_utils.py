@@ -149,10 +149,12 @@ def list_chans(gwy_file, filter=None, getlog=False, masked=False, info=False, ma
     return channels
 
 
-def add_mask(gwy_file, mask, chan_name):
-    """Creates a duplicate of channel chan_name, removes any mask present
-    and creates a new mask with the passed boolean array if the
-    dimensions match"""
+def add_mask(gwy_file, out_file, mask, chan_name):
+    """Creates a duplicate of channel chan_name, and adds a new mask with the
+    passed boolean array if the dimensions match.
+
+    If out_file is None, a copy will be produced with the name _new
+    appended."""
 
     if not os.path.isfile(gwy_file):
         log.error('Gwyddion file %s does not exist!' % gwy_file)
@@ -168,7 +170,8 @@ def add_mask(gwy_file, mask, chan_name):
             continue
         channels.append(int(m.group('i')))
     channels = sorted(channels)
-    if len(channels) == 0:
+
+    if channels is None:
         log.warning('No data channels found in Gwyddion file %s' % gwy_file)
         return None
 
@@ -179,6 +182,7 @@ def add_mask(gwy_file, mask, chan_name):
         if name==chan_name:
             selected = channel
             break
+
     if selected is None:
         log.warning('channel %s not found!' % chan_name)
         return None
@@ -198,9 +202,16 @@ def add_mask(gwy_file, mask, chan_name):
     m[:] = mask.copy()
     C.set_object_by_name('/%i/data' % (new_idx), datafield)
     C.set_object_by_name('/%i/mask' % (new_idx), mask_chan)
-    C.set_string_by_name('/%i/data/title' % (new_idx),'masked_channel')
+    C.set_string_by_name('/%i/data/title' % (new_idx), chan_name)
+
+    if out_file is None:
+        output_name = os.path.splitext(gwy_file)[0]+'_new.gwy'
+    else:
+        output_name = os.path.join(os.path.basename(gwy_file), out_file)
 
     gwy.gwy_file_save(C, os.path.splitext(gwy_file)[0]+'_new.gwy', gwy.RUN_NONINTERACTIVE)
+
+    log.info('Gwyddion file %s written with mask in channel %s' % (output_name, chan_name))
 
     return
 
@@ -270,7 +281,7 @@ def get_meta(gwyfile, channel=None):
 
     selected = None
 
-    if len(channels)==0:
+    if channels is None:
         log.error('no channels matching %s in file %s' % (channel, gwyfile))
         return None
     elif len(channels)>1 and channel is not None:
@@ -315,7 +326,7 @@ def write_meta(gwyfile, metadata, channel=None):
     channels = list_chans(gwyfile, filter=channel)
     selected = None
 
-    if len(channels)==0 and channel is not None:
+    if channels is None and channel is not None:
         log.error('no channels matching %s in file %s' % (channel, gwyfile))
         return None
     elif len(channels)>1 and channel is not None:
@@ -351,7 +362,7 @@ def rename_channels(gwyfile, search, replace):
 
     channels = list_chans(gwyfile, filter=search)
 
-    if len(channels)==0:
+    if channels is None:
         log.error('no channels matching %s in file %s' % (search, gwyfile))
         return None
 
@@ -463,7 +474,7 @@ def read_log(gwy_file, channel=None):
     if channels is None:
         return None
 
-    if len(channels)==0:
+    if channels is None:
         log.error('no channels matching %s in file %s' % (chan_name, gwy_file))
         return None
 

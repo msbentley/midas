@@ -396,7 +396,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
 
     # Get all masked channels matching the sub-particle filter
     channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True)
-    if len(channels)==0:
+    if channels is None:
         log.error('no channels found matching: %s' % chan)
         return None
 

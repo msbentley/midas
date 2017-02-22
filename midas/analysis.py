@@ -9,7 +9,7 @@ including investigating particle statistics, exposure geometries etc."""
 
 import os, glob
 import pandas as pd
-from midas import common, ros_tm
+from midas import common, ros_tm, gwy_utils
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib as mpl
@@ -391,7 +391,6 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
     """Reads channel data corresponding to chan= (or all, if None) and
     containing a mask."""
 
-    from midas import gwy_utils
     from skimage import measure
 
     # Get all masked channels matching the sub-particle filter
@@ -412,6 +411,7 @@ def get_subpcles(gwyfile, chan='sub_particle_'):
 
     for idx, channel in channels.iterrows():
         # chan_id, chan_name
+        log.debug('processing channel %s' % channel['name'])
         mask = gwy_utils.extract_masks(gwyfile, channel['name'])
         xlen, ylen, data = gwy_utils.get_data(gwyfile, channel['name'])
 
@@ -850,7 +850,6 @@ def get_pcles(gwyfile, chan='particle'):
     """Reads channel data corresponding to chan= (or all, if None) and
     containing a mask."""
 
-    from midas import gwy_utils
     from skimage import measure
 
     # Get all masked channels matching the particle filter
@@ -1000,6 +999,55 @@ def dbase_load(dbase='particles.msg', pcle_only=False):
     return pcles
 
 
+def check_masks(gwyfile, pcle_types=['particle', 'sub_particle']):
+    """This routine sanity-checks a Gwyddion file with applied masks. In particular
+    it checks:
+      -- how many particles and/or sub-particles are defined
+      -- are the numbers of (sub)particles sequential?
+      -- for individual channels, are their >1 masks?
+      -- do any masks overlap?
+
+    If all checks are passed, True is returned, otherwise False"""
+
+    from operator import itemgetter
+    from itertools import groupby
+
+    for pcle_type in pcle_types:
+
+        return_val = True
+
+        channels = gwy_utils.list_chans(gwyfile, filter=pcle_type, masked=True, matchstart=True).values()
+        num_pcles = len(channels)
+
+        log.info('%d %ss found' % (num_pcles, pcle_type))
+
+        if num_pcles > 0:
+            pcle_id = sorted([int(d.split('_')[-1]) for d in channels])
+            if min(pcle_id) != 1:
+                log.error('particle numbering must start with 1, not %d' % min(pcle_id))
+                return False
+            if max(pcle_id) != num_pcles:
+                log.error('particle numbering must end with %d, not %d' % (num_pcles, max(pcle_id)))
+                return False
+            diffs = [j - i for i, j in enumerate(pcle_id)]
+            if set(diffs) != {1}:
+                log.error('particle number must be sequential')
+                return False
+
+            log.info('channel numbering of %ss successfully validated' % pcle_type)
+
+            masks = gwy_utils.extract_masks(gwyfile, channel=pcle_type, match_start=True)
+
+            for idx1 in range(len(masks)):
+                for idx2 in range(idx1+1, len(masks)):
+                    log.debug('comparing channels %s and %s (indices %d/%d)' % (channels[idx1],channels[idx2],idx1,idx2))
+                    pix_overlap = np.logical_and(masks[idx1], masks[idx2]).sum()
+                    if  pix_overlap > 0:
+                        return_val = False
+                        log.warning('%d overlapping pixels detected in channels %s and %s' % (
+                            pix_overlap, channels[idx1],channels[idx2]))
+
+    return return_val
 
 
 #------ test routines

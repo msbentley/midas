@@ -14,10 +14,16 @@ import os
 import logging
 log = logging.getLogger(__name__)
 
-def extract_masks(gwy_file, channel=None, return_datafield=False):
+def extract_masks(gwy_file, channel=None, match_start=False,  return_datafield=False):
     """Looks for mask channels within the Gwyddion file and returns these
     masks as a list of numpy arrays. If channel= is given a string, only
-    channels with names containing this string are returned."""
+    channels with names containing this string are returned.
+
+    match_start=True will match the start of a channel name, whereas False will
+    return match the channel string anywhere in the channel name.
+
+    return_datafield=True will return Gwyddion datafield objects rather than simple
+    numpy arrays."""
 
     if not os.path.isfile(gwy_file):
         log.error('Gwyddion file %s does not exist!' % gwy_file)
@@ -44,8 +50,12 @@ def extract_masks(gwy_file, channel=None, return_datafield=False):
         matching = []
         for mask in masks:
             name = C.get_value_by_name('/%d/data/title' % mask)
-            if channel in name:
-                matching.append(mask)
+            if match_start:
+                if name.startswith(channel):
+                    matching.append(mask)
+            else:
+                if channel in name:
+                    matching.append(mask)
 
         if len(matching) == 0:
             log.warning('No masks in channels matching "%s" found' %

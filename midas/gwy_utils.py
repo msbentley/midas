@@ -14,7 +14,7 @@ import os
 import logging
 log = logging.getLogger(__name__)
 
-def extract_masks(gwy_file, channel=None, return_df=False):
+def extract_masks(gwy_file, channel=None, return_datafield=False):
     """Looks for mask channels within the Gwyddion file and returns these
     masks as a list of numpy arrays. If channel= is given a string, only
     channels with names containing this string are returned."""
@@ -60,7 +60,7 @@ def extract_masks(gwy_file, channel=None, return_df=False):
     for chan in matching:
 
         datafield = C.get_value_by_name('/%d/mask' % chan)
-        if return_df:
+        if return_datafield:
             mask_data.append(datafield)
         else:
             data = np.array(datafield.get_data(), dtype=np.bool).reshape(
@@ -428,7 +428,7 @@ def get_grain_data(gwy_file, chan_name=None, datatype=None):
         log.error('no channels matching %s in file %s' % (chan_name, gwy_file))
         return None
 
-    masks = extract_masks(gwy_file, channel=chan_name, return_df=True)
+    masks = extract_masks(gwy_file, channel=chan_name, return_datafield=True)
 
     if datatype is not None:
         if type(datatype) != list:

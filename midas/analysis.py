@@ -999,7 +999,7 @@ def dbase_load(dbase='particles.msg', pcle_only=False):
     return pcles
 
 
-def check_masks(gwyfile, show=True, pcle_types=['particle', 'sub_particle']):
+def check_masks(gwyfile, show=True, interactive=False, pcle_types=['particle', 'sub_particle']):
     """This routine sanity-checks a Gwyddion file with applied masks. In particular
     it checks:
       -- how many particles and/or sub-particles are defined
@@ -1008,6 +1008,15 @@ def check_masks(gwyfile, show=True, pcle_types=['particle', 'sub_particle']):
       -- do any masks overlap?
 
     If all checks are passed, True is returned, otherwise False"""
+
+    if interactive:
+
+        show = True
+
+        # make a backup copy of gwyfile before any changes
+        import shutil
+        gwyfile_bak = gwyfile + '.bak'
+        shutil.copyfile(gwyfile, gwyfile_bak)
 
     if show:
 
@@ -1060,7 +1069,7 @@ def check_masks(gwyfile, show=True, pcle_types=['particle', 'sub_particle']):
 
             for idx1 in range(len(masks)):
                 for idx2 in range(idx1+1, len(masks)):
-                    log.debug('comparing channels %s and %s (indices %d/%d)' % (channels[idx1],channels[idx2],idx1,idx2))
+                    log.debug('comparing channels %s and %s (indices %d/%d)' % (channels[idx1], channels[idx2], idx1, idx2))
                     pix_overlap = np.logical_and(masks[idx1], masks[idx2])
                     if  pix_overlap.sum() > 0:
                         return_val = False
@@ -1071,19 +1080,50 @@ def check_masks(gwyfile, show=True, pcle_types=['particle', 'sub_particle']):
 
                             fig, ax = plt.subplots()
 
+                            # create three plots, one for each channel and one for the overlap
                             ax.imshow(masks[idx1], interpolation='nearest', cmap=cm_red, vmin=0, vmax=1)
                             ax.imshow(ma.masked_equal(masks[idx2], False), interpolation='nearest', cmap=cm_blue, vmin=0, vmax=1)
                             ax.imshow(ma.masked_equal(pix_overlap, False), interpolation='nearest', cmap=cm_green, vmin=0, vmax=1)
                             ax.grid(True)
 
+                            # draw patches to create a legend
                             redpatch = mpatch.Circle((0,0),fc='red', ec='red')
                             bluepatch = mpatch.Circle((0,0),fc='blue', ec='blue')
-                            legend = ax.legend([redpatch,bluepatch], [channels[idx1], channels[idx2]],
+                            legend = ax.legend([redpatch,bluepatch], ['1: %s' % channels[idx1], '2: %s' % channels[idx2]],
                                 loc='upper right', bbox_to_anchor=(1.0, 1.0))
                             fig.suptitle('%s\n%d pixels overlap' % (gwyfile, pix_overlap.sum()))
 
-    if show:
+                            if interactive:
+
+                                def pressed(event):
+                                    if event.key=='1':
+                                        selected = idx2
+                                    elif event.key=='2':
+                                        selected = idx1
+                                    elif event.key=='q':
+                                        # skip this pair of channels
+                                        plt.close(fig)
+                                        log.warning('channel skipped - no action taken')
+                                        return
+                                    else:
+                                        return
+
+                                    log.info('overlapping pixels will be removed from channel %s' % channels[selected])
+
+                                    # call function to update Gwyddion file!
+                                    plt.close(fig)
+                                    new_mask = masks[selected] - pix_overlap
+                                    gwy_utils.add_mask(gwyfile, new_mask, channels[selected], overwrite=True)
+
+                                fig.canvas.mpl_connect('key_press_event', pressed)
+                                plt.show(block=True)
+
+
+    if show and not interactive:
         plt.show()
+
+    if return_val:
+        log.info('file successfully validated!')
 
     return return_val
 

@@ -999,7 +999,7 @@ def dbase_load(dbase='particles.msg', pcle_only=False):
     return pcles
 
 
-def check_masks(gwyfile, pcle_types=['particle', 'sub_particle']):
+def check_masks(gwyfile, show=True, pcle_types=['particle', 'sub_particle']):
     """This routine sanity-checks a Gwyddion file with applied masks. In particular
     it checks:
       -- how many particles and/or sub-particles are defined
@@ -1009,14 +1009,34 @@ def check_masks(gwyfile, pcle_types=['particle', 'sub_particle']):
 
     If all checks are passed, True is returned, otherwise False"""
 
-    from operator import itemgetter
-    from itertools import groupby
+    if show:
+
+        from matplotlib.colors import LinearSegmentedColormap
+        import matplotlib.patches as mpatch
+
+        cmap_red = [ (1, 1, 1), (1, 0, 0) ]
+        cmap_blue = [ (1, 1, 1), (0, 0, 1) ]
+        cmap_green = [ (1, 1, 1), (0, 1, 0) ]
+        ncols = 2
+        cmap_red_name = 'binary_red'
+        cmap_blue_name = 'binary_blue'
+        cmap_green_name = 'binary_green'
+
+        cm_red = LinearSegmentedColormap.from_list(cmap_red_name, cmap_red, N=ncols)
+        cm_blue = LinearSegmentedColormap.from_list(cmap_blue_name, cmap_blue, N=ncols)
+        cm_green = LinearSegmentedColormap.from_list(cmap_green_name, cmap_green, N=ncols)
 
     for pcle_type in pcle_types:
 
         return_val = True
 
-        channels = gwy_utils.list_chans(gwyfile, filter=pcle_type, masked=True, matchstart=True).values()
+        channels = gwy_utils.list_chans(gwyfile, filter=pcle_type, masked=True, matchstart=True)
+        if channels is None:
+            log.warn('no matching channels found for particle type: %s' % pcle_type)
+            continue
+        else:
+            channels = channels.values()
+
         num_pcles = len(channels)
 
         log.info('%d %ss found' % (num_pcles, pcle_type))
@@ -1041,11 +1061,29 @@ def check_masks(gwyfile, pcle_types=['particle', 'sub_particle']):
             for idx1 in range(len(masks)):
                 for idx2 in range(idx1+1, len(masks)):
                     log.debug('comparing channels %s and %s (indices %d/%d)' % (channels[idx1],channels[idx2],idx1,idx2))
-                    pix_overlap = np.logical_and(masks[idx1], masks[idx2]).sum()
-                    if  pix_overlap > 0:
+                    pix_overlap = np.logical_and(masks[idx1], masks[idx2])
+                    if  pix_overlap.sum() > 0:
                         return_val = False
                         log.warning('%d overlapping pixels detected in channels %s and %s' % (
-                            pix_overlap, channels[idx1],channels[idx2]))
+                            pix_overlap.sum(), channels[idx1],channels[idx2]))
+
+                        if show:
+
+                            fig, ax = plt.subplots()
+
+                            ax.imshow(masks[idx1], interpolation='nearest', cmap=cm_red, vmin=0, vmax=1)
+                            ax.imshow(ma.masked_equal(masks[idx2], False), interpolation='nearest', cmap=cm_blue, vmin=0, vmax=1)
+                            ax.imshow(ma.masked_equal(pix_overlap, False), interpolation='nearest', cmap=cm_green, vmin=0, vmax=1)
+                            ax.grid(True)
+
+                            redpatch = mpatch.Circle((0,0),fc='red', ec='red')
+                            bluepatch = mpatch.Circle((0,0),fc='blue', ec='blue')
+                            legend = ax.legend([redpatch,bluepatch], [channels[idx1], channels[idx2]],
+                                loc='upper right', bbox_to_anchor=(1.0, 1.0))
+                            fig.suptitle('%s\n%d pixels overlap' % (gwyfile, pix_overlap.sum()))
+
+    if show:
+        plt.show()
 
     return return_val
 

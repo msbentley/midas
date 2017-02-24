@@ -159,12 +159,16 @@ def list_chans(gwy_file, filter=None, getlog=False, masked=False, info=False, ma
     return channels
 
 
-def add_mask(gwy_file, out_file, mask, chan_name):
-    """Creates a duplicate of channel chan_name, and adds a new mask with the
-    passed boolean array if the dimensions match.
+def add_mask(gwy_file, mask, chan_name, out_file=None, overwrite=False):
+    """Accepts a mask and writes to an existing channel chan_name.
 
-    If out_file is None, a copy will be produced with the name _new
-    appended."""
+    If overwite=False the original mask will be removed, otherwise the channel (data
+    and mask) will be duplicated.
+
+    If out_file is None, the original file will be overwritten, otherwise
+    the filename given in out_file will be used."""
+
+    mask = mask.T
 
     if not os.path.isfile(gwy_file):
         log.error('Gwyddion file %s does not exist!' % gwy_file)
@@ -182,7 +186,7 @@ def add_mask(gwy_file, out_file, mask, chan_name):
     channels = sorted(channels)
 
     if channels is None:
-        log.warning('No data channels found in Gwyddion file %s' % gwy_file)
+        log.warning('no data channels found in Gwyddion file %s' % gwy_file)
         return None
 
     selected = None
@@ -205,21 +209,29 @@ def add_mask(gwy_file, out_file, mask, chan_name):
     if mask.shape != (xpix, ypix):
         log.error('mask shape (%d,%d) does not match image shape (%d,%d)' % (mask.shape[0], mask.shape[1], xpix, ypix))
 
-    new_idx = max(channels) + 1
+    if overwrite:
 
-    mask_chan = datafield.duplicate()
-    m = gwyutils.data_field_data_as_array(mask_chan)
-    m[:] = mask.copy()
-    C.set_object_by_name('/%i/data' % (new_idx), datafield)
-    C.set_object_by_name('/%i/mask' % (new_idx), mask_chan)
-    C.set_string_by_name('/%i/data/title' % (new_idx), chan_name)
+        mask_chan = datafield.duplicate()
+        m = gwyutils.data_field_data_as_array(mask_chan)
+        m[:] = mask.copy()
+        C.set_object_by_name('/%i/mask' % selected, mask_chan)
+
+    else:
+
+        new_idx = max(channels) + 1
+        mask_chan = datafield.duplicate()
+        m = gwyutils.data_field_data_as_array(mask_chan)
+        m[:] = mask.copy()
+        C.set_object_by_name('/%i/data' % (new_idx), datafield)
+        C.set_object_by_name('/%i/mask' % (new_idx), mask_chan)
+        C.set_string_by_name('/%i/data/title' % (new_idx), chan_name)
 
     if out_file is None:
-        output_name = os.path.splitext(gwy_file)[0]+'_new.gwy'
+        output_name = gwy_file
     else:
-        output_name = os.path.join(os.path.basename(gwy_file), out_file)
+        output_name = os.path.join(os.path.split(gwy_file)[0], out_file)
 
-    gwy.gwy_file_save(C, os.path.splitext(gwy_file)[0]+'_new.gwy', gwy.RUN_NONINTERACTIVE)
+    gwy.gwy_file_save(C, output_name, gwy.RUN_NONINTERACTIVE)
 
     log.info('Gwyddion file %s written with mask in channel %s' % (output_name, chan_name))
 

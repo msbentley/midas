@@ -56,8 +56,8 @@ def run_daily():
             ros_tm.save_bcr(images.query('channel=="ZS"'),os.path.join(image_dir, 'bcr/'), write_meta=True) # save images as BCRs + meta data
 
         # Extract and save event data as an HTML including commanding history
-        itl_file = ros_tm.select_files(wildcard='ITLS_MD_M%03i_S%03i*P_RSUXPIYZ.itl' % (mtp, stp), directory=common.ros_sgs_path, recursive=True)[0]
-        evf_file = ros_tm.select_files(wildcard='EVF__MD_M%03i_S%03i*P_RSUXPIYZ.evf' % (mtp, stp), directory=common.ros_sgs_path, recursive=True)[0]
+        itl_file = common.select_files(wildcard='ITLS_MD_M%03i_S%03i*P_RSUXPIYZ.itl' % (mtp, stp), directory=common.ros_sgs_path, recursive=True)[0]
+        evf_file = common.select_files(wildcard='EVF__MD_M%03i_S%03i*P_RSUXPIYZ.evf' % (mtp, stp), directory=common.ros_sgs_path, recursive=True)[0]
         events = tm.commanding_events(itl_file, evf_file, html=os.path.join(event_dir,os.path.splitext(obs_fname)[0]+'_events.html'))
         # events = tm.get_events(info=True, html=os.path.join(event_dir,os.path.splitext(obs_fname)[0]+'_events.html'))
 
@@ -422,8 +422,8 @@ def generate_timelines(case='P'):
 
     from midas import planning
 
-    itl_files = ros_tm.select_files(wildcard='ITLS_MD_*%c_RSUXPIYZ.itl' % case.upper(), directory=common.ros_sgs_path, recursive=True)
-    evf_files = ros_tm.select_files(wildcard='EVF__MD_*%c_RSUXPIYZ.evf' % case.upper(), directory=common.ros_sgs_path, recursive=True)
+    itl_files = common.select_files(wildcard='ITLS_MD_*%c_RSUXPIYZ.itl' % case.upper(), directory=common.ros_sgs_path, recursive=True)
+    evf_files = common.select_files(wildcard='EVF__MD_*%c_RSUXPIYZ.evf' % case.upper(), directory=common.ros_sgs_path, recursive=True)
 
     if len(itl_files) != len(evf_files):
         log.error('number of ITL and EVF files does not match!')

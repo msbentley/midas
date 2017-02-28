@@ -2013,37 +2013,6 @@ def show_loc(images, facet=None, segment=None, tip=None, show_stripes=True, zoom
     return fig
 
 
-def locate(pattern, root_path):
-    """Returns a generator using os.walk and fnmatch to recursively
-    match files with pattern under root_path"""
-
-    import fnmatch
-
-    for path, dirs, files in os.walk(os.path.abspath(root_path)):
-        for filename in fnmatch.filter(files, pattern):
-            yield os.path.join(path, filename)
-
-
-def select_files(wildcard, directory='.', recursive=False):
-    """Create a file list from a directory and wildcard - recusively if
-    recursive=True"""
-
-    # recursive search
-    # result = [os.path.join(dp, f) for dp, dn, filenames in os.walk('.') for f in filenames if os.path.splitext(f)[1] == '.DAT']
-
-    if recursive:
-        selectfiles = locate(wildcard, directory)
-        filelist = [file for file in selectfiles]
-    else:
-        import glob
-        filelist = glob.glob(os.path.join(directory,wildcard))
-
-    filelist.sort()
-
-    return filelist
-
-
-
 class tc:
 
     def __init__(self, files=None, directory='.', recursive=False, apid=1084, simple=True):
@@ -2162,7 +2131,7 @@ class tc:
         """Read telecommand packets from the DDS history"""
 
         if recursive:
-            selectfiles = locate(files, directory)
+            selectfiles = common.locate(files, directory)
             filelist = [file for file in selectfiles]
         elif type(files)==list:
             filelist = files
@@ -2448,7 +2417,7 @@ class tm:
         there instead of the local filesystem."""
 
         if recursive:
-            selectfiles = locate(files, directory)
+            selectfiles = common.locate(files, directory)
             filelist = [file for file in selectfiles]
         elif type(files)==list:
             filelist = files

@@ -3793,6 +3793,7 @@ class tm:
         # Add start time from event history if possible
         events = self.get_events(verbose=False)
         start_times = events.query('sid==42655').obt
+
         lines['start_time'] = lines.apply( lambda row: start_times[start_times<row.obt].iloc[-1] if
                 len(start_times[start_times<row.obt])>0 else pd.NaT, axis=1)
 
@@ -3827,10 +3828,10 @@ class tm:
                 # line_start = line.obt if line.start_time is pd.NaT else line.start_time
                 if line.start_time is pd.NaT:
                     line_start = line.obt
-                    # print 'Using OBT: %s' % line_start
+                    log.debug('using OBT: %s' % line_start)
                 else:
                     line_start = line.start_time
-                    # print 'Using line start: %s' % line_start
+                    log.debug('using line start: %s' % line_start)
                 if use_archive:
                     frame = hk2[hk2.index>line_start].index
                 else:

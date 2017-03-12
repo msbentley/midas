@@ -1055,12 +1055,12 @@ def check_masks(gwyfile, show=True, interactive=False, pcle_types=['particle', '
             if min(pcle_id) != 1:
                 log.error('particle numbering must start with 1, not %d' % min(pcle_id))
                 return False
-            if max(pcle_id) != num_pcles:
-                log.error('particle numbering must end with %d, not %d' % (num_pcles, max(pcle_id)))
-                return False
             diffs = [j - i for i, j in enumerate(pcle_id)]
             if set(diffs) != {1}:
-                log.error('particle number must be sequential')
+                log.error('particle number must be sequential, not: %d, %d' % (pcle_id[diffs.index(2)-1], pcle_id[diffs.index(2)]) )
+                return False
+            if max(pcle_id) != num_pcles:
+                log.error('particle numbering must end with %d, not %d' % (num_pcles, max(pcle_id)))
                 return False
 
             log.info('channel numbering of %ss successfully validated' % pcle_type)

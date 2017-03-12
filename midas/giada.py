@@ -17,21 +17,25 @@ perih_date = pd.Timestamp('13 August 2015')
 
 
 
-def read_phys(filenames, directory='.', recursive=True):
+def read_phys(filenames, stream=False, directory='.', recursive=True):
     """Read a GIADA level 3 (physical parameters) file(s) retrieved from the PSA.
 
     filenames can either be a single filename, a list of names, or a wildcard.
 
-    If recursive=True sub-directories will be traversed looking for matches."""
+    If recursive=True sub-directories will be traversed looking for matches.
 
-    if recursive:
-        selectfiles = common.locate(filenames, directory)
-        filelist = [file for file in selectfiles]
-    elif type(files)==list:
-        filelist = filenames
-    else:
-        import glob
-        filelist = glob.glob(os.path.join(directory,files))
+    If stream=True, filenames should represent a file-like object,not a filename"""
+
+    if not stream:
+
+        if recursive:
+            selectfiles = common.locate(filenames, directory)
+            filelist = [file for file in selectfiles]
+        elif type(files)==list:
+            filelist = filenames
+        else:
+            import glob
+            filelist = glob.glob(os.path.join(directory,files))
 
     cols = ['time', 'subsystem', 'gds_is_speed', 'gds_speed', 'momentum', 'momentum_err', 'mass',
         'mass_err', 'comet_sun', 'sc_comet', 'phase_angle']
@@ -40,8 +44,11 @@ def read_phys(filenames, directory='.', recursive=True):
 
     gdata = pd.DataFrame(columns=cols)
 
-    for f in filelist:
-        gdata = gdata.append(pd.read_table(f, sep=',', names=cols, na_values=na_values), ignore_index=True, verify_integrity=True)
+    if stream:
+        gdata = gdata.append(pd.read_table(filenames, sep=',', names=cols, na_values=na_values), ignore_index=True, verify_integrity=True)
+    else:
+        for f in filelist:
+            gdata = gdata.append(pd.read_table(f, sep=',', names=cols, na_values=na_values), ignore_index=True, verify_integrity=True)
 
     gdata.time = pd.to_datetime(gdata.time)
     gdata.set_index('time', inplace=True)

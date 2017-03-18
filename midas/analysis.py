@@ -387,77 +387,89 @@ def read_grain_stats(basename, path='.'):
     return grain_stats
 
 
-def get_subpcles(gwyfile, chan='sub_particle_'):
+def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_'):
     """Reads channel data corresponding to chan= (or all, if None) and
     containing a mask."""
 
     from skimage import measure
 
-    # Get all masked channels matching the sub-particle filter
-    channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True)
-    if channels is None:
-        log.error('no channels found matching: %s' % chan)
-        return None
+    if recursive:
+        selectfiles = common.locate(gwyfiles, directory)
+        filelist = [file for file in selectfiles]
+    elif type(gwyfiles)==list:
+        filelist = gwyfiles
+    else:
+        import glob
+        filelist = glob.glob(os.path.join(directory, gwyfiles))
 
-    # Get meta-data from the first channel of the GWY file
-    # meta = gwy_utils.get_meta(gwyfile)
-    meta = channels.iloc[0]
+        pcle_data = []
 
-    # Calculate the pixel area (simply x_step*y_step)
-    pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
-    pix_len = np.sqrt(pix_area) #  in the case of non-uniform steps!
+    for gwyfile in filelist:
 
-    pcle_data = []
+        # Get all masked channels matching the sub-particle filter
+        channels = gwy_utils.list_chans(gwyfile, chan, masked=True, info=True)
+        if channels is None:
+            log.error('no channels found matching: %s' % chan)
+            return None
 
-    for idx, channel in channels.iterrows():
-        # chan_id, chan_name
-        log.debug('processing channel %s' % channel['name'])
-        mask = gwy_utils.extract_masks(gwyfile, channel['name'])
-        xlen, ylen, data = gwy_utils.get_data(gwyfile, channel['name'])
+        # Get meta-data from the first channel of the GWY file
+        # meta = gwy_utils.get_meta(gwyfile)
+        meta = channels.iloc[0]
 
-        locs = np.where(mask)
-        left, right = locs[1].min(), locs[1].max()
-        up, down = locs[0].min(), locs[0].max()
-        pcle = ma.masked_array(data, mask=~mask)
-        pcle = pcle[up:down+1,left:right+1]
+        # Calculate the pixel area (simply x_step*y_step)
+        pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
+        pix_len = np.sqrt(pix_area) #  in the case of non-uniform steps!
 
-        labmask = measure.label(mask)
-        regions = measure.regionprops(labmask)
-        region = regions[0]
+        for idx, channel in channels.iterrows():
+            # chan_id, chan_name
+            log.debug('processing channel %s' % channel['name'])
+            mask = gwy_utils.extract_masks(gwyfile, channel['name'])
+            xlen, ylen, data = gwy_utils.get_data(gwyfile, channel['name'])
 
-        if pcle.count() != int(region.area):
-            log.warning('region count does not match mask count (>1 grain per mask) in channel %s' % channel['name'])
+            locs = np.where(mask)
+            left, right = locs[1].min(), locs[1].max()
+            up, down = locs[0].min(), locs[0].max()
+            pcle = ma.masked_array(data, mask=~mask)
+            pcle = pcle[up:down+1,left:right+1]
 
-        subpcle = {
+            labmask = measure.label(mask)
+            regions = measure.regionprops(labmask)
+            region = regions[0]
 
-            'pcle': pcle,
-            'id': channel.id,
-            'name': channel['name'],
-            'left': left,
-            'right': right,
-            'up': up,
-            'down': down,
-            'centre_x': region.centroid[0],
-            'centre_y': region.centroid[1],
-            'tot_min_z': data.min()*1.e6,
-            'tot_max_z': data.max()*1.e6,
-            'a_pix': pcle.count(),
-            'a_pcle': pcle.count() * pix_area,
-            'r_eq': np.sqrt(pcle.count() * pix_area / np.pi),
-            'z_min': pcle.min(),
-            'z_max': pcle.max(),
-            'z_mean': pcle.mean(),
-            'major': region.major_axis_length * pix_len,
-            'minor': region.minor_axis_length * pix_len,
-            'eccen': region.eccentricity,
-            'compact': region.perimeter**2. / (4.*np.pi*pcle.count()),
-            'sphericity': min( (region.minor_axis_length/region.major_axis_length),
-                (pcle.max()/(region.major_axis_length*pix_len)),
-                ((region.minor_axis_length*pix_len)/pcle.max()) ),
-            'orient': np.degrees(region.orientation),
-            'pdata': pcle
-            }
-        pcle_data.append(subpcle)
+            if pcle.count() != int(region.area):
+                log.warning('region count does not match mask count (>1 grain per mask) in channel %s' % channel['name'])
+
+            subpcle = {
+
+                'pcle': pcle,
+                'filename': os.path.abspath(gwyfile),
+                'id': channel.id,
+                'name': channel['name'],
+                'left': left,
+                'right': right,
+                'up': up,
+                'down': down,
+                'centre_x': region.centroid[0],
+                'centre_y': region.centroid[1],
+                'tot_min_z': data.min()*1.e6,
+                'tot_max_z': data.max()*1.e6,
+                'a_pix': pcle.count(),
+                'a_pcle': pcle.count() * pix_area,
+                'r_eq': np.sqrt(pcle.count() * pix_area / np.pi),
+                'z_min': pcle.min(),
+                'z_max': pcle.max(),
+                'z_mean': pcle.mean(),
+                'major': region.major_axis_length * pix_len,
+                'minor': region.minor_axis_length * pix_len,
+                'eccen': region.eccentricity,
+                'compact': region.perimeter**2. / (4.*np.pi*pcle.count()),
+                'sphericity': min( (region.minor_axis_length/region.major_axis_length),
+                    (pcle.max()/(region.major_axis_length*pix_len)),
+                    ((region.minor_axis_length*pix_len)/pcle.max()) ),
+                'orient': np.degrees(region.orientation),
+                'pdata': pcle
+                }
+            pcle_data.append(subpcle)
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
     pcle_data.sort_values(by='id', inplace=True)
@@ -1009,6 +1021,8 @@ def check_masks(gwyfile, show=True, interactive=False, pcle_types=['particle', '
 
     If all checks are passed, True is returned, otherwise False"""
 
+    from skimage import measure
+
     if interactive:
 
         show = True
@@ -1067,6 +1081,14 @@ def check_masks(gwyfile, show=True, interactive=False, pcle_types=['particle', '
 
             masks = gwy_utils.extract_masks(gwyfile, channel=pcle_type, match_start=True)
 
+            # check for more than one mask per chanmnel
+            for idx, mask in enumerate(masks):
+                labmask = measure.label(mask)
+                regions = measure.regionprops(labmask)
+                if len(regions) > 1:
+                    log.error('more than one distinct mask found in chamnnl %s' % channels[idx] )
+
+            # check for overlaps between particles
             for idx1 in range(len(masks)):
                 for idx2 in range(idx1+1, len(masks)):
                     log.debug('comparing channels %s and %s (indices %d/%d)' % (channels[idx1], channels[idx2], idx1, idx2))

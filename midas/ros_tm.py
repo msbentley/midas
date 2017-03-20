@@ -3696,6 +3696,16 @@ class tm:
             return missing_pkts
 
 
+    def get_piezo_centre(self, time):
+        """Accepts a time (string, datetime or timestamp) typically corresponding to a line
+        or image start. Locates the time of the last successful approach and returns the
+        corresponding strain gauge value at the end of the approach and fine tuning."""
+
+        hk2 = self.pkts[ (self.pkts.type==3) & (self.pkts.subtype==25) & (self.pkts.apid==1076) & (self.pkts.sid==2) ]
+        frame = hk2[hk2.obt>time].index[0]
+        return self.get_param('NMDA0348', frame=frame)
+
+
 
     def get_line_scans(self, info_only=False, expand_params=False, ignore_image=True, use_archive=False):
         """Extracts line scans from TM packets.

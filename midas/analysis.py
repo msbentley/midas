@@ -404,6 +404,12 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
 
         pcle_data = []
 
+    if len(filelist)==0:
+        log.warning('No matching files found')
+        return None
+    else:
+        log.info('Processing sub-particle data from %d files' % len(filelist))
+
     for gwyfile in filelist:
 
         # Get all masked channels matching the sub-particle filter
@@ -415,6 +421,8 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
         # Get meta-data from the first channel of the GWY file
         # meta = gwy_utils.get_meta(gwyfile)
         meta = channels.iloc[0]
+
+        filemeta = gwy_utils.get_meta(gwyfile, channel='Topography (Z piezo position set value)')
 
         # Calculate the pixel area (simply x_step*y_step)
         pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
@@ -443,7 +451,8 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
 
                 'pcle': pcle,
                 'filename': os.path.abspath(gwyfile),
-                'id': channel.id,
+                'scan_file': filemeta.scan_file if filemeta is not None else None,
+                'id': int(channel.id),
                 'name': channel['name'],
                 'left': left,
                 'right': right,
@@ -453,6 +462,8 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
                 'centre_y': region.centroid[1],
                 'tot_min_z': data.min()*1.e6,
                 'tot_max_z': data.max()*1.e6,
+                'x_step_nm': channel.x_step_nm,
+                'y_step_nm': channel.y_step_nm,
                 'a_pix': pcle.count(),
                 'a_pcle': pcle.count() * pix_area,
                 'r_eq': np.sqrt(pcle.count() * pix_area / np.pi),
@@ -472,7 +483,12 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
             pcle_data.append(subpcle)
 
     pcle_data = pd.DataFrame.from_records(pcle_data)
-    pcle_data.sort_values(by='id', inplace=True)
+
+    if len(pcle_data)==0:
+        log.warning('No sub-particle data found')
+        return None
+
+    # pcle_data.sort_values(by='id', inplace=True)
     pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
 

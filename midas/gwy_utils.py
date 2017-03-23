@@ -328,6 +328,10 @@ def get_meta(gwyfile, channel=None):
     meta = C.get_value_by_name('/%d/meta' % selected)
     keys = meta.keys_by_name()
 
+    if len(keys)==0:
+        log.error('channel contains no meta data')
+        return None
+
     for key in keys:
         metadata.update({ key: meta.get_value_by_name(key) })
 

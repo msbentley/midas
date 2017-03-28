@@ -1660,8 +1660,8 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     return figure, axis
 
 
-def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=False, radius=100, colour='white',
-        process_gwy=True, **kwargs):
+def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=False, restore=None,
+        radius=100, colour='white', process_gwy=False, overwrite=False, **kwargs):
     """Accepts an image (scan) name, displays it and allows the user to click calibration positions, which
     are logged to a filename in CSV format.
 
@@ -1670,7 +1670,7 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
 
     class Calibrate:
 
-        def __init__(self, scan_file, gwy_path, outpath, printdata, radius, colour, **kwargs):
+        def __init__(self, scan_file, gwy_path, outpath, printdata, restore, radius, colour, process_gwy, overwrite, **kwargs):
 
             tolerance = 10
             self.xy = []
@@ -1679,12 +1679,14 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
             self.process_gwy = process_gwy
             self.gwy_file = os.path.join(gwy_path, scan_file+'.gwy')
 
-            image = load_images(data=True).query('scan_file==@scan_file').squeeze()
-            if len(image)==0:
-                log.error('could not find image %s' % scan_file)
+            csvfile = os.path.join(outpath, scan_file+'_cal.csv')
+
+            if (os.path.isfile(csvfile)) and (not overwrite):
+                log.error('CSV file %s already exists. Change name or set overwrite=True' % self.gwy_file)
                 return None
+
             try:
-                self.f = open(os.path.join(outpath, scan_file+'_cal.csv'), 'w')
+                self.f = open(csvfile, 'w')
             except IOError as (errno, strerror):
                 print "ERROR: I/O error({0}): {1}".format(errno, strerror)
                 return None
@@ -1694,11 +1696,26 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
                     log.error('Gwyddion file %s not found' % self.gwy_file)
                     return None
 
+            image = load_images(data=True).query('scan_file==@scan_file').squeeze()
+            if len(image)==0:
+                log.error('could not find image %s' % scan_file)
+                return None
+
             self.fig, self.ax = show(image, units='real', planesub='poly', title=True, cbar=True,
                         shade=False, show_fscans=False, show=False, rect=None)
 
             self.points = self.ax.scatter([], [], s=radius, facecolors='none', edgecolors=colour,
                         picker=tolerance, animated=True, **kwargs)
+
+            if restore is not None:
+                if not os.path.isfile(restore):
+                    log.error('CSV file %s not found' % restore)
+                    return None
+                else:
+                    row, x, y = np.loadtxt(restore, delimiter=',', unpack=True)
+                    self.row = row.astype(int).tolist()
+                    self.xy = zip(x.tolist(),y.tolist())
+                    self.update(blit=False)
 
             self.update_title()
 
@@ -1740,10 +1757,11 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
         def update_title(self):
             self.fig.canvas.set_window_title('Current row: %d' % self.current_row)
 
-        def update(self):
+        def update(self, blit=True):
             self.points.set_offsets(self.xy)
             self.update_title()
-            self.blit()
+            if blit:
+                self.blit()
 
         def add_point(self, event):
             self.xy.append([event.xdata, event.ydata])
@@ -1814,8 +1832,8 @@ def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=Fal
                 self.f.write('%d, %3.3f, %3.3f\n' % (row, x, y))
             self.f.close()
 
-    cal = Calibrate(scan_file, gwy_path=gwy_path, outpath=outpath, printdata=printdata,
-        radius=radius, colour=colour, **kwargs)
+    cal = Calibrate(scan_file, gwy_path=gwy_path, outpath=outpath, printdata=printdata, restore=restore,
+        radius=radius, colour=colour, process_gwy=process_gwy, overwrite=overwrite, **kwargs)
 
     plt.show(block=True)
 

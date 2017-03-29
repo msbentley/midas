@@ -491,10 +491,53 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
     # pcle_data.sort_values(by='id', inplace=True)
     pcle_data['tot_z_diff'] = pcle_data.tot_max_z - pcle_data.tot_min_z
     pcle_data['z_diff'] = pcle_data.z_max - pcle_data.z_min
+    pcle_data['d_eq'] = pcle_data['r_eq'] * 2.
 
     pcle_data.drop(['pcle'], axis=1, inplace=True)
 
     return pcle_data
+
+
+def calc_errors(pcle_data, error_pix=0.15, half_angle=22.5, min_feature=0, diameter=True):
+    """Calculate errors on the sub-particle data (from get_subpcles()) according to the
+    given input. The diameter switch is used to determine if radius or diameter are
+    being used in subsequent calculations, to ensure that err_lower is set correctly
+    for plotting with e.g. plot_cumulative()"""
+
+    pcle_data['err_mark'] = ((pcle_data.a_pix * np.pi)**(-0.5) * np.ceil(pcle_data.a_pix * error_pix)) * pcle_data.x_step_nm*1.e-9
+    pcle_data['err_conv'] = 2. * np.tan(np.deg2rad(half_angle)) * (pcle_data.z_mean - pcle_data.z_min)
+    pcle_data.loc[ pcle_data['err_conv'] < min_feature, 'err_conv']  = min_feature
+    pcle_data['err_tot'] = pcle_data.err_conv + pcle_data.err_mark
+
+    factor = 2. if diameter else 1.
+
+    pcle_data['err_lower'] = pcle_data.apply( lambda grain: grain.err_tot if (grain.r_eq*factor-grain.err_tot)>0. else (grain.r_eq*factor), axis=1 )
+
+    return pcle_data
+
+
+def plot_cumulative(pcle_data, savefig=False):
+
+    for scanfile in sorted(pcle_data.scan_file.unique().tolist()):
+
+        pcle = pcle_data[pcle_data.scan_file==scanfile].sort_values(by='r_eq')
+
+        fig, ax_left = plt.subplots(figsize=(20,8))
+        ax_left.set_xlabel('effective diameter (nm)')
+        ax_left.set_ylabel('counts')
+        ax_left.set_title(scanfile)
+
+        diameter = pcle.r_eq.values * 2.e9
+        ax_left.errorbar(diameter, np.arange(1,len(diameter)+1), xerr=[pcle.err_lower*1.e9, pcle.err_mark*1.e9], fmt='o')
+        ax_left.set_ylim(bottom=0.)
+        ax_left.grid(True)
+        ymin, ymax = ax_left.get_ylim()
+        ax_right = ax_left.twinx()
+        ax_right.set_ylabel('percent')
+        ax_right.set_ylim(0., ymax/float(len(diameter)))
+
+        if savefig:
+            fig.savefig('%s_cum.eps' % scanfile, format='eps', dpi=300)
 
 
 def plot_assembly(pcle_data, anim=False, figure=None, axis=None, extent=None, centre=None):

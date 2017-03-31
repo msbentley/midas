@@ -238,7 +238,7 @@ def add_mask(gwy_file, mask, chan_name, out_file=None, overwrite=False):
     return
 
 
-def get_data(gwy_file, chan_name=None):
+def get_data(gwy_file, chan_name=None, get_offset=False):
     """Returns data from a Gwyddion file with channel matching channel=, or
     the first channel if channel=None."""
 
@@ -283,7 +283,16 @@ def get_data(gwy_file, chan_name=None):
     data = np.array(datafield.get_data(), dtype=np.float32).reshape(
         datafield.get_yres(), datafield.get_xres())
 
-    return xlen, ylen, data
+    if get_offset:
+        xres = xlen / datafield.get_xres()
+        yres = ylen / datafield.get_yres()
+        xoff = int(np.floor(datafield.get_xoffset() / xres))
+        yoff = int(np.floor(datafield.get_yoffset() / yres))
+
+        return xlen, ylen, xoff, yoff, data
+
+    else:
+        return xlen, ylen, data
 
 
 def get_meta(gwyfile, channel=None):

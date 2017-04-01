@@ -387,9 +387,12 @@ def read_grain_stats(basename, path='.'):
     return grain_stats
 
 
-def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_'):
+def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_', gwy_meta=True):
     """Reads channel data corresponding to chan= (or all, if None) and
-    containing a mask."""
+    containing a mask.
+
+    If gwy_meta=True meta-data are retrieved from the Gwyddion file, otherwise it is read from
+    the images metadata file."""
 
     from skimage import measure
 
@@ -418,11 +421,14 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
             log.error('no channels found matching: %s' % chan)
             return None
 
-        # Get meta-data from the first channel of the GWY file
-        # meta = gwy_utils.get_meta(gwyfile)
+        # Get basic meta-data from the first channel of the GWY file
         meta = channels.iloc[0]
 
         filemeta = gwy_utils.get_meta(gwyfile, channel='Topography (Z piezo position set value)')
+
+        if not gwy_meta:
+            scan_file = filemeta.scan_file
+            meta = ros_tm.load_images(data=False).query('scan_file==@scan_file').squeeze()
 
         # Calculate the pixel area (simply x_step*y_step)
         pix_area = float(meta.x_step_nm)*1.e-9 * float(meta.y_step_nm)*1.e-9 #m2
@@ -462,8 +468,8 @@ def get_subpcles(gwyfiles, directory='.', recursive=False, chan='sub_particle_')
                 'centre_y': region.centroid[1],
                 'tot_min_z': data.min()*1.e6,
                 'tot_max_z': data.max()*1.e6,
-                'x_step_nm': channel.x_step_nm,
-                'y_step_nm': channel.y_step_nm,
+                'x_step_nm': meta.x_step_nm,
+                'y_step_nm': meta.y_step_nm,
                 'a_pix': pcle.count(),
                 'a_pcle': pcle.count() * pix_area,
                 'r_eq': np.sqrt(pcle.count() * pix_area / np.pi),

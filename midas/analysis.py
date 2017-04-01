@@ -516,7 +516,59 @@ def calc_errors(pcle_data, error_pix=0.15, half_angle=22.5, min_feature=0, diame
     return pcle_data
 
 
-def plot_cumulative(pcle_data, savefig=False):
+def plot_pcle(gwyfile, channel='sub_particle_', outline=True, savefig=False, save_prefix=''):
+
+    from skimage import segmentation
+
+    masks = gwy_utils.extract_masks(gwyfile, channel='sub_particle')
+    xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name='sub_particle_001')
+    data = data - data.min()
+
+    fig, ax = plt.subplots()
+
+    perim = []
+    perim_full = np.zeros_like(masks[0])
+    for mask in masks:
+        perim.append(segmentation.find_boundaries(mask, connectivity=1, mode='inner', background=0))
+        perim_full = np.logical_or(perim_full, perim[-1])
+
+    cmap = plt.cm.afmhot
+    cmap.set_bad('cyan')
+    perim_data = np.ma.array(data, mask=perim_full)
+
+    plotdata = perim_data if outline else data
+
+    image = ax.imshow(plotdata * 1.e9, cmap=plt.cm.afmhot, origin='upper', interpolation='nearest', extent=[0,xlen*1.e6,ylen*1.e6,0])
+
+    ax.set_xlabel('X (microns)')
+    ax.set_ylabel('Y (microns)')
+    plt.setp(ax.get_xticklabels(), rotation=45)
+
+    bar = fig.colorbar(image)
+    bar.set_label('height (nm)')
+
+    if savefig:
+        figpath, figfile = os.path.split(gwyfile)
+        figfile = ''.join(figfile.split('.')[:-1])
+        figfile += '_outline' if outline else ''
+        figfile = os.path.join(figpath, save_prefix + figfile)
+        fig.savefig('%s.eps' % figfile, format='eps', dpi=300)
+        plt.close(fig)
+    else:
+        plt.show()
+
+    return
+
+
+def plot_cumulative(pcle_data, savefig=False, title=True, title_field=None, title_prefix=None):
+    """Plots a cumulative size distribution from sub-particle data. Data from
+    multiple scans can be included, and one plot will be opened for each. If
+    savefig=True an EPS file will be output.
+
+    If title=True, a plot title will be used - specified by title_field.
+
+    If title_field=None the scan name is used. If title_field matches a
+    column name whih is unique, this is used, otherwise the passed string"""
 
     for scanfile in sorted(pcle_data.scan_file.unique().tolist()):
 
@@ -525,7 +577,6 @@ def plot_cumulative(pcle_data, savefig=False):
         fig, ax_left = plt.subplots(figsize=(20,8))
         ax_left.set_xlabel('effective diameter (nm)')
         ax_left.set_ylabel('counts')
-        ax_left.set_title(scanfile)
 
         diameter = pcle.r_eq.values * 2.e9
         ax_left.errorbar(diameter, np.arange(1,len(diameter)+1), xerr=[pcle.err_lower*1.e9, pcle.err_mark*1.e9], fmt='o')
@@ -535,6 +586,19 @@ def plot_cumulative(pcle_data, savefig=False):
         ax_right = ax_left.twinx()
         ax_right.set_ylabel('percent')
         ax_right.set_ylim(0., ymax/float(len(diameter)))
+
+        if title:
+            if title_field is None:
+                title = scanfile
+            elif (title_field in pcle.columns) and (len(pcle['%s' % title_field].unique()==1)):
+                title = pcle['%s' % title_field].unique()[0]
+            else:
+                title = title_field
+
+            if title_prefix is not None:
+                title = title_prefix + title
+
+            ax_left.set_title(title)
 
         if savefig:
             fig.savefig('%s_cum.eps' % scanfile, format='eps', dpi=300)

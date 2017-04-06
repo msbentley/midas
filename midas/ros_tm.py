@@ -1498,7 +1498,7 @@ def show_tips(savefig=None, info=False):
 
 
 def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None, ax=None,
-            shade=False, show_fscans=False, show=True, rect=None):
+            shade=False, show_fscans=False, show=True, rect=None, fontsize=10):
     """Accepts one or more images from get_images() and plots them in 2D.
 
     units= can be 'real', 'dac' or 'pix'
@@ -1572,8 +1572,8 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
         if units == 'real':
             data = (data - data.min()) * common.cal_factors[chan_idx]
             plot1 = axis.imshow(data, origin='upper', interpolation='nearest', extent=[0,image.xlen_um,image.ylen_um,0], cmap=cmap)
-            axis.set_xlabel('X (microns)')
-            axis.set_ylabel('Y (microns)')
+            axis.set_xlabel('X (microns)', fontsize=fontsize)
+            axis.set_ylabel('Y (microns)', fontsize=fontsize)
 
         elif units == 'dac':
             xstart = image.x_orig
@@ -1595,11 +1595,13 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
 
         elif units == 'pix':
             plot1 = axis.imshow(data, origin='upper', interpolation='nearest', cmap=cmap)
-            axis.set_xlabel('X (pixels)')
-            axis.set_ylabel('Y (pixels)')
+            axis.set_xlabel('X (pixels)', fontsize=fontsize)
+            axis.set_ylabel('Y (pixels)', fontsize=fontsize)
             data = image['data']
 
-        plt.setp(axis.get_xticklabels(), rotation=45)
+        plt.setp(axis.get_xticklabels(), rotation=45, fontsize=fontsize)
+        plt.setp(axis.get_yticklabels(),fontsize=fontsize)
+
         axis.grid(True)
 
         if shade:
@@ -1612,9 +1614,9 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
 
         if title is not None:
             if title==True:
-                axis.set_title(image.scan_file, fontsize=12)
+                axis.set_title(image.scan_file, fontsize=fontsize)
             else:
-                axis.set_title(title, fontsize=12)
+                axis.set_title(title, fontsize=fontsize)
 
         # If show_fscans is True, index the appropriate TLM file, get the OBTs of frequency scans
         # between the start and end times, find the line number of these times in HK and then

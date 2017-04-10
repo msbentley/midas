@@ -14,7 +14,7 @@ import os
 import logging
 log = logging.getLogger(__name__)
 
-def extract_masks(gwy_file, channel=None, match_start=False,  return_datafield=False):
+def extract_masks(gwy_file, channel=None, match_start=False, return_channels=False, return_datafield=False):
     """Looks for mask channels within the Gwyddion file and returns these
     masks as a list of numpy arrays. If channel= is given a string, only
     channels with names containing this string are returned.
@@ -48,14 +48,17 @@ def extract_masks(gwy_file, channel=None, match_start=False,  return_datafield=F
     #
     if channel is not None:
         matching = []
+        channels = []
         for mask in masks:
             name = C.get_value_by_name('/%d/data/title' % mask)
             if match_start:
                 if name.startswith(channel):
                     matching.append(mask)
+                    channels.append(name)
             else:
                 if channel in name:
                     matching.append(mask)
+                    channels.append(name)
 
         if len(matching) == 0:
             log.warning('No masks in channels matching "%s" found' %
@@ -84,7 +87,10 @@ def extract_masks(gwy_file, channel=None, match_start=False,  return_datafield=F
     if len(mask_data)==1:
         mask_data = mask_data[0]
 
-    return mask_data
+    if return_channels:
+        return zip(channels, mask_data)
+    else:
+        return mask_data
 
 
 def list_chans(gwy_file, filter=None, getlog=False, masked=False, info=False, matchstart=False):
@@ -291,8 +297,9 @@ def get_data(gwy_file, chan_name=None, get_offset=False):
 
         return xlen, ylen, xoff, yoff, data
 
-    else:
-        return xlen, ylen, data
+
+
+    return xlen, ylen, data
 
 
 def get_meta(gwyfile, channel=None):

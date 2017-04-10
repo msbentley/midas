@@ -522,43 +522,29 @@ def calc_errors(pcle_data, error_pix=0.15, half_angle=22.5, min_feature=0, diame
     return pcle_data
 
 
-def plot_pcle(gwyfile, channel='sub_particle_', outline=True, savefig=False, save_prefix=''):
+def show_pcle_from_gwy(gwyfile, channel='Topography (Z piezo position set value)', savefig=False, save_prefix='', fontsize=10):
 
-    from skimage import segmentation
-
-    masks = gwy_utils.extract_masks(gwyfile, channel='sub_particle')
-    xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name='sub_particle_001')
-    data = data - data.min()
+    xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name=channel)
 
     fig, ax = plt.subplots()
 
-    perim = []
-    perim_full = np.zeros_like(masks[0])
-    for mask in masks:
-        perim.append(segmentation.find_boundaries(mask, connectivity=1, mode='inner', background=0))
-        perim_full = np.logical_or(perim_full, perim[-1])
+    image = ax.imshow(data * 1.e9, cmap=plt.cm.afmhot, origin='upper', interpolation='nearest',
+        extent=[0,xlen*1.e6,ylen*1.e6,0])
 
-    cmap = plt.cm.afmhot
-    cmap.set_bad('cyan')
-    perim_data = np.ma.array(data, mask=perim_full)
+    ax.set_xlabel('X (microns)', fontsize=fontsize)
+    ax.set_ylabel('Y (microns)', fontsize=fontsize)
+    ax.tick_params(labelsize=fontsize)
 
-    plotdata = perim_data if outline else data
-
-    image = ax.imshow(plotdata * 1.e9, cmap=plt.cm.afmhot, origin='upper', interpolation='nearest', extent=[0,xlen*1.e6,ylen*1.e6,0])
-
-    ax.set_xlabel('X (microns)')
-    ax.set_ylabel('Y (microns)')
     plt.setp(ax.get_xticklabels(), rotation=45)
 
     bar = fig.colorbar(image)
-    bar.set_label('height (nm)')
+    bar.ax.tick_params(labelsize=fontsize)
 
     if savefig:
         figpath, figfile = os.path.split(gwyfile)
         figfile = ''.join(figfile.split('.')[:-1])
-        figfile += '_outline' if outline else ''
         figfile = os.path.join(figpath, save_prefix + figfile)
-        fig.savefig('%s.eps' % figfile, format='eps', dpi=300)
+        fig.savefig('%s.eps' % figfile, format='eps', bbox_inches='tight')
         plt.close(fig)
     else:
         plt.show()
@@ -566,7 +552,96 @@ def plot_pcle(gwyfile, channel='sub_particle_', outline=True, savefig=False, sav
     return
 
 
-def plot_cumulative(pcle_data, savefig=False, title=True, title_field=None, title_prefix=None):
+def show_masked_pcle(pcles, channel='sub_particle_', outline=True, title='', query=None, savefig=False, save_prefix='', fontsize=10):
+
+    from skimage import segmentation
+    from matplotlib import colors, cm
+
+    for scanfile in sorted(pcles.scan_file.unique().tolist()):
+
+        pcle = pcles[pcles.scan_file==scanfile]
+        gwyfile = pcle.filename.iloc[0]
+
+        if outline:
+            xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name='sub_particle_001')
+        else:
+            xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name=channel)
+        data = data - data.min()
+
+        fig, ax = plt.subplots()
+        cmap = plt.cm.afmhot
+
+        if outline:
+
+            perim_norm = []
+            perim_query = []
+
+            masks = gwy_utils.extract_masks(gwyfile, channel=channel, return_channels=True)
+
+            perim_norm_full = np.zeros_like(masks[0][1])
+            perim_query_full = np.zeros_like(perim_norm_full)
+
+            masks = pd.DataFrame(masks, columns=['name', 'mask'])
+            pcle = pd.merge(masks, pcle, on='name')
+
+            if query is None:
+
+                for idx, mask in pcle['mask'].iteritems():
+                    perim_norm.append(segmentation.find_boundaries(mask, connectivity=1, mode='inner', background=0))
+                    perim_norm_full = np.logical_or(perim_norm_full, perim_norm[-1])
+
+            else:
+
+                pcles_query = pcle.query(query)
+                rest_query = pcle[~pcle.index.isin(pcle.query(query).index)]
+
+                for idx, mask in pcles_query['mask'].iteritems():
+                    perim_query.append(segmentation.find_boundaries(mask, connectivity=1, mode='inner', background=0))
+                    perim_query_full = np.logical_or(perim_query_full, perim_query[-1])
+
+                for idx, mask in rest_query['mask'].iteritems():
+                    perim_norm.append(segmentation.find_boundaries(mask, connectivity=1, mode='inner', background=0))
+                    perim_norm_full = np.logical_or(perim_norm_full, perim_norm[-1])
+
+                data[perim_query_full] = -1.
+
+                cmap.set_under('yellow')
+
+            cmap.set_bad('cyan')
+
+            perim_data = np.ma.array(data, mask=perim_norm_full)
+
+        plotdata = perim_data if outline else data
+
+        image = ax.imshow(plotdata * 1.e9, cmap=cmap, origin='upper', interpolation='nearest',
+            extent=[0,xlen*1.e6,ylen*1.e6,0], norm=colors.Normalize(vmin=0., vmax=data.max()*1.e9))
+
+        ax.set_xlabel('X (microns)', fontsize=fontsize)
+        ax.set_ylabel('Y (microns)', fontsize=fontsize)
+        ax.tick_params(labelsize=fontsize)
+        ax.set_title(title, fontsize=fontsize)
+
+        plt.setp(ax.get_xticklabels(), rotation=45)
+
+        bar = fig.colorbar(image)
+        bar.ax.tick_params(labelsize=fontsize)
+        # bar.set_label('height (nm)')
+
+        if savefig:
+            figpath, figfile = os.path.split(gwyfile)
+            figfile = ''.join(figfile.split('.')[:-1])
+            figfile += '_outline' if outline else ''
+            figfile = os.path.join(figpath, save_prefix + figfile)
+            fig.savefig('%s.eps' % figfile, format='eps', bbox_inches='tight')
+            plt.close(fig)
+
+    if not savefig:
+        plt.show()
+
+    return fig
+
+
+def plot_cumulative(pcle_data, query=None, savefig=False, title=True, title_field=None, title_prefix=None, save_prefix='', show_mean=False):
     """Plots a cumulative size distribution from sub-particle data. Data from
     multiple scans can be included, and one plot will be opened for each. If
     savefig=True an EPS file will be output.
@@ -574,24 +649,35 @@ def plot_cumulative(pcle_data, savefig=False, title=True, title_field=None, titl
     If title=True, a plot title will be used - specified by title_field.
 
     If title_field=None the scan name is used. If title_field matches a
-    column name whih is unique, this is used, otherwise the passed string"""
+    column name which is unique, this is used, otherwise the passed string.
+
+    If query is set to a pandas dataframe query statement, this will be applied
+    and the selected points plotted in an alternative colour."""
 
     for scanfile in sorted(pcle_data.scan_file.unique().tolist()):
 
         pcle = pcle_data[pcle_data.scan_file==scanfile].sort_values(by='r_eq')
+        pcle['idx'] = np.arange(1,len(pcle)+1)
 
-        fig, ax_left = plt.subplots(figsize=(20,8))
+        fig, ax_left = plt.subplots(figsize=(8,4))
         ax_left.set_xlabel('effective diameter (nm)')
         ax_left.set_ylabel('counts')
 
-        diameter = pcle.r_eq.values * 2.e9
-        ax_left.errorbar(diameter, np.arange(1,len(diameter)+1), xerr=[pcle.err_lower*1.e9, pcle.err_mark*1.e9], fmt='o')
+        if query is None:
+            ax_left.errorbar(pcle.d_eq*1.e9, pcle.idx, xerr=[pcle.err_lower*1.e9, pcle.err_mark*1.e9], fmt='o', color='black')
+        else:
+            highlight = pcle.query(query)
+            ax_left.errorbar(highlight.d_eq*1.e9, highlight.idx, xerr=[highlight.err_lower*1.e9, highlight.err_mark*1.e9], fmt='o', color='red')
+            rest = pcle[~pcle.index.isin(pcle.query(query).index)]
+            ax_left.errorbar(rest.d_eq*1.e9, rest.idx, xerr=[rest.err_lower*1.e9, rest.err_mark*1.e9], fmt='o', color='black')
+
+
         ax_left.set_ylim(bottom=0.)
         ax_left.grid(True)
         ymin, ymax = ax_left.get_ylim()
         ax_right = ax_left.twinx()
         ax_right.set_ylabel('percent')
-        ax_right.set_ylim(0., ymax/float(len(diameter)))
+        ax_right.set_ylim(0., ymax/float(len(pcle)))
 
         if title:
             if title_field is None:
@@ -606,8 +692,23 @@ def plot_cumulative(pcle_data, savefig=False, title=True, title_field=None, titl
 
             ax_left.set_title(title)
 
+        if show_mean:
+            mean = pcle.d_eq.mean()*1.e9
+            mean_err_min = pcle.err_lower.mean()*1.e9
+            mean_err_max = pcle.err_mark.mean()*1.e9
+            ax_left.axvline(mean)
+            ax_left.axvspan(mean-mean_err_min, mean+mean_err_max, facecolor='yellow', alpha=0.5)
+
         if savefig:
-            fig.savefig('%s_cum.eps' % scanfile, format='eps', dpi=300)
+            filename = '%s%s_cum.eps' % (save_prefix, scanfile)
+            fig.savefig(filename, format='eps', bbox_inches='tight')
+            log.info('saving file %s' % filename)
+            plt.close(fig)
+        else:
+            plt.show()
+            return fig
+
+    return
 
 
 def plot_assembly(pcle_data, anim=False, figure=None, axis=None, extent=None, centre=None):
@@ -1277,6 +1378,93 @@ def check_masks(gwyfile, show=True, interactive=False, pcle_types=['particle', '
         log.info('file successfully validated!')
 
     return return_val
+
+
+def plot_geom(start_time, end_time, exposures=None, fontsize=12, savefig=None, title=''):
+
+    import matplotlib.dates as md
+    from midas import spice_utils
+    import matplotlib.ticker as ticker
+
+    geom = spice_utils.get_geometry(start=start_time, end=end_time)
+
+    # Plot various geometric parameters over time and shade the exposures
+    xfmt = md.DateFormatter('%Y-%m-%d') # %H:%M:%S')
+    geom_plot = plt.figure()
+
+    ax3 = geom_plot.add_subplot(3, 1, 3)
+    ax2 = geom_plot.add_subplot(3, 1, 2, sharex=ax3)
+    ax1 = geom_plot.add_subplot(3, 1, 1, sharex=ax2)
+
+    ax1.grid(True)
+    ax2.grid(True)
+    ax3.grid(True)
+
+    plt.setp(ax1.get_xticklabels(), visible=False)
+    plt.setp(ax2.get_xticklabels(), visible=False)
+    plt.setp(ax3.get_xticklabels(), visible=True)
+
+    # Distance and off-pointing
+    dist_line = ax1.plot(geom.index, geom.sc_dist, label='comet-s/c distance')
+    ax1.set_ylabel('Spacecraft distance (km)', fontsize=fontsize)
+    ax1r = ax1.twinx()
+    angle_line = ax1r.plot(geom.index, geom.offnadir, 'r', label='off-nadir')
+    ax1r.set_ylabel('Off-nadir angle (deg)', fontsize=fontsize)
+    ax1r.set_ylim(0,16)
+
+    lines = dist_line + angle_line
+    labs = [l.get_label() for l in lines]
+    leg1 = ax1r.legend(lines, labs, loc='upper left', fancybox=True, fontsize=fontsize, framealpha=1.0)
+    leg1.set_zorder(20)
+
+    # Latitude and longitude
+    lat_line = ax2.plot(geom.index, geom.latitude, label='latitude')
+    ax2.set_ylabel('Sub-spacecraft latitude', fontsize=fontsize)
+    ax2r = ax2.twinx()
+    lon_line = ax2r.plot(geom.index, geom.longitude, 'r', label='longitude')
+    ax2r.set_ylabel('Sub-spacecraft longitude', fontsize=fontsize)
+    ax2r.set_ylim(-180.,180.)
+    ax2r.yaxis.set_major_locator(ticker.MultipleLocator(60))
+
+
+    lines = lat_line + lon_line
+    labs = [l.get_label() for l in lines]
+    leg2 = ax2r.legend(lines, labs, loc='upper left', fancybox=True, framealpha=1.0, fontsize=fontsize)
+
+    # Comet distance
+    ax3.xaxis.set_major_formatter(xfmt)
+    ax3.yaxis.get_major_formatter().set_useOffset(False)
+
+    comet_sun_dist = ax3.plot(geom.index, geom.cometdist, label='comet-sun distance')
+    ax3.set_ylabel('Comet-sun distance (au)', fontsize=fontsize)
+
+    geom_plot.subplots_adjust(wspace=0)
+    geom_plot.autofmt_xdate()
+
+    for idx,exposure in exposures.iterrows():
+        ax1.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
+        ax2.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
+        ax3.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
+
+    ax1.set_title(title, fontsize=fontsize)
+    ax1.tick_params(labelsize=fontsize)
+    ax1r.tick_params(labelsize=fontsize)
+    ax2.tick_params(labelsize=fontsize)
+    ax2r.tick_params(labelsize=fontsize)
+    ax3.tick_params(labelsize=fontsize)
+
+    ax3.set_xlim(start_time, end_time)
+
+    if savefig:
+        geom_plot.savefig(savefig, format='eps', bbox_inches='tight')
+        log.info('saving file %s' % savefig)
+        plt.close(geom_plot)
+    else:
+        plt.show()
+        return geom_plot
+
+    return
+
 
 
 #------ test routines

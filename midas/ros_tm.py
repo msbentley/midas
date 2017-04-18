@@ -1353,16 +1353,28 @@ def img_polysub(image, order=3):
     return image
 
 
-def show_grid(images, cols=2, **kwargs):
+def show_grid(images, cols=2, figsize=None, **kwargs):
     """Plots multiple images in a grid with a given column width"""
 
     import matplotlib.gridspec as gridspec
+
+    if type(images) == pd.Series:
+        images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+    elif (type(images) == str) or (type(images) == list):
+        images = load_images(data=True).query('scan_file==@images')
+    elif type(images) != pd.DataFrame:
+        log.error('input data type must be a scan name, list of names or images dataframe')
+        return None
 
     num_images = len(images)
     rows, rem = divmod(num_images, cols)
     if rem != 0: rows += 1
     gs = gridspec.GridSpec(rows, cols)
-    fig = plt.figure()
+
+    if figsize is not None:
+        fig = plt.figure(figsize=figsize)
+    else:
+        fig = plt.figure()
 
     grid = 0
     axes = []
@@ -1516,6 +1528,9 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
     elif (type(images) == str) or (type(images) == list):
         images = load_images(data=True).query('scan_file==@images')
+    elif type(images) != pd.DataFrame:
+        log.error('input data type must be a scan name, list of names or images dataframe')
+        return None
 
     if 'data' not in images.columns:
         log.error('image data not found - be sure to run tm.get_images with info_only=False')

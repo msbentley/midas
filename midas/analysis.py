@@ -522,13 +522,15 @@ def calc_errors(pcle_data, error_pix=0.15, half_angle=22.5, min_feature=0, diame
     return pcle_data
 
 
-def show_pcle_from_gwy(gwyfile, channel='Topography (Z piezo position set value)', savefig=False, save_prefix='', fontsize=10):
+def show_pcle_from_gwy(gwyfile, channel='Topography (Z piezo position set value)', savefig=False, save_prefix='', fontsize=10, cmap=None):
 
     xlen, ylen, data = gwy_utils.get_data(gwyfile, chan_name=channel)
 
     fig, ax = plt.subplots()
 
-    image = ax.imshow(data * 1.e9, cmap=plt.cm.afmhot, origin='upper', interpolation='nearest',
+    cmap = plt.cm.afmhot if cmap is None else cmap
+
+    image = ax.imshow(data * 1.e9, cmap=cmap, origin='upper', interpolation='nearest',
         extent=[0,xlen*1.e6,ylen*1.e6,0])
 
     ax.set_xlabel('X (microns)', fontsize=fontsize)
@@ -552,7 +554,8 @@ def show_pcle_from_gwy(gwyfile, channel='Topography (Z piezo position set value)
     return
 
 
-def show_masked_pcle(pcles, channel='sub_particle_', outline=True, title='', query=None, savefig=False, save_prefix='', fontsize=10):
+def show_masked_pcle(pcles, channel='sub_particle_', outline=True, title='', query=None, savefig=False, save_prefix='',
+        fontsize=10, cmap=None, norm_col='cyan', query_col='red'):
 
     from skimage import segmentation
     from matplotlib import colors, cm
@@ -569,7 +572,7 @@ def show_masked_pcle(pcles, channel='sub_particle_', outline=True, title='', que
         data = data - data.min()
 
         fig, ax = plt.subplots()
-        cmap = plt.cm.afmhot
+        cmap = plt.cm.afmhot if cmap is None else cmap
 
         if outline:
 
@@ -605,9 +608,9 @@ def show_masked_pcle(pcles, channel='sub_particle_', outline=True, title='', que
 
                 data[perim_query_full] = -1.
 
-                cmap.set_under('yellow')
+                cmap.set_under(query_col)
 
-            cmap.set_bad('cyan')
+            cmap.set_bad(norm_col)
 
             perim_data = np.ma.array(data, mask=perim_norm_full)
 
@@ -623,7 +626,7 @@ def show_masked_pcle(pcles, channel='sub_particle_', outline=True, title='', que
 
         plt.setp(ax.get_xticklabels(), rotation=45)
 
-        bar = fig.colorbar(image)
+        bar = fig.colorbar(image, ax=ax, extend='max')
         bar.ax.tick_params(labelsize=fontsize)
         # bar.set_label('height (nm)')
 
@@ -632,7 +635,7 @@ def show_masked_pcle(pcles, channel='sub_particle_', outline=True, title='', que
             figfile = ''.join(figfile.split('.')[:-1])
             figfile += '_outline' if outline else ''
             figfile = os.path.join(figpath, save_prefix + figfile)
-            fig.savefig('%s.eps' % figfile, format='eps', bbox_inches='tight')
+            fig.savefig('%s.eps' % figfile, format='eps', bbox_inches='tight', DPI=300)
             plt.close(fig)
 
     if not savefig:
@@ -664,19 +667,23 @@ def plot_cumulative(pcle_data, query=None, savefig=False, title=True, title_fiel
         ax_left.set_ylabel('counts')
 
         if query is None:
-            ax_left.errorbar(pcle.d_eq*1.e9, pcle.idx, xerr=[pcle.err_lower*1.e9, pcle.err_mark*1.e9], fmt='o', color='black')
+            ax_left.errorbar(pcle.d_eq*1.e9, pcle.idx, xerr=[pcle.err_lower*1.e9, pcle.err_mark*1.e9], fmt='s',
+                ecolor='Silver', markersize=3, color='black', capsize=2)
         else:
             highlight = pcle.query(query)
-            ax_left.errorbar(highlight.d_eq*1.e9, highlight.idx, xerr=[highlight.err_lower*1.e9, highlight.err_mark*1.e9], fmt='o', color='red')
+            ax_left.errorbar(highlight.d_eq*1.e9, highlight.idx, xerr=[highlight.err_lower*1.e9, highlight.err_mark*1.e9], fmt='s',
+                markersize=3, color='red', capsize=2)
             rest = pcle[~pcle.index.isin(pcle.query(query).index)]
-            ax_left.errorbar(rest.d_eq*1.e9, rest.idx, xerr=[rest.err_lower*1.e9, rest.err_mark*1.e9], fmt='o', color='black')
+            ax_left.errorbar(rest.d_eq*1.e9, rest.idx, xerr=[rest.err_lower*1.e9, rest.err_mark*1.e9], fmt='s',
+                ecolor='Silver', markersize=3, color='black', capsize=2)
 
 
         ax_left.set_ylim(bottom=0.)
+        ax_left.set_xlim(left=0.)
         ax_left.grid(True)
         ymin, ymax = ax_left.get_ylim()
         ax_right = ax_left.twinx()
-        ax_right.set_ylabel('percent')
+        ax_right.set_ylabel('fraction')
         ax_right.set_ylim(0., ymax/float(len(pcle)))
 
         if title:
@@ -693,11 +700,19 @@ def plot_cumulative(pcle_data, query=None, savefig=False, title=True, title_fiel
             ax_left.set_title(title)
 
         if show_mean:
+
+            legends = []
+
             mean = pcle.d_eq.mean()*1.e9
             mean_err_min = pcle.err_lower.mean()*1.e9
             mean_err_max = pcle.err_mark.mean()*1.e9
-            ax_left.axvline(mean)
+            legends.append(ax_left.axvline(mean, label='mean', color='black'))
             ax_left.axvspan(mean-mean_err_min, mean+mean_err_max, facecolor='yellow', alpha=0.5)
+
+            median = pcle.d_eq.median()*1.e9
+            legends.append(ax_left.axvline(median, linestyle='--', color='blue', label='median'))
+
+            leg = ax_left.legend(legends, ['mean', 'median'], loc='lower right')
 
         if savefig:
             filename = '%s%s_cum.eps' % (save_prefix, scanfile)

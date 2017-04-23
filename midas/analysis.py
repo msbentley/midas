@@ -1,5 +1,5 @@
-
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 """analysis.py
 
 Mark S. Bentley (mark@lunartech.org), 2015

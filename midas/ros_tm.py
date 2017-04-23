@@ -1510,7 +1510,7 @@ def show_tips(savefig=None, info=False):
 
 
 def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None, ax=None,
-            shade=False, show_fscans=False, show=True, rect=None, fontsize=10):
+            shade=False, show_fscans=False, show=True, rect=None, fontsize=10, figsize=None):
     """Accepts one or more images from get_images() and plots them in 2D.
 
     units= can be 'real', 'dac' or 'pix'
@@ -1573,7 +1573,10 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
         target = common.seg_to_facet(image.wheel_pos)
 
         if fig is None:
-            figure = plt.figure()
+            if figsize is None:
+                figure = plt.figure()
+            else:
+                figure = plt.figure(figsize=figsize)
         else:
             figure = fig
 
@@ -1675,208 +1678,6 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
         plt.show()
 
     return figure, axis
-
-
-def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=False, restore=None,
-        radius=100, colour='white', process_gwy=False, overwrite=False, **kwargs):
-    """Accepts an image (scan) name, displays it and allows the user to click calibration positions, which
-    are logged to a filename in CSV format.
-
-    Left clicking in the plot adds a new point. Existing points can be dragged to
-    a new location with the left button, and a right click deletes a point."""
-
-    class Calibrate:
-
-        def __init__(self, scan_file, gwy_path, outpath, printdata, restore, radius, colour, process_gwy, overwrite, **kwargs):
-
-            tolerance = 10
-            self.xy = []
-            self.row = []
-            self.current_row = 1
-            self.process_gwy = process_gwy
-            self.gwy_file = os.path.join(gwy_path, scan_file+'.gwy')
-
-            csvfile = os.path.join(outpath, scan_file+'_cal.csv')
-
-            if (os.path.isfile(csvfile)) and (not overwrite):
-                log.error('CSV file %s already exists. Change name or set overwrite=True' % self.gwy_file)
-                return None
-
-            try:
-                self.f = open(csvfile, 'w')
-            except IOError as (errno, strerror):
-                print "ERROR: I/O error({0}): {1}".format(errno, strerror)
-                return None
-
-            if process_gwy:
-                if not os.path.isfile(self.gwy_file):
-                    log.error('Gwyddion file %s not found' % self.gwy_file)
-                    return None
-
-            image = load_images(data=True).query('scan_file==@scan_file').squeeze()
-            if len(image)==0:
-                log.error('could not find image %s' % scan_file)
-                return None
-
-            self.fig, self.ax = show(image, units='real', planesub='poly', title=True, cbar=True,
-                        shade=False, show_fscans=False, show=False, rect=None)
-
-            self.points = self.ax.scatter([], [], s=radius, facecolors='none', edgecolors=colour,
-                        picker=tolerance, animated=True, **kwargs)
-
-            if restore is not None:
-                if not os.path.isfile(restore):
-                    log.error('CSV file %s not found' % restore)
-                    return None
-                else:
-                    row, x, y = np.loadtxt(restore, delimiter=',', unpack=True)
-                    self.row = row.astype(int).tolist()
-                    self.xy = zip(x.tolist(),y.tolist())
-                    self.update(blit=False)
-
-            self.update_title()
-
-            connect = self.fig.canvas.mpl_connect
-            self.cid = connect('button_press_event', self.onclick)
-            self.close_cid = connect('close_event', self.onclose)
-            self.draw_cid = connect('draw_event', self.grab_background)
-            self.key_cid = connect('key_press_event', self.onkey)
-
-        def onkey(self, event):
-
-            if event.key=='up':
-                self.current_row -= 1
-                if self.current_row < 1:
-                    self.current_row = 1
-            elif event.key=='down':
-                self.current_row += 1
-            else:
-                return
-
-            self.update()
-
-        def onclick(self, event):
-
-            if self.fig.canvas.toolbar._active is not None:
-                return
-
-            contains, info = self.points.contains(event)
-
-            if contains:
-                i = info['ind'][0]
-                if event.button == 1: # left button
-                    self.start_drag(i)
-                elif event.button == 3: # right button
-                    self.delete_point(i)
-            else:
-                self.add_point(event)
-
-        def update_title(self):
-            self.fig.canvas.set_window_title('Current row: %d' % self.current_row)
-
-        def update(self, blit=True):
-            self.points.set_offsets(self.xy)
-            self.update_title()
-            if blit:
-                self.blit()
-
-        def add_point(self, event):
-            self.xy.append([event.xdata, event.ydata])
-            self.row.append(self.current_row)
-            if printdata:
-                print 'INFO: added point: x = %3.3f, y = %3.3f to row %d' % (event.xdata, event.ydata, self.current_row)
-            self.update()
-
-        def delete_point(self, i):
-            if printdata:
-                print 'INFO: removed point: x = %3.3f, y = %3.3f from row %d' % (self.xy[i][0], self.xy[i][1], self.row[i])
-            self.xy.pop(i)
-            self.row.pop(i)
-            self.update()
-
-        def start_drag(self, i):
-            self.drag_i = i
-            connect = self.fig.canvas.mpl_connect
-            cid1 = connect('motion_notify_event', self.drag_update)
-            cid2 = connect('button_release_event', self.end_drag)
-            self.drag_cids = [cid1, cid2]
-
-        def drag_update(self, event):
-            self.xy[self.drag_i] = [event.xdata, event.ydata]
-            self.update()
-
-        def end_drag(self, event):
-            if printdata:
-                log.info('point moved to: x = %3.3f, y = %3.3f on row %d' % (self.xy[self.drag_i][0], self.xy[self.drag_i][1], self.row[self.drag_i]))
-            for cid in self.drag_cids:
-                self.fig.canvas.mpl_disconnect(cid)
-
-        def safe_draw(self):
-            canvas = self.fig.canvas
-            canvas.mpl_disconnect(self.draw_cid)
-            canvas.draw()
-            self.draw_cid = canvas.mpl_connect('draw_event', self.grab_background)
-
-        def onclose(self, event):
-            disconnect = self.fig.canvas.mpl_disconnect
-            disconnect(self.cid)
-            disconnect(self.close_cid)
-            disconnect(self.draw_cid)
-            disconnect(self.key_cid)
-            self.writedata()
-
-            if self.process_gwy:
-                coeffs = xyz_to_coeff()
-                if coeffs is not None:
-                    # gwy_utils.polynomial_distort(self.gwy_file, channel=None, new_chan='corrected', coeffs=coeffs)
-                    pass
-
-
-        def grab_background(self, event=None):
-            self.points.set_visible(False)
-            self.safe_draw()
-            self.background = self.fig.canvas.copy_from_bbox(self.fig.bbox)
-            self.points.set_visible(True)
-            self.blit()
-
-        def blit(self):
-            self.fig.canvas.restore_region(self.background)
-            self.ax.draw_artist(self.points)
-            self.fig.canvas.blit(self.fig.bbox)
-
-        def writedata(self):
-            for row, (x,y) in zip(self.row, self.xy):
-                self.f.write('%d, %3.3f, %3.3f\n' % (row, x, y))
-            self.f.close()
-
-    cal = Calibrate(scan_file, gwy_path=gwy_path, outpath=outpath, printdata=printdata, restore=restore,
-        radius=radius, colour=colour, process_gwy=process_gwy, overwrite=overwrite, **kwargs)
-
-    plt.show(block=True)
-
-    return
-
-
-
-def calfile_to_coeff(calfile, scan_file=None):
-    """Accepts a calibration file produced by calibrate_xy() and produced a set of
-    normalised coefficients suitable for applying a polynomial distortion correction.
-
-    If scan_file=None the calibration filename is assumed to be of the form:
-
-    scan_file_cal.csv
-
-    and scan_file will be extracted and used. Otherwise specify via scan_file="""
-
-    row, x, y = np.loadtxt(calfile, delimiter=',', unpack=True)
-
-
-    D = np.array([x*0+1, x, x**2, x**3, y, y*x, y*x**2, y**2, y**2*x, y**3]).T
-    B = z
-    coeff, r, rank, s = np.linalg.lstsq(D, B)
-
-    return coeff
-
 
 
 def locate_scans(images):

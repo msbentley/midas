@@ -221,21 +221,27 @@ def read_all_caldata(calpath='.', filespec='SCAN*_cal.csv', recursive=False):
     return caldata
 
 
-def summarise_xy(*args):
+def summarise_xy(image_fields=None, *kwargs):
     """Simple wrapper to run read_all_caldata() and take the output and
     summarise key statistics per scan. Input parameters are identical
     to those of read_all_caldata()"""
 
     images = ros_tm.load_images(data=False)
-    image_fields = ['scan_file', 'x_step', 'y_step', 'fast_dir', 'x_closed', 'y_closed']
 
-    caldata = read_all_caldata(*args)
+    if image_fields is None:
+        image_fields = ['scan_file', 'x_step', 'y_step', 'fast_dir', 'x_closed', 'y_closed']
+    else:
+        if 'scan_file' not in image_fields:
+                image_fields.append('scan_file')
+
+    caldata = read_all_caldata(*kwargs)
     mean = caldata.groupby('scan_file')['xdiff', 'ydiff'].mean()
     mean.columns = ['xmean', 'ymean']
     std = caldata.groupby('scan_file')['xdiff', 'ydiff'].std()
     std.columns = ['xstd', 'ystd']
     summary = mean.join(std)
     summary = summary.merge(images[image_fields], how='left', right_on='scan_file', left_index=True)
+    summary.set_index('scan_file', inplace=True)
 
     return summary
 

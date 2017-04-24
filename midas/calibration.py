@@ -301,6 +301,11 @@ def cal_stats(caldata, verbose=False):
     Output is logged if verbose=True"""
 
     if type(caldata) == np.ndarray:
+
+        if len(caldata.shape) == 1:
+            log.error('cal_stats works with data from read_caldata with format="array" or "pandas" only')
+            return None
+
         mean_x = np.diff(caldata['x'], axis=1).mean()
         std_x = np.std(np.diff(caldata['x'], axis=1))
         mean_y = np.diff(caldata['y'], axis=0).mean()

@@ -18,6 +18,25 @@ import logging
 log = logging.getLogger(__name__)
 
 
+class CalArray(np.ndarray):
+    """A sub-class of numpy.ndarray with an added attribute to store the
+    associated calibration filename - useful when passing between the
+    various functions"""
+
+    def __new__(cls, input_array, calfile=None):
+        obj = np.asarray(input_array).view(cls)
+        obj.calfile = calfile
+        return obj
+
+    def __array_finalize__(self, obj):
+        if obj is None: return
+        self.calfile = getattr(obj, 'calfil', None)
+
+    def __array_wrap__(self, out_arr, context=None):
+        return np.ndarray.__array_wrap__(self, out_arr, context)
+
+
+
 def calibrate_xy(scan_file, gwy_path=common.gwy_path, outpath='.', printdata=False, restore=False,
         radius=100, colour='white', process_gwy=False, overwrite=False, **kwargs):
     """Accepts an image (scan) name, displays it and allows the user to click calibration positions, which
@@ -256,7 +275,7 @@ def read_caldata(calfile, format='numpy'):
 
     caldata = np.loadtxt(calfile, delimiter=',', dtype={
         'names': ('row', 'x', 'y'),
-        'formats': ('i2', 'f2', 'f2')})
+        'formats': ('i2', 'f4', 'f4')})
     caldata.sort(order=['row', 'x'])
 
     rows = np.unique(caldata['row'])
@@ -276,7 +295,8 @@ def read_caldata(calfile, format='numpy'):
     if format == 'numpy':
         pass
     elif format == 'array':
-        caldata = caldata[['x', 'y']].reshape(num_rows, num_cols)
+        caldata = CalArray(caldata[['x', 'y']].reshape(num_rows, num_cols),
+            calfile=calfile)
     elif format == 'pandas':
         caldata = pd.DataFrame(caldata)
         caldata['col'] = None
@@ -335,7 +355,7 @@ def scan_from_calfile(calfile):
     return os.path.basename(calfile).lower().split('_cal.csv')[0].upper()
 
 
-def show_calfile(calfile, use_image=False):
+def show_calfile(calfile, use_image=False, col='black', size=3, grid=False):
     """Plots the points in the given calibration (CSV) file. If use_image=True
     the original scan will also be displayed"""
 
@@ -348,30 +368,60 @@ def show_calfile(calfile, use_image=False):
     ax.set_ylabel('Y (microns)')
     ax.set_title('Calibration data for %s' % scan_file, fontsize=10)
 
-
     if use_image:
         ros_tm.show(scan_file, units='real', planesub='poly', title=None, cbar=True,
             show=False, fig=fig, ax=ax)
-        colour = 'cyan'
+        colour = col
     else:
         colour = 'black'
         ax.invert_yaxis()
-        # ax.set_ylim(top=0.)
-        # ax.set_xlim(left=0.)
 
-    ax.scatter(caldata['x'], caldata['y'], s=3, c=colour)
+    ax.scatter(caldata['x'], caldata['y'], s=size, c=colour)
+    ax.grid(grid)
 
     plt.show()
 
-    return
+    return fig, ax
 
 
-def fit_row_col(caldata):
-    """Performs a linear fit to each independant row and colum"""
+def fit_row_col(caldata, per_row=True, order=1, show=True, **kwargs):
+    """Performs independant polynomial fits to rows and columns of
+    XY calibration data. A list of coefficients is returned for both
+    X and Y. The order of the polynomial to be fit is given by the
+    order= keyword (1=linear, 2=quadratic etc.)
 
-    pass
+    If show=True the show_calfile() routine is used to display the
+    calibration data and fits. Any additional keyword parameters
+    used will be passed straight to this routine, e.g.
 
-    return None
+    fit_row_col(caldata, order=2, show=True, use_image=True)
+    """
+
+    num_rows = caldata.shape[0]
+    num_cols = caldata.shape[1]
+
+    fit_x = []
+    fit_y = []
+
+    for row in range(num_rows):
+        fit_x.append(np.polyfit(caldata[row,:]['x'], caldata[row,:]['y'], deg=order))
+
+    for col in range(num_cols):
+        fit_y.append(np.polyfit(caldata[:,col]['y'], caldata[:,col]['x'], deg=order))
+
+    if show:
+        fix, ax = show_calfile(caldata.calfile, **kwargs)
+
+        for row, fit in enumerate(fit_x):
+            fit_fn = np.poly1d(fit)
+            ax.plot(caldata[row,:]['x'], fit_fn(caldata[row,:]['x']), 'black')
+
+        for col, fit in enumerate(fit_y):
+            fit_fn = np.poly1d(fit)
+            ax.plot(fit_fn(caldata[:,col]['y']), caldata[:,col]['y'], 'black')
+
+    return fit_x, fit_y
+
 
 
 def calfile_to_coeff(calfile, scan_file=None):

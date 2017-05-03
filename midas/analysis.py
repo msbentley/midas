@@ -1456,10 +1456,12 @@ def plot_geom(start_time, end_time, exposures=None, fontsize=12, savefig=None, t
     geom_plot.subplots_adjust(wspace=0)
     geom_plot.autofmt_xdate()
 
-    for idx,exposure in exposures.iterrows():
-        ax1.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
-        ax2.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
-        ax3.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
+    if exposures is not None:
+
+        for idx,exposure in exposures.iterrows():
+            ax1.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
+            ax2.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
+            ax3.axvspan(exposure.start,exposure.end, facecolor='Silver', alpha=0.2)
 
     ax1.set_title(title, fontsize=fontsize)
     ax1.tick_params(labelsize=fontsize)

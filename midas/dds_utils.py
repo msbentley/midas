@@ -814,7 +814,7 @@ def get_new_observations(outputdir='.', mtpstp_dir=True, get_aux=True, max_retry
 
         # Update the status of this observation - only if the end time is >12 hours in the past
         if (obs.end + dl_time) < now:
-            observations.retrieved.ix[idx]=True
+            observations.retrieved.loc[idx]=True
 
     write_obs_file(observations)
 

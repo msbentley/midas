@@ -380,7 +380,7 @@ def compare_predicted(query=None):
             calc_duration(image.xsteps, image.ysteps, num_chans, image.z_ret, image.z_settle, image.xy_settle, image.z_step, 1, image.ctrl_image ) )
         idx.append(image.name)
 
-    images = images.ix[idx]
+    images = images.loc[idx]
 
     images['predicted'] = np.array(np.rint(predicted),dtype=int)
     images.predicted = images.predicted.apply( lambda t: timedelta(seconds=t) )

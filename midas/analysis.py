@@ -101,8 +101,8 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
         images['x_ext_um'] = images.x_orig_um + images.xlen_um
         images['y_ext_um'] = images.y_orig_um + images.ylen_um
 
-        left_images = images.ix[over.left].reset_index()
-        right_images = images.ix[over.right].reset_index()
+        left_images = images.loc[over.left].reset_index()
+        right_images = images.loc[over.right].reset_index()
 
         for idx in range(len(over)):
 
@@ -120,8 +120,8 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
         over['tip_right'] = right_images.tip_num
         over.sort_values(by='area', inplace=True)
 
-    over['left'] = over.left.apply(lambda l: images.scan_file.ix[l])
-    over['right'] = over.right.apply(lambda r: images.scan_file.ix[r])
+    over['left'] = over.left.apply(lambda l: images.scan_file.loc[l])
+    over['right'] = over.right.apply(lambda r: images.scan_file.loc[r])
 
     return over
 
@@ -810,14 +810,14 @@ def animate_assembly(orig_data, num_frames=50, pix_per_frame=1.0, centre=None, a
     # make the array before plotting the first frame)
     new_data = orig_data.copy()
     for idx, pcle in new_data.iterrows():
-        delta_x = num_frames * pix_per_frame * pcle_data.pos_x.ix[idx]
-        delta_y = num_frames * pix_per_frame * pcle_data.pos_y.ix[idx]
+        delta_x = num_frames * pix_per_frame * pcle_data.pos_x.loc[idx]
+        delta_y = num_frames * pix_per_frame * pcle_data.pos_y.loc[idx]
         pcle.up += delta_y
         pcle.down += delta_y
         pcle.left += delta_x
         pcle.right += delta_x
 
-        new_data.ix[idx] = pcle
+        new_data.loc[idx] = pcle
 
     max_x = int(round(max(abs(new_data.right.max()-cent[0]),abs(new_data.left.min()-cent[0]))))
     max_y = int(round(max(abs(new_data.up.max()-cent[1]),abs(new_data.down.min()-cent[1]))))
@@ -830,8 +830,8 @@ def animate_assembly(orig_data, num_frames=50, pix_per_frame=1.0, centre=None, a
 
             # calculate the offset according to the unit vector (direction)
             # and speed (given in pixels per frame)
-            delta_x = frame_cnt * pix_per_frame * pcle_data.pos_x.ix[idx]
-            delta_y = frame_cnt * pix_per_frame * pcle_data.pos_y.ix[idx]
+            delta_x = frame_cnt * pix_per_frame * pcle_data.pos_x.loc[idx]
+            delta_y = frame_cnt * pix_per_frame * pcle_data.pos_y.loc[idx]
 
             # apply the offset to the bounding box (used for plotting the sub-pcle)
             pcle.up += delta_y
@@ -839,7 +839,7 @@ def animate_assembly(orig_data, num_frames=50, pix_per_frame=1.0, centre=None, a
             pcle.left += delta_x
             pcle.right += delta_x
 
-            new_data.ix[idx] = pcle
+            new_data.loc[idx] = pcle
 
         im = plot_assembly(new_data, anim=True, figure=fig, extent=(max_y*2,max_x*2), centre=cent)
         frames.append([im])

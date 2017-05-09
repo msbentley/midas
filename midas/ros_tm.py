@@ -2383,7 +2383,7 @@ class tm:
         # Deal with the fact that MIDAS uses private SIDs that are not in the RMIB
         if 'midsid' in tlm.columns:
             idx = tlm[tlm.midsid.notnull()].index
-            tlm.sid.ix[idx]=tlm.midsid[idx]
+            tlm.sid.loc[idx]=tlm.midsid[idx]
             tlm.drop('midsid', axis=1, inplace=True)
 
         tlm.sid = tlm.sid.astype(np.int64)
@@ -2921,7 +2921,7 @@ class tm:
             pkts_per_file = pkts[pkts.filename==filename].sort_values(by='offset')
             header_gap = (pkts_per_file.offset.shift(-1)-(pkts_per_file.offset+pkts_per_file.length+7)).shift(1)
             header_gap.iloc[0] = pkts_per_file.offset.iloc[0]
-            pkts.dds_header.ix[header_gap.index] = header_gap.apply( lambda x: True if x==18 else False )
+            pkts.dds_header.loc[header_gap.index] = header_gap.apply( lambda x: True if x==18 else False )
 
         return pkts
 
@@ -3821,7 +3821,7 @@ class tm:
         # Now extract actual data
         for idx, pkt in ctrl_data_pkts.iterrows():
 
-            num_steps = ctrl_data.num_meas.ix[idx]
+            num_steps = ctrl_data.num_meas.loc[idx]
             point_data = {}
 
             # 07/01/15 - M.S.Bentley - in fact all control data are signed integers!
@@ -3843,7 +3843,7 @@ class tm:
             # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
             if expand_params:
 
-                sw_ver = ctrl_data.ix[idx].sw_ver
+                sw_ver = ctrl_data.loc[idx].sw_ver
                 frame = hk2[hk2.obt>pkt.obt].index[0]
 
                 if sw_ver < 664:
@@ -3860,8 +3860,8 @@ class tm:
                     point_data['work_pt_per'] = self.get_param('NMDA0181', frame=frame)[1]
                     point_data['set_pt'] = self.get_param('NMDA0245', frame=frame)[1]
                     point_data['set_pt_per'] = self.get_param('NMDA0244', frame=frame)[1]
-                    point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 8 & 0b111
-                    point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >> 4 & 0b111
+                    point_data['exc_lvl'] = ctrl_data.loc[idx].sw_flags >> 8 & 0b111
+                    point_data['ac_gain'] = ctrl_data.loc[idx].sw_flags >> 4 & 0b111
 
                 elif sw_ver > 664:
                     # Bits 15-13: Excitation level (since v6.6.5)
@@ -3870,8 +3870,8 @@ class tm:
                     point_data['work_pt_per'] = self.get_param('NMDA0181', frame=frame)[1]
                     point_data['set_pt'] = self.get_param('NMDA0245', frame=frame)[1]
                     point_data['set_pt_per'] = self.get_param('NMDA0244', frame=frame)[1]
-                    point_data['exc_lvl'] = ctrl_data.ix[idx].sw_flags >> 13 & 0b111
-                    point_data['ac_gain'] = ctrl_data.ix[idx].sw_flags >>  7 & 0b111
+                    point_data['exc_lvl'] = ctrl_data.loc[idx].sw_flags >> 13 & 0b111
+                    point_data['ac_gain'] = ctrl_data.loc[idx].sw_flags >>  7 & 0b111
 
                 point_data['res_amp'] = self.get_param('NMDA0306', frame=frame)[1]
                 point_data['work_pt'] = point_data['res_amp'] * abs(point_data['work_pt_per']) / 100.
@@ -4623,7 +4623,7 @@ class tm:
             else:
                 frame = frame[0]
 
-            approach['obt'] = self.pkts.obt.ix[frame]
+            approach['obt'] = self.pkts.obt.loc[frame]
             approach['position'] = self.get_param('NMDA0123', frame=frame)[1] # AppPosition
             approach['segment'] = self.get_param('NMDA0196', frame=frame)[1] # WheSegmentNum
             # approach['block'] = self.get_param('NMDA0128', frame=frame)[1] # CanBlockSelect

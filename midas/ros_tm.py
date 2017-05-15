@@ -3007,8 +3007,8 @@ class tm:
                 return None
 
         # filter packet list to those containing the parameter in question
-        pkts = pkts[ (pkts.type.isin(pkt_info.type)) & (pkts.subtype.isin(pkt_info.subtype)) \
-            & (pkts.apid.isin(pkt_info.apid)) & (pkts.sid.isin(pkt_info.sid)) ]
+        pkts = pkts[ (pkts.type.isin(pkt_info.type.tolist())) & (pkts.subtype.isin(pkt_info.subtype.tolist())) \
+            & (pkts.apid.isin(pkt_info.apid.tolist())) & (pkts.sid.isin(pkt_info.sid.tolist())) ]
 
         if start:
             pkts = pkts[pkts.obt>start]

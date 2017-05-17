@@ -5458,22 +5458,24 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
     if data:
 
         if filename is None:
-            filename = os.path.join(common.tlm_path, 'all_images_data.pkl')
+            filename = os.path.join(common.tlm_path, 'all_images_data.msg')
         f = open(filename, 'rb')
         import cPickle as pkl
 
-        objs = []
-        while 1:
-            try:
-                objs.append(pkl.load(f))
-            except EOFError:
-                break
+        # objs = []
+        # while 1:
+        #     try:
+        #         objs.append(pkl.load(f))
+        #     except EOFError:
+        #         break
+        #
+        # if len(objs)==0:
+        #     log.error('file %s appears to be empty' % filename)
+        #     return None
+        #
+        # images = pd.concat(iter(objs), axis=0)
 
-        if len(objs)==0:
-            log.error('file %s appears to be empty' % filename)
-            return None
-
-        images = pd.concat(iter(objs), axis=0)
+        images = pd.read_msgpack(filename)
 
     else:
         if filename is None:

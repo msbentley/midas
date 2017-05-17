@@ -5551,24 +5551,24 @@ def load_manual_scans(filename=os.path.join(common.config_path, 'manual_images.p
     """Loads a dataframe containing manually (re-)packed image files, i.e. scans that
     required manual attention. These can be appended to or overwrite existing data"""
 
-    import cPickle as pkl
+    # import cPickle as pkl
+    #
+    # f = open(filename, 'rb')
+    #
+    # objs = []
+    # while 1:
+    #     try:
+    #         objs.append(pkl.load(f))
+    #     except EOFError:
+    #         break
+    #
+    # if len(objs)==0:
+    #     log.error('file %s appears to be empty' % filename)
+    #     return None
+    #
+    # images = pd.concat(iter(objs), axis=0)
 
-    f = open(filename, 'rb')
-
-    objs = []
-    while 1:
-        try:
-            objs.append(pkl.load(f))
-        except EOFError:
-            break
-
-    if len(objs)==0:
-        log.error('file %s appears to be empty' % filename)
-        return None
-
-    images = pd.concat(iter(objs), axis=0)
-
-    return images
+    return pd.read_pickle(filename)
 
 
 

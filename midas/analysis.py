@@ -1483,6 +1483,51 @@ def plot_geom(start_time, end_time, exposures=None, fontsize=12, savefig=None, t
     return
 
 
+def image_to_csv(scanfile, outfile=None):
+    """Accepts a scan file name and creates a very simple CSV export of the data. The
+    format has a fixed one-line header containing a tuple of meta-data, followed by
+    ASCII integers describing the piezo extension.
+
+    If outfile is None the scan file name will be used with a .csv extension. Otherwise
+    a full path/filename can be given."""
+
+    image = ros_tm.load_images(data=True).query('scan_file==@scanfile')
+
+    if len(image)==0:
+        log.error('scan file %s not found in the database' % scanfile)
+        return None
+    else:
+        image = image.squeeze()
+
+    # write the header line, containing:
+    # xpix, ypix, xstep, ystep, zcal
+    # xpix * ypix array of integers
+
+    if outfile is None:
+        out_dir = os.path.dirname(os.path.abspath(scanfile))
+        out_name = scanfile + '.csv'
+        outfile = os.path.join(out_dir, out_name)
+
+    # numpy.savetxt(fname, X, fmt='%.18e', delimiter=' ', newline='\n', header='', footer='', comments='# ')
+    header = '%d, %d, %4.3f, %4.3f, %4.3f\n' % (image.xsteps, image.ysteps, image.x_step_nm, image.y_step_nm, common.zcal)
+    np.savetxt(outfile, image['data'], fmt='%d', delimiter=',', header=header, comments='')
+
+    return
+
+
+def read_csv(csvfile):
+    """Reads a CSV file as written by image_to_csv() and returns a header tuple and the
+    data array"""
+
+    # numpy.loadtxt(fname, dtype=<type 'float'>, comments='#', delimiter=None, converters=None, skiprows=0, usecols=None, unpack=False, ndmin=0)
+
+    with open(csvfile) as f:
+        header = f.readline().strip().split(',')
+        header = [int(header[0]), int(header[1]), float(header[2]), float(header[3]), float(header[4])]
+
+    data = np.loadtxt(csvfile, dtype='int', delimiter=',', skiprows=2)
+
+    return header, data
 
 #------ test routines
 

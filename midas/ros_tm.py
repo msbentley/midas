@@ -1558,7 +1558,7 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
     if show_fscans: # for now just use pix, then identifying the line of the fscan is straightforward
         units = 'pix'
 
-    ls = LightSource(azdeg=0,altdeg=65)
+    ls = LightSource(azdeg=0, altdeg=65)
     cmap = cm.afmhot
 
     for idx, image in images.iterrows():
@@ -1623,7 +1623,7 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
         axis.grid(True)
 
         if shade:
-            data = ls.shade(data,cmap)
+            data = ls.shade(data, cmap)
 
         if (not shade) and (cbar):
             cbar = figure.colorbar(plot1, ax=ax) # Now plot using a colourbar
@@ -5455,13 +5455,14 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
     exclude_bad=True - bad images described in bad_scans.txt will be removed
     manual=True - manual images will be appended, and de-duplication performed (on scan_file) """
 
+    import cPickle as pkl
+
     if data:
 
         if filename is None:
             filename = os.path.join(common.tlm_path, 'all_images_data.msg')
-        f = open(filename, 'rb')
-        import cPickle as pkl
-
+        # f = open(filename, 'rb')
+        #
         # objs = []
         # while 1:
         #     try:
@@ -5517,22 +5518,25 @@ def load_lines(filename=None, ignore_image=True):
     if filename is not None:
         fname = filename
     else:
-        fname = 'lines.pkl'
+        fname = 'lines.msg'
         fname = os.path.join(common.tlm_path, fname)
-    f = open(fname, 'rb')
 
-    objs = []
-    while 1:
-        try:
-            objs.append(pkl.load(f))
-        except EOFError:
-            break
+    # f = open(fname, 'rb')
+    #
+    # objs = []
+    # while 1:
+    #     try:
+    #         objs.append(pkl.load(f))
+    #     except EOFError:
+    #         break
+    #
+    # if len(objs)==0:
+    #     log.error('file %s appears to be empty' % fname)
+    #     return None
+    #
+    # lines = pd.concat(iter(objs), axis=0)
 
-    if len(objs)==0:
-        log.error('file %s appears to be empty' % fname)
-        return None
-
-    lines = pd.concat(iter(objs), axis=0)
+    lines = pd.read_msgpack(fname)
 
     if ignore_image:
         lines = lines[ ((~lines.in_image) & (lines.sw_ver<661)) |

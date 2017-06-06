@@ -5506,7 +5506,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
     return images
 
 
-def load_lines(filename=None, ignore_image=True):
+def load_lines(filename=None, ignore_image=True, sourcepath=common.tlm_path):
     """Loads a line scan dataframe from disk. The options ignore_image and
     exppand_params are used as per get_line_scans() and simply define which
     of four data files are loaded. If filename is given, then this file is
@@ -5544,6 +5544,9 @@ def load_lines(filename=None, ignore_image=True):
 
     lines.sort_values(by='obt', inplace=True)
     lines.reset_index(inplace=True, drop=True)
+
+    if sourcepath is not None:
+        lines.filename = lines.filename.apply( lambda f: os.path.join(sourcepath, os.path.basename(f)) )
 
     log.info('%d lines restored' % len(lines))
 

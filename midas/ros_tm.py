@@ -4062,7 +4062,7 @@ class tm:
                 log.debug('%i image data packets expected, %i packets found' % (image.num_pkts, len(data)) )
 
                 if len(data) < image.num_pkts:
-                    log.warning('image at %s: missing image packets' % (self.correlate_time(image.start_time)))
+                    log.warning('image at %s: missing %d/%d image packets' % (self.correlate_time(image.start_time), image.num_pkts-len(data), image.num_pkts))
                     # continue
                 elif len(data) > image.num_pkts:
                     log.error('image at %s: too many image packets (%i instead of %i) - image may be corrupt!' % (self.correlate_time(image.start_time),len(data),image.num_pkts))

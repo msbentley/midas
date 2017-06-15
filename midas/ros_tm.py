@@ -4781,15 +4781,20 @@ class tm:
         """Apply time correlation to obt, given as a datetime."""
         # Use the appropriate line in the time correlation packet to correct
         # UTC = gradient * OBT + offset
-        obt = obt_epoch + timedelta(seconds=obt_s)
-        if obt<self.tcorr.index[0]:
-            tcp = self.tcorr.iloc[0]
-        else:
-            tcp = self.tcorr[self.tcorr.index<obt].iloc[-1]
-        utc_s = tcp.gradient * obt_s + tcp.offset
-        obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
 
-        return obt_corr
+        obt = obt_epoch + timedelta(seconds=obt_s)
+
+        if self.model=='FS': # don't apply time correlation
+            return obt
+        else:
+            if obt<self.tcorr.index[0]:
+                tcp = self.tcorr.iloc[0]
+            else:
+                tcp = self.tcorr[self.tcorr.index<obt].iloc[-1]
+            utc_s = tcp.gradient * obt_s + tcp.offset
+            obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
+
+            return obt_corr
 
 
     def meta_from_hk(self, start_obt, end_obt, get_times=True, time_win=120):

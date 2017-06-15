@@ -697,18 +697,19 @@ def calibrate_amplitude(ctrl, return_data=False):
         return (z_nm,cal_amp)
 
 
-def image_from_lines(lines, slow_dir='L_H', get_hk=False):
+def image_from_lines(lines, anti_creep=False, slow_dir='L_H', get_hk=False):
 
-    if len(lines[lines.sw_ver<661])>0:
+    if len(lines[lines.sw_ver < 661]) > 0:
         log.warning('OBSW < 661 does not flag if lines come from images')
     else:
-        lines = lines.query('in_image')
-        if len(lines)==0:
-            log.error('no image-forming line scans')
-            return None
+        if not anti_creep:
+            lines = lines.query('in_image')
+            if len(lines)==0:
+                log.error('no image-forming line scans')
+                return None
 
     if lines.line_cnt.max()!=len(lines):
-        log.warning('%d lines available, but maximum line count is %d' % (len(lines),lines.line_cnt.max()))
+        log.warning('%d lines available, but maximum line count is %d' % (len(lines), lines.line_cnt.max()))
 
     # Do a few sanity checks on the provided lines
     cols = lines.columns.tolist()
@@ -766,6 +767,11 @@ def image_from_lines(lines, slow_dir='L_H', get_hk=False):
 
     if get_hk:
         meta['data'] = image
+
+        if anti_creep:
+            meta.xsteps = image.shape[1]
+            meta.ysteps = image.shape[1]
+
         return meta
     else:
         return image

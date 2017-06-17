@@ -2384,6 +2384,11 @@ class tm:
 
         # Merge with the packet list, adding spid and description, then sort by OBT
         tlm = pd.merge(tlm,pid,how='left').sort_values(by='obt')
+
+        # Remove invalid packets (NaN in the above) which are not recognised
+        bad = tlm[tlm.spid.isnull()].index
+        tlm.drop(bad, inplace=True)
+
         tlm.spid = tlm.spid.astype(np.int64)
 
         # Deal with the fact that MIDAS uses private SIDs that are not in the RMIB

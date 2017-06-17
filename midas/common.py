@@ -16,6 +16,8 @@ import numpy as np
 import pandas as pd
 from midas.dust import fulle_data
 import os, math
+import re
+
 
 import logging
 log = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ tlm_path = os.path.expanduser('~/btsync/midas/tlm') if os.getenv("TLM_PATH") is 
 gwy_path = os.path.expanduser('~/btsync/midas/images/gwy') if os.getenv("GWY_PATH") is None else os.getenv("GWY_PATH")
 kernel_path = os.path.expanduser('~/btsync/midas/spice') if os.getenv("SPICE_PATH") is None else os.getenv("SPICE_PATH")
 s2k_path = os.path.join(ros_sgs_path,'PLANNING/RMOC/FCT/RMIB/ORIGINAL') if os.getenv("S2K_PATH") is None else os.getenv("S2K_PATH")
-
+arc_path = os.path.expanduser('~/btsync/midas/archive') if os.getenv("ARC_PATH") is None else os.getenv("ARC_PATH")
 
 # Instrument acronyms
 instruments = {
@@ -465,3 +467,56 @@ def locate(pattern, root_path):
     for path, dirs, files in os.walk(os.path.abspath(root_path)):
         for filename in fnmatch.filter(files, pattern):
             yield os.path.join(path, filename)
+
+
+def scan2arc(scanfile, arc_path=arc_path):
+    """Accepts a scan file string and attempts to locate the corresponding
+    image in the archive. This is done simply by comparing the date to
+    a list of dataset start/end times and then grepping the image labels
+    to find one in the archive"""
+
+    import ros_tm
+    import pvl
+    import glob
+
+    image = ros_tm.load_images(data=False).query('scan_file==@scanfile')
+    if len(image)==0:
+        log.error('scan file %s not found in the image database' % scanfile)
+        return None
+    else:
+        image = image.iloc[0]
+
+    img_start = image.start_time
+
+    # Build a live list of archive datasets and their start/stop times
+
+    # look at CATALOG/DATASET.CAT for start/stop times
+    catalogues = locate('DATASET.CAT', arc_path)
+    catalogues = [file for file in catalogues]
+
+    dset_matches = []
+
+    for cat in catalogues:
+        label = pvl.load(cat)
+        start = label['DATA_SET']['DATA_SET_INFORMATION']['START_TIME']
+        stop = label['DATA_SET']['DATA_SET_INFORMATION']['STOP_TIME']
+        dset_id = label['DATA_SET']['DATA_SET_ID']
+
+        if start < img_start < stop:
+            dset_matches.append(dset_id)
+
+    if len(dset_matches) > 1:
+        log.warning('more than one datasets match contain the image time')
+    else:
+        dataset = dset_matches[0]
+
+    image_files = glob.glob(os.path.join(arc_path, dataset, 'DATA/IMG/*ZS.LBL'))
+
+    for f in image_files:
+        label = pvl.load(f)
+        if label['START_TIME'] == img_start:
+            break
+
+    arcfile = os.path.basename(f).split('.')[0]
+
+    return dataset, arcfile

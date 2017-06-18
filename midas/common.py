@@ -486,7 +486,8 @@ def scan2arc(scanfile, arc_path=arc_path):
     else:
         image = image.iloc[0]
 
-    img_start = image.start_time
+    img_start = image.start_time.round('s')
+    log.debug('scan file start time: %s' % img_start)
 
     # Build a live list of archive datasets and their start/stop times
 
@@ -514,9 +515,53 @@ def scan2arc(scanfile, arc_path=arc_path):
 
     for f in image_files:
         label = pvl.load(f)
-        if label['START_TIME'] == img_start:
+        found = False
+        arc_time = pd.Timestamp(label['START_TIME']).round('s')
+        if arc_time == img_start:
+            found = True
             break
+
+    if not found:
+        log.error('no matching archive product found')
+        return None, None
 
     arcfile = os.path.basename(f).split('.')[0]
 
     return dataset, arcfile
+
+
+def arc2scan(arcfile, arc_path=arc_path):
+    """Accepts am archive file product and attempts to locate the corresponding
+    image in the MIDAS database. This is done simply by comparing the date to
+    a list of dataset start/end times and then grepping the image labels
+    to find one in the archive"""
+
+    import ros_tm
+    import pvl
+    import glob
+
+    arcfile += '.LBL'
+    arcfiles = locate(arcfile, arc_path)
+    arcfiles = [file for file in arcfiles]
+
+    if len(arcfiles) > 1:
+        log.warning('more than one archive product matching %s' % arcfile)
+
+    arcfile = arcfiles[0]
+    label = pvl.load(arcfile)
+    start = pd.Timestamp(label['START_TIME']).round('s')
+    log.debug('start time in archive product: %s' % start)
+
+    images = ros_tm.load_images(data=False)
+    images['start_time_s'] = images.start_time.apply(lambda x: x.round('s'))
+
+    image = images.query('start_time_s==@start')
+    if len(image)==0:
+        log.error('no matching image found with start time %s' % start)
+        return None
+    else:
+        image = image.squeeze()
+
+    scanfile = image.scan_file
+
+    return scanfile

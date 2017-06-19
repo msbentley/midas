@@ -1500,7 +1500,7 @@ def image_to_csv(scanfile, outfile=None):
         image = image.squeeze()
 
     # write the header line, containing:
-    # xpix, ypix, xstep, ystep, zcal
+    # xpix (int), ypix (int), xstep_nm (float), ystep_nm (float), zcal (float)
     # xpix * ypix array of integers
 
     if outfile is None:

@@ -770,7 +770,7 @@ def image_from_lines(lines, anti_creep=False, slow_dir='L_H', get_hk=False):
 
         if anti_creep:
             meta.xsteps = image.shape[1]
-            meta.ysteps = image.shape[1]
+            meta.ysteps = image.shape[0]
 
         return meta
     else:

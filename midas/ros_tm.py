@@ -5467,7 +5467,8 @@ def strfdelta(tdelta, fmt):
     return fmt.format(**d)
 
 
-def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only=True, exclude_bad=True, manual=True):
+def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only=True,
+        exclude_bad=True, manual=True, add_arc=False):
     """Load a messagepack file containing all image meta-data.
 
     data=True/False - is only meta-data returned, or are binary images included?
@@ -5514,6 +5515,13 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
 
     if topo_only:
         images = images[ images.channel=='ZS' ]
+
+    if add_arc:
+        import pds3_utils
+        products = pds3_utils.get_products(round_s=True)
+        images['start_time_s'] = images.start_time.apply(lambda x: x.round('100ms'))
+        images = pd.merge(left=images, right=products, left_on='start_time_s', right_on='start', how='left')
+        images.drop('start_time_s', axis=1, inplace=True)
 
     images.sort_values(by='start_time', inplace=True)
     images.reset_index(inplace=True, drop=True)

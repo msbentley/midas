@@ -40,6 +40,35 @@ def get_datasets(arc_path=common.arc_path):
     return dsets
 
 
+def get_products(arc_path=common.arc_path, round_s=False):
+    """Scans PDS3 datsets in the directory given by arc_path=
+    and returns the dataset, product IDs and paths to each product"""
+
+    log.debug('indexing PDS products in root %s' % arc_path)
+
+    cols = ['dataset', 'prod_id', 'start']
+    products = pd.DataFrame([], columns=cols)
+
+    dsets = get_datasets(arc_path)
+    for dset in dsets:
+        log.debug('processing dataset %s' % dset)
+        dset_root = os.path.join(arc_path, dset)
+        zs_labels = glob.glob(os.path.join(dset_root, 'DATA/IMG/*ZS.LBL'))
+        for lab in zs_labels:
+            label = pvl.load(lab)
+            prod_id = label['PRODUCT_ID'].encode()
+            start = pd.Timestamp(label['START_TIME'])
+            products = products.append( pd.DataFrame([[dset, prod_id, start]], columns=cols), ignore_index=True )
+
+    if round_s:
+        products.start = products.start.apply( lambda t: t.round('100ms'))
+
+    log.info('located %d products in %d datasets' % (len(products), len(dsets)))
+
+    return products
+
+
+
 def scan2arc(scanfile, arc_path=common.arc_path):
     """Accepts a scan file string and attempts to locate the corresponding
     image in the archive. This is done simply by comparing the date to
@@ -58,7 +87,7 @@ def scan2arc(scanfile, arc_path=common.arc_path):
     else:
         image = image.iloc[0]
 
-    img_start = image.start_time.round('s')
+    img_start = image.start_time.round('100ms')
     log.debug('scan file start time: %s' % img_start)
 
     dsets = get_datasets(arc_path)
@@ -67,7 +96,10 @@ def scan2arc(scanfile, arc_path=common.arc_path):
         if start < img_start < stop:
             dset_matches.append(dset)
 
-    if len(dset_matches) > 1:
+    if len(dset_matches)==0:
+        log.warning('no archive products found with start time %s' % img_start)
+        return None
+    elif len(dset_matches) > 1:
         log.warning('more than one datasets match contain the image time')
     else:
         dataset = dset_matches[0]
@@ -77,7 +109,7 @@ def scan2arc(scanfile, arc_path=common.arc_path):
     for f in image_files:
         label = pvl.load(f)
         found = False
-        arc_time = pd.Timestamp(label['START_TIME']).round('s')
+        arc_time = pd.Timestamp(label['START_TIME']).round('100ms')
         if arc_time == img_start:
             found = True
             break
@@ -87,6 +119,8 @@ def scan2arc(scanfile, arc_path=common.arc_path):
         return None, None
 
     arcfile = os.path.basename(f).split('.')[0]
+
+    log.debug('scan file %s is located in the %s dataset as product %s' % (scanfile, dataset, arcfile))
 
     return dataset, arcfile
 
@@ -110,11 +144,11 @@ def arc2scan(arcfile, arc_path=common.arc_path):
 
     arcfile = arcfiles[0]
     label = pvl.load(arcfile)
-    start = pd.Timestamp(label['START_TIME']).round('s')
+    start = pd.Timestamp(label['START_TIME']).round('100ms')
     log.debug('start time in archive product: %s' % start)
 
     images = ros_tm.load_images(data=False)
-    images['start_time_s'] = images.start_time.apply(lambda x: x.round('s'))
+    images['start_time_s'] = images.start_time.apply(lambda x: x.round('100ms'))
 
     image = images.query('start_time_s==@start')
     if len(image)==0:

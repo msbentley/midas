@@ -4309,15 +4309,19 @@ class tm:
 
         # Remove dummy scans
         if len(images)>0:
+            num_dum = 0
             dummy = images.query('x_orig==0 & y_orig==0 & exc_lvl==0 & ac_gain==0')
+            num_dum += len(dummy)
             images.drop(dummy.index, inplace=True)
             dummy = images.query('exc_lvl==0 & ac_gain==0 & lin_pos>-0.0005 & lin_pos<0.0005 & tip_num==[1,16]')
+            num_dum += len(dummy)
             images.drop(dummy.index, inplace=True)
+            log.info('removing %d dummy images' % num_dum)
             images = images[ ~images.dummy ]
 
-        if len(images)==0:
-            log.warning('only dummy images found!')
-            return None
+            if len(images)==0:
+                log.warning('only dummy images found!')
+                return None
 
         # Add the origin of the scan, in microns, from the wheel centre
         images = locate_scans(images)

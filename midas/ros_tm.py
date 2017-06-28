@@ -1716,6 +1716,10 @@ def locate_scans(images):
         # Y position in this stripe is simple related to the offset from the Y origin
         centre_seg = common.facet_to_seg(scan.target)
 
+        if scan.wheel_pos > 1023:
+            log.error('wheel segment %d is out of range - setting to centre of target %d' % (scan.wheel_pos, scan.target))
+            scan.wheel_pos = centre_seg
+
         if (scan.target==0) and (scan.wheel_pos>1016):
             seg_offset = -1*(1024-scan.wheel_pos)
         else:

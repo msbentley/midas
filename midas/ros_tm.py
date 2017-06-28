@@ -1717,7 +1717,7 @@ def locate_scans(images):
         centre_seg = common.facet_to_seg(scan.target)
 
         if (scan.target==0) and (scan.wheel_pos>1016):
-            seg_offset = -1*(seg_offset+1024)
+            seg_offset = -1*(1024-scan.wheel_pos)
         else:
             seg_offset = scan.wheel_pos - centre_seg
 

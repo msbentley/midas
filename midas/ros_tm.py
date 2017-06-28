@@ -5527,6 +5527,8 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
         images = pd.merge(left=images, right=products, left_on='start_time_s', right_on='start', how='left')
         images.drop('start_time_s', axis=1, inplace=True)
 
+    images['stp'] = images.scan_file.apply( lambda name: stp_from_name(name) )
+
     images.sort_values(by='start_time', inplace=True)
     images.reset_index(inplace=True, drop=True)
 

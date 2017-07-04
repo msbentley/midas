@@ -1534,6 +1534,9 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
         images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
     elif (type(images) == str) or (type(images) == list):
         images = load_images(data=True).query('scan_file==@images')
+        if len(images) == 0:
+            log.error('no matching images found for the provided list of scan names')
+            return None
     elif type(images) != pd.DataFrame:
         log.error('input data type must be a scan name, list of names or images dataframe')
         return None

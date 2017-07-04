@@ -5525,10 +5525,16 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
 
     if add_arc:
         import pds3_utils
-        products = pds3_utils.get_products(round_s=True)
-        images['start_time_s'] = images.start_time.apply(lambda x: x.round('100ms'))
-        images = pd.merge(left=images, right=products, left_on='start_time_s', right_on='start', how='left')
-        images.drop('start_time_s', axis=1, inplace=True)
+        products = pds3_utils.get_products()
+        delta = pd.Timedelta(seconds=0.5)
+        images['prod_id'] = None
+
+        for idx, image in images.iterrows():
+            matches = products[ ((products.start-delta)<image.start_time) & ((products.start+delta)>image.start_time) ]
+            if len(matches)==1:
+                images.prod_id.loc[idx] = matches.prod_id.squeeze()
+            elif len(matches)>1:
+                log.warn('multiple archive products match image %s' % image.scan_file)
 
     images['stp'] = images.scan_file.apply( lambda name: stp_from_name(name) )
 

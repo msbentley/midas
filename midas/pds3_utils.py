@@ -40,7 +40,7 @@ def get_datasets(arc_path=common.arc_path):
     return dsets
 
 
-def get_products(arc_path=common.arc_path, round_s=False):
+def get_products(arc_path=common.arc_path):
     """Scans PDS3 datsets in the directory given by arc_path=
     and returns the dataset, product IDs and paths to each product"""
 
@@ -59,9 +59,6 @@ def get_products(arc_path=common.arc_path, round_s=False):
             prod_id = label['PRODUCT_ID'].encode()
             start = pd.Timestamp(label['START_TIME'])
             products = products.append( pd.DataFrame([[dset, prod_id, start]], columns=cols), ignore_index=True )
-
-    if round_s:
-        products.start = products.start.apply( lambda t: t.round('100ms'))
 
     log.info('located %d products in %d datasets' % (len(products), len(dsets)))
 
@@ -87,13 +84,13 @@ def scan2arc(scanfile, arc_path=common.arc_path):
     else:
         image = image.iloc[0]
 
-    img_start = image.start_time.round('100ms')
-    log.debug('scan file start time: %s' % img_start)
+    # img_start = image.start_time.round('100ms')
+    log.debug('scan file start time: %s' % image.start_time)
 
     dsets = get_datasets(arc_path)
     for dset in dsets:
         start, stop = dsets[dset]
-        if start < img_start < stop:
+        if start < image.start_time < stop:
             dset_matches.append(dset)
 
     if len(dset_matches)==0:
@@ -109,8 +106,8 @@ def scan2arc(scanfile, arc_path=common.arc_path):
     for f in image_files:
         label = pvl.load(f)
         found = False
-        arc_time = pd.Timestamp(label['START_TIME']).round('100ms')
-        if arc_time == img_start:
+        arc_time = pd.Timestamp(label['START_TIME'])
+        if (arc_time - pd.Timedelta(seconds=0.5)) < image.start_time < (arc_time + pd.Timedelta(seconds=0.5)):
             found = True
             break
 
@@ -148,9 +145,9 @@ def arc2scan(arcfile, arc_path=common.arc_path):
     log.debug('start time in archive product: %s' % start)
 
     images = ros_tm.load_images(data=False)
-    images['start_time_s'] = images.start_time.apply(lambda x: x.round('100ms'))
-
-    image = images.query('start_time_s==@start')
+    # images['start_time_s'] = images.start_time.apply(lambda x: x.round('100ms'))
+    delta = pd.Timedelta(seconds=0.5)
+    image = images[ ((images.start_time-delta) < start) & ((images.start_time+delta) > start )]
     if len(image)==0:
         log.error('no matching image found with start time %s' % start)
         return None

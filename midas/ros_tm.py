@@ -5512,7 +5512,7 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
         images = pd.read_pickle(filename)
 
     if exclude_bad:
-        badlist = pd.read_table(os.path.join(common.config_path,'bad_scans.txt'), header=None)[0].tolist()
+        badlist = load_badscans()
         images = images.query('scan_file!=@badlist')
 
     if manual:
@@ -5542,6 +5542,11 @@ def load_images(filename=None, data=False, sourcepath=common.tlm_path, topo_only
 
     return images
 
+def load_badscans(badfile=os.path.join(common.config_path,'bad_scans.txt')):
+
+    badlist = pd.read_table(badfile, header=None)[0].tolist()
+
+    return badlist
 
 def load_lines(filename=None, ignore_image=True, sourcepath=common.tlm_path):
     """Loads a line scan dataframe from disk. The options ignore_image and

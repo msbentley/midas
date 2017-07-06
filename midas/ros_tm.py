@@ -2355,7 +2355,10 @@ class tm:
                     continue
                 if pkt_pic[0][2] ==-1:
                     if pkt['apid'] in midas_apids:
-                        pkt['midsid'], = struct.unpack_from('>H',tm,offset+pkt_header_size)
+                        try:
+                            pkt['midsid'], = struct.unpack_from('>H',tm,offset+pkt_header_size)
+                        except:
+                            log.error('error unpacking SID for packet at offset %d' % offset)
                         pkt['sid'] = 0
                     else:
                         pkt['sid'] = 0

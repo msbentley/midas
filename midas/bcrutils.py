@@ -342,7 +342,8 @@ def plot2d(bcrdata, description='', writefile=False, realunits=True):
 
     ax1.grid(True)
     cbar = fig1.colorbar(plot1) # Now plot using a colourbar
-    cbar.set_label(bcrdata['zunit'], rotation=90)
+    if 'zunit' in bcrdata.keys():
+        cbar.set_label(bcrdata['zunit'], rotation=90)
 
     if description == '':
         desc = "_".join(os.path.basename(bcrdata['filename']).split('_')[:-1])

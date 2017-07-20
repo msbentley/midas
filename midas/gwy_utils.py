@@ -319,7 +319,7 @@ def get_meta(gwyfile, channel=None):
 
     selected = None
 
-    if channels is None:
+    if len(channels)==0:
         log.error('no channels matching %s in file %s' % (channel, gwyfile))
         return None
     elif len(channels)>1 and channel is not None:

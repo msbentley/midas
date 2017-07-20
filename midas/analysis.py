@@ -1130,7 +1130,7 @@ def get_pcles(gwyfile, chan='particle'):
     for idx, channel in channels.iterrows():
 
         # for each channel extract the mask and the actual data
-        mask = gwy_utils.extract_masks(gwyfile, channel['name'])
+        mask = gwy_utils.extract_masks(gwyfile, channel=channel['name'], match_start=True)
         xlen, ylen, data = gwy_utils.get_data(gwyfile, channel['name'])
 
         labmask = measure.label(mask)
@@ -1178,7 +1178,7 @@ def dbase_build(dbase='particles.msg', gwy_path='.', gwy_pattern='*.gwy', chan='
     """Accepts a path and file pattern matching a set of Gwyddion files
     containing particles marked with masks. This can either be one particle
     per channel, or a single masked channel showing all particles (when well
-    separated).particles
+    separated particles).
 
     Required supplementary material can be added through the dbase_suppl()
     routine"""

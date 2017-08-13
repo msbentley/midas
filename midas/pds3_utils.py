@@ -65,6 +65,32 @@ def get_products(arc_path=common.arc_path):
     return products
 
 
+def get_tgt_history(arc_path=common.arc_path):
+    """Scans PDS3 datasets for the (cumulative) scan history. Using the latest dataset
+    available the files (one per target) are read into a Pandas DataFrame"""
+
+    dsets = get_datasets()
+    last_dset = max(dsets.iterkeys(), key=(lambda key: dsets[key][0]))
+    log.debug('Latest dataset ID: %s' % last_dset)
+    dset_root = os.path.join(arc_path, last_dset)
+    tgh_files = glob.glob(os.path.join(dset_root, 'DATA/TGH*.TAB'))
+
+    columns = ['start_sc', 'start_utc', 'stop_sc', 'stop_utc', 'event', 'tip']
+    history_list = []
+
+    for f in tgh_files:
+        target = int(os.path.splitext(f)[0].split('_')[-1]) - 1
+        history = pd.read_csv(f, skipinitialspace=True, names=columns)
+        history['target'] = target
+        history_list.append(history)
+
+    history = pd.concat(history_list)
+    history.start_utc = pd.to_datetime(history.start_utc)
+    history.stop_utc = pd.to_datetime(history.stop_utc)
+    history.sort_values(by='start_utc', inplace=True)
+
+    return history
+
 
 def scan2arc(scanfile, arc_path=common.arc_path):
     """Accepts a scan file string and attempts to locate the corresponding

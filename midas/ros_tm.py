@@ -4970,6 +4970,23 @@ def load_exposures(exp_file=os.path.join(common.tlm_path, 'exposures.msg')):
     return pd.read_msgpack(exp_file)
 
 
+def label_exposures(exposures):
+    """Accepts an exposures DataFrame and adds a new column 'label' which
+    produces an count of exposures per target. This label uniquely identifies
+    each exposure and can be used to link particle collection to one or
+    more exposure times"""
+
+    exposures['label'] = None
+    targets = sorted(exposures.target.unique().tolist())
+    for target in targets:
+        target_exp = exposures[exposures.target == target]
+        exposures['label'].loc[target_exp.index] = range(1, len(target_exp)+1)
+    exposures.label = exposures.apply( lambda row: '%d_%d' % (row.target, row.label), axis=1)
+
+    return exposures
+
+
+
 def build_pkt_index(files='TLM__MD_M*.DAT', tlm_dir=common.tlm_path, tm_index_file=os.path.join(common.tlm_path,'tlm_packet_index.hd5')):
     """Builds an HDF5 (pandas/PyTables) table of the packet index (tm.pkts). This can be used for
     on-disk queries to retrieve a selection of packets as input to ros_tm.tm()."""

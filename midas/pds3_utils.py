@@ -69,7 +69,7 @@ def get_tgt_history(arc_path=common.arc_path):
     """Scans PDS3 datasets for the (cumulative) scan history. Using the latest dataset
     available the files (one per target) are read into a Pandas DataFrame"""
 
-    dsets = get_datasets()
+    dsets = get_datasets(arc_path)
     last_dset = max(dsets.iterkeys(), key=(lambda key: dsets[key][0]))
     log.debug('Latest dataset ID: %s' % last_dset)
     dset_root = os.path.join(arc_path, last_dset)
@@ -96,7 +96,7 @@ def get_tip_history(arc_path=common.arc_path):
     """Scans PDS3 datasets for the (cumulative) cantilever history. Using the latest dataset
     available the files (one per target) are read into a Pandas DataFrame"""
 
-    dsets = get_datasets()
+    dsets = get_datasets(arc_path)
     last_dset = max(dsets.iterkeys(), key=(lambda key: dsets[key][0]))
     log.debug('Latest dataset ID: %s' % last_dset)
     dset_root = os.path.join(arc_path, last_dset)
@@ -118,6 +118,30 @@ def get_tip_history(arc_path=common.arc_path):
     history.sort_values(by='start_utc', inplace=True)
 
     return history
+
+
+def get_events(arc_path=common.arc_path):
+    """Extracts event information from all datasets found in the root
+    folder given by arc_path and returns as a pandas DataFrame"""
+
+    dsets = get_datasets(arc_path)
+
+    columns = ['start_sc', 'start_utc', 'event_cnt', 'event_id', 'event']
+    event_list = []
+
+    for dset in dsets:
+        log.debug('processing dataset %s' % dset)
+        dset_root = os.path.join(arc_path, dset)
+        event_files = glob.glob(os.path.join(dset_root, 'DATA/EVN/EVN_*.TAB'))
+        event_list.append(pd.concat((pd.read_csv(f, skipinitialspace=True, names=columns) for f in event_files)))
+
+    events = pd.concat(event_list)
+    events.start_utc = pd.to_datetime(events.start_utc)
+    events.event.apply( lambda event: event.strip() )
+    events.sort_values(by='start_utc', inplace=True)
+    log.info('%d events read from %d datsets' % (len(events), len(dsets)))
+
+    return events
 
 
 def scan2arc(scanfile, arc_path=common.arc_path):

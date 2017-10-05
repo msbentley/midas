@@ -902,6 +902,53 @@ def to_bcr(images, outputdir='.'):
     return bcrs if len(bcrs) > 1 else bcrs[0]
 
 
+def save_fits(images, outputdir='.'):
+    """Accepts one or more set of image data from get_images() and generates
+    FITS files from each topography channel, with a limited set of meta-data"""
+
+    from astropy.io import fits
+    if images is None: return None
+
+    # tidy up the input data
+    if type(images) == pd.Series: images = pd.DataFrame(columns=images.to_dict().keys()).append(images)
+    if type(images)==bool:
+        if not images: return
+
+    # image dataframe has to contain data!
+    if 'data' not in images.columns:
+        log.error('image data not found - be sure to run tm.get_images with info_only=False')
+        return None
+
+    # filter only topography channels
+    images = images[images.channel=='ZS']
+    if len(images) == 0:
+        return None
+
+    for idx, image in images.iterrows():
+        fitsfile = image.scan_file + '.fits'
+        fitsfile = os.path.join(outputdir, fitsfile)
+
+        hdu = fits.PrimaryHDU(image['data'])
+
+        # add necessary meta-data
+        hdu.header['CNAME1'] = 'X'
+        hdu.header['CNAME2'] = 'Y'
+        hdu.header['CUNIT1'] = 'um'
+        hdu.header['CUNIT2'] = 'um'
+        hdu.header['CRPIX1'] = image.x_orig
+        hdu.header['CRPIX2'] = image.y_orig
+        hdu.header['CDELT1'] = image.x_step_nm * 1.e3
+        hdu.header['CDELT2'] = image.y_step_nm * 1.e3
+        hdu.header['CRVAL1'] = image.x_orig_um
+        hdu.header['CRVAL2'] = image.y_orig_um
+        hdu.header['WCSNAME'] = 'PHYSICAL'
+
+        hdulist = fits.HDUList([hdu])
+        hdulist.writeto(fitsfile)
+        log.debug('writing FITS file %s' % fitsfile)
+
+    return
+
 def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
     """Accepts one or more sets of image data from get_images() and returns individual
     GWY files, with multiple channels combined in single files and all meta-data.

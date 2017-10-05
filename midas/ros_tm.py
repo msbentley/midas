@@ -942,9 +942,16 @@ def save_fits(images, outputdir='.'):
         hdu.header['CRVAL1'] = image.x_orig_um
         hdu.header['CRVAL2'] = image.y_orig_um
         hdu.header['WCSNAME'] = 'PHYSICAL'
+        hdu.header['scan_file'] = image.scan_file
+        hdu.header['z_cal'] = common.zcal
+        hdu.header['duration'] = str(image.duration)
+        hdu.header['start_t'] = str(image.start_time)
+        hdu.header['end_t'] = str(image.end_time)
+        hdu.header['target'] = image.target
+        hdu.header['tip_num'] = image.tip_num
 
         hdulist = fits.HDUList([hdu])
-        hdulist.writeto(fitsfile)
+        hdulist.writeto(fitsfile, overwrite=True)
         log.debug('writing FITS file %s' % fitsfile)
 
     return

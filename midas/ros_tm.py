@@ -3913,7 +3913,7 @@ class tm:
                 point_data['dc'] = point_data['dc'] * (20./65535.)
                 point_data['phase'] = point_data['phase'] * (360./65535.)
                 point_data['zpos'] = point_data['zpos'] # - point_data['zpos'].min()
-                point_data['zpos'] = point_data['zpos'] * common.zcal * 2.0
+                point_data['zpos'] = (point_data['zpos']+16384) * common.zcal * 2.0
 
             # Get exc_lvl, ac_gain, op_amp and set_pt from HK TM
             if expand_params:

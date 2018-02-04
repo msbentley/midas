@@ -78,8 +78,8 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
 
         h_overlaps = (matches.x_orig_um <= image.x_orig_um +
                       image.xlen_um) & (matches.x_orig_um + matches.xlen_um >= image.x_orig_um)
-        v_overlaps = (matches.y_orig_um <= image.y_orig_um +
-                      image.ylen_um) & (matches.y_orig_um + matches.ylen_um >= image.y_orig_um)
+        v_overlaps = (matches.y_orig_um >= image.y_orig_um -
+                      image.ylen_um) & (matches.y_orig_um - matches.ylen_um <= image.y_orig_um)
 
         matched = matches[h_overlaps & v_overlaps]
 
@@ -99,7 +99,7 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
         v_overlap = []
 
         images['x_ext_um'] = images.x_orig_um + images.xlen_um
-        images['y_ext_um'] = images.y_orig_um + images.ylen_um
+        images['y_ext_um'] = images.y_orig_um - images.ylen_um
 
         left_images = images.loc[over.left].reset_index()
         right_images = images.loc[over.right].reset_index()
@@ -108,8 +108,8 @@ def find_overlap(image=None, calc_overlap=False, same_tip=True, query=None):
 
             h_overlap.append(abs(min(right_images.x_ext_um.iloc[idx], left_images.x_ext_um.iloc[
                              idx]) - max(right_images.x_orig_um.iloc[idx], left_images.x_orig_um.iloc[idx])))
-            v_overlap.append(abs(min(right_images.y_ext_um.iloc[idx], left_images.y_ext_um.iloc[
-                             idx]) - max(right_images.y_orig_um.iloc[idx], left_images.y_orig_um.iloc[idx])))
+            v_overlap.append(abs(max(right_images.y_ext_um.iloc[idx], left_images.y_ext_um.iloc[
+                             idx]) - min(right_images.y_orig_um.iloc[idx], left_images.y_orig_um.iloc[idx])))
 
         over['area'] = np.array(h_overlap) * np.array(v_overlap)
         over['perc_left'] = over.area / \
@@ -1528,6 +1528,24 @@ def read_csv(csvfile):
     data = np.loadtxt(csvfile, dtype='int', delimiter=',', skiprows=2)
 
     return header, data
+
+def read_events(url='https://www.cosmos.esa.int/web/rosetta/science'):
+    """Read the Rosetta science events webpage and convert to a pandas df"""
+
+    data = pd.read_html('https://www.cosmos.esa.int/web/rosetta/science', index_col=['Date-Time'], thousands='')[0]
+
+    # tidy up the data!
+    data.index = pd.to_datetime(data.index)
+    data['Lat.'] = data['Lat.'].apply( lambda x: x.replace('−', '-') if type(x)==str else x )
+    data['Lat.'] = data['Lat.'].apply( lambda x: x.replace(',', '.') if type(x)==str else x )
+    data['Lat.'] = pd.to_numeric(data['Lat.'])
+    data['Long.'] = data['Long.'].apply( lambda x: x.replace('−', '-') if type(x)==str else x )
+    data['Long.'] = data['Long.'].apply( lambda x: x.replace(',', '.') if type(x)==str else x )
+    data['Long.'] = pd.to_numeric(data['Long.'])
+    data.drop('Unnamed: 8', axis=1, inplace=True)
+
+    return data
+
 
 #------ test routines
 

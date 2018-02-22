@@ -1,3 +1,4 @@
+
 #!/usr/bin/python
 """
 spice_utils.py - a collection of routines to facilitate using SPICE under
@@ -254,7 +255,8 @@ def get_geometry(start='2014-03-01', end='2016-09-30', timestep=3660., kernels=N
     ets, times = get_timesteps(start, end, timestep=timestep)
 
     cometdist = comet_sun_au(ets)
-    distance, speed = trajectory(ets, speed=True)
+    distance, vx, vy, vz = trajectory(ets, velocity=True)
+    speed = np.sqrt(vx*vx + vy*vy + vz*vz) # km/s
 
     if not no_ck:
 
@@ -263,8 +265,8 @@ def get_geometry(start='2014-03-01', end='2016-09-30', timestep=3660., kernels=N
         offpointing = off_nadir(ets)
         lat, lon = latlon(ets) # runs quickly
 
-        geom = pd.DataFrame(np.column_stack( [cometdist, distance, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
-            columns=['cometdist','sc_dist','speed','latitude','longitude','offnadir','phase','sun_angle'])
+        geom = pd.DataFrame(np.column_stack( [cometdist, distance, vx, vy, vz, speed, lat, lon, offpointing, phase, sun_angle]), index=times,
+            columns=['cometdist','sc_dist', 'vel_x', 'vel_y', 'vel_z', 'speed','latitude','longitude','offnadir','phase','sun_angle'])
 
     else:
 
@@ -408,9 +410,10 @@ def nadir_sun(times):
     return nadir_sun
 
 
-def trajectory(times, speed=False):
+def trajectory(times, speed=False, velocity=False):
     """Retrieves the Rosetta trajectoyr wrt 67P and returns an array of
-    distance values (in km)"""
+    distance values (in km). If speed=True, a scalar speed is returned.
+    If velocity=True, 3 components of velocity are returned."""
 
     # Calculate Rosetta/comet position and velocity
     observer = 'ROSETTA'
@@ -424,10 +427,12 @@ def trajectory(times, speed=False):
     x = posvel[:,0]; y = posvel[:,1]; z = posvel[:,2]
     distance = np.sqrt(x*x + y*y + z*z) # km
 
-    if speed:
+    if speed or velocity:
         vx = posvel[:,3]; vy = posvel[:,4]; vz = posvel[:,5]
-        speed = np.sqrt(vx*vx + vy*vy + vz*vz) # km/s
-        return distance, speed
+        if speed:
+            return distance, np.sqrt(vx*vx + vy*vy + vz*vz) # km/s
+        else:
+            return distance, vx, vy, vz
     else:
         return distance
 

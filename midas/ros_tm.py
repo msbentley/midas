@@ -841,8 +841,8 @@ def to_bcr(images, outputdir='.'):
             scan_count = scan_count + 1
 
         # deal with open and closed loop setting!
-        ycal = common.xycal['closed'] if image.y_closed else common.xycal['open']
-        xcal = common.xycal['closed'] if image.x_closed else common.xycal['open']
+        # ycal = common.xycal['closed'] if image.y_closed else common.xycal['open']
+        # xcal = common.xycal['closed'] if image.x_closed else common.xycal['open']
 
         bcrdata = {}
 
@@ -850,9 +850,9 @@ def to_bcr(images, outputdir='.'):
 
         bcrdata['xpixels'] = image.xsteps
         bcrdata['ypixels'] = image.ysteps
-        bcrdata['xlength'] = image.x_step * xcal * bcrdata['xpixels']
+        bcrdata['xlength'] = image.x_step * image.x_cal * bcrdata['xpixels']
         bcrdata['xoffset'] = xoffset
-        bcrdata['ylength'] = image.y_step * ycal * bcrdata['ypixels']
+        bcrdata['ylength'] = image.y_step * image.y_cal * bcrdata['ypixels']
         bcrdata['yoffset'] = yoffset
 
         bcrdata['data'] = images.data.iloc[idx].ravel() - 32768
@@ -1009,11 +1009,12 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
             if chan_idx==0: meta_channel = channel
 
             # deal with open and closed loop setting!
-            xcal = common.xycal['closed'] if channel.x_closed else common.xycal['open']
-            ycal = common.xycal['closed'] if channel.y_closed else common.xycal['open']
+            # xcal = common.xycal['closed'] if channel.x_closed else common.xycal['open']
+            # ycal = common.xycal['closed'] if channel.y_closed else common.xycal['open']
 
-            xlen = channel.xsteps*channel.x_step*xcal*10**xy_power
-            ylen = channel.ysteps*channel.y_step*ycal*10**xy_power
+            # 14/03/2018 changing xlen and ylen to use oer-image cal values
+            xlen = channel.xsteps*channel.x_step*channel.x_cal*10**xy_power
+            ylen = channel.ysteps*channel.y_step*channel.y_cal*10**xy_power
 
             # Default calibration needs to be changed if we requested phase data in M1, M2 or M3
             # M1 = 256, M2 = 2048, M3 = 16384
@@ -1054,15 +1055,15 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
 
                 if channel.ctrl_image:
                     # check for control data packets sent between image start and image end (+/- 5 minutes)
-                    if telem is None:
-                        telem = tm(scan['filename'].iloc[0])
+                    telem = tm(scan['filename'].iloc[0])
                     ctrl = telem.get_ctrl_data()
                     if ctrl is not None:
 
                         ctrl = ctrl[ (ctrl.wheel_pos==channel.wheel_pos) &
-                            (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
-                            (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
-                            (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
+                        (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
+                        (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
+                        (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
+                    if telem is None:
 
                         if len(ctrl)>0:
 
@@ -1088,16 +1089,16 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
                                         spec_data.set_val(pt, ctrl_data[pt])
 
                                     if channel.fast_dir=='X':
-                                        xpos = ctrl_pt.main_cnt * ctrl_pt.step_size * xcal * 10**xy_power
+                                        xpos = ctrl_pt.main_cnt * ctrl_pt.step_size * channel.x_cal * 10**xy_power
                                         # ypos = range(1,int(channel.ysteps),(int(channel.ysteps)/32))[(i // 32)] * channel.y_step * ycal * 10**xy_power
                                         # ypos = ((i // 32)+1) * channel.y_step * ycal * 10**xy_power
-                                        ypos = ctrl_pt.line_cnt * channel.y_step * ycal * 10**xy_power
+                                        ypos = ctrl_pt.line_cnt * channel.y_step * channel.y_cal * 10**xy_power
 
                                     else:
-                                        ypos = ctrl_pt.main_cnt * ctrl_pt.step_size * ycal * 10**xy_power
+                                        ypos = ctrl_pt.main_cnt * ctrl_pt.step_size * channel.y_cal * 10**xy_power
                                         # xpos = range(1,int(channel.xsteps),(int(channel.xsteps)/32))[(i // 32)] * channel.x_step * xcal * 10**xy_power
                                         # xpos = ((i // 32)+1) * channel.x_step * xcal * 10**xy_power
-                                        xpos = ctrl_pt.line_cnt * channel.x_step * xcal * 10**xy_power
+                                        xpos = ctrl_pt.line_cnt * channel.x_step * channel.x_cal * 10**xy_power
 
                                     spec.add_spectrum(spec_data, xpos, ypos)
                                     i += 1
@@ -3953,6 +3954,9 @@ class tm:
                 point_data['op_pt_lo'] = self.get_param('NMDA0247', frame=frame)[1]
                 point_data['op_pt_hi'] = self.get_param('NMDA0246', frame=frame)[1]
 
+                # Also add the coordinate positions from HK (to make it easier to locate control data points in images)
+                # point_data['res_amp'] = self.get_param('NMDA0165', frame=frame)[1] # ScnLineCount
+                # NOT GOING TO WORK SINCE THE TIME RESOLUTION OF HK IS TOO LOW...
 
             control.append(point_data)
 
@@ -4311,6 +4315,14 @@ class tm:
         # Add the filename
         info['scan_file'] = info.apply( lambda row: src_file_to_img_file(os.path.basename(row.filename), row.start_time, row.target), axis=1 )
 
+        # Add per-image default XY and X calibration coefficients. These will be over-written later by refined per-image
+        # calibrationn values.
+        info['x_cal'] = None
+        info['x_cal'] = info.apply( lambda row: common.xycal['closed'] if row.x_closed else common.xycal['open'], axis=1)
+        info['y_cal'] = None
+        info['y_cal'] = info.apply( lambda row: common.xycal['closed'] if row.y_closed else common.xycal['open'], axis=1)
+        info['z_cal'] = common.zcal
+
         if expand_params:
             # If requested, extract additional data from HK - note that this will make the routine SLOOOOOW!
             #
@@ -4358,7 +4370,7 @@ class tm:
 
         return_data = ['filename', 'scan_file', 'sw_ver', 'start_time','end_time', 'duration', 'channel', 'tip_num', 'lin_pos', 'tip_offset', 'wheel_pos', 'target', 'target_type', \
             'x_orig','y_orig','xsteps', 'x_step','x_step_nm','xlen_um','ysteps','y_step','y_step_nm','ylen_um', 'z_step', 'z_ret', 'z_ret_nm', 'x_dir','y_dir','fast_dir','scan_type',\
-            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj', 'ctrl_image', 'mag_phase']
+            'exc_lvl', 'ac_gain', 'x_closed', 'y_closed', 'aborted', 'dummy', 'res_amp', 'set_pt', 'fadj', 'ctrl_image', 'mag_phase', 'x_cal','y_cal','z_cal']
 
         if sw_flags: return_data.extend(sw_flags_names)
         if expand_params: return_data.extend(expanded_names)

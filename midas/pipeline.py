@@ -1,4 +1,4 @@
-"""midas_daily.py - run daily data retrieval and extraction tasks"""
+"""pipeline.py - run daily data retrieval and extraction tasks"""
 
 import os, sys, subprocess, tempfile, time
 import pandas as pd
@@ -303,7 +303,7 @@ def show_scans():
 
 
 
-def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
+def run_pipeline(what='all', files='TLM__MD_M*.DAT', from_index=False, xy_cal=False):
     """Regenerate images and/or event and packet loss data for all TM files"""
 
     what_types = ['all', 'images', 'events', 'exposures', 'meta']
@@ -318,7 +318,10 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
     if what=='all' or what=='images':
         # Load packet index, either from a pickle or individual TLM files
         if from_index:
-            images = ros_tm.load_images(data=True)
+            if xy_cal:
+                images = apply_xy_cal(data=True)
+            else:
+                images = ros_tm.load_images(data=True)
             # Save BCR and GWY files
             if images is not None:
                 ros_tm.save_gwy(images,os.path.join(image_dir, 'gwy/'), save_png=True, pngdir=os.path.join(image_dir, 'png/')) # and Gwyddion files
@@ -333,6 +336,8 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
             for f in tm_files:
                 tm=ros_tm.tm(f)
                 images = tm.get_images(info_only=False, expand_params=True)
+                if xy_cal:
+                    images = apply_xy_cal(images)
 
                 # Save BCR and GWY files
                 if images is not None:
@@ -346,7 +351,7 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
             import glob
             tm_files = sorted(glob.glob(os.path.join(tlm_dir,files)))
             if len(tm_files)==0:
-                log.error('no files matchin pattern')
+                log.error('no files matching pattern')
                 return False
             for f in tm_files:
                 tm.get_pkts(f, append=True)
@@ -354,6 +359,8 @@ def regenerate(what='all', files='TLM__MD_M*.DAT', from_index=False):
 
         # Extract image data
         images = tm.get_images(info_only=True, expand_params=True)
+        if xy_cal:
+            images = apply_xy_cal(images, data=False)
 
         # Save the two meta-data spreadsheets
         images['filename'] = images['filename'].apply( lambda name: os.path.basename(name) )
@@ -438,6 +445,40 @@ def generate_timelines(case='P'):
         except:
             continue
     return
+
+
+# 15/03/2018 adding new functions for re-processing data using calibration Coefficients
+
+def read_xy_cal(calfile=os.path.join(common.config_path, 'calibration/xy_recalibration.csv')):
+    """Reads a CSV file containing a list of scans, identified by their start times, and a list of
+    updated X ad Y calibration coefficients."""
+
+    xy_cal = pd.read_table(calfile, sep=',')
+    xy_cal.start_time = pd.to_datetime(xy_cal.start_time)
+
+    return xy_cal
+
+
+def apply_xy_cal(images=None, calfile=None, data=False):
+    """Apply XY calibration coefficients coming from a CSV file to a set of images. An image_dir
+    dataframe should be provided; if none is given, ros_tm.load_images() is used to load ALL data.apply_xy_cal
+
+    Similarly if no calibration file is given, the default file is read from the config directory"""
+
+    if images is None:
+        images = ros_tm.load_images(data=data)
+
+    if calfile is None:
+        cal = read_xy_cal()
+    else:
+        cal = read_xy_cal(calfile)
+
+    images.start_time = pd.to_datetime(images.start_time)
+    cal = cal[ ['start_time', 'x_cal', 'y_cal'] ]
+
+    images = pd.merge(left=images, right=cal, on='start_time', how='inner')
+
+    return images
 
 
 if __name__ == "__main__":

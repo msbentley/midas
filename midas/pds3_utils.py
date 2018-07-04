@@ -18,9 +18,12 @@ log = logging.getLogger(__name__)
 
 
 
-def get_datasets(arc_path=common.arc_path):
+def get_datasets(arc_path=common.arc_path, latest=True):
     """Scans PDS3 datasets in the directory given by arc_path= and
-    returns the dataset ID and start/stop times for each"""
+    returns the dataset ID and start/stop times for each.
+    
+    If latest=True then only the latest version of each dataset is
+    returned, otherwise all versions are returned."""
 
     # Build a live list of archive datasets and their start/stop times
 
@@ -35,42 +38,57 @@ def get_datasets(arc_path=common.arc_path):
         start = label['DATA_SET']['DATA_SET_INFORMATION']['START_TIME']
         stop = label['DATA_SET']['DATA_SET_INFORMATION']['STOP_TIME']
         dset_id = label['DATA_SET']['DATA_SET_ID']
-        dsets.update( {dset_id: (start, stop)} )
+        vid = float(dset_id.split('-V')[-1])
+        lid = dset_id.split('-V')[0] 
+        dsets.update( {dset_id: (start, stop, lid, vid)})
+        
+    dsets = pd.DataFrame(dsets).T
+    dsets.columns=['start_time', 'stop_time', 'lid', 'vid']
+    dsets.sort_values(['lid', 'vid'], inplace=True)
+
+    if latest:
+        dsets.drop_duplicates('lid', keep='last', inplace=True)
 
     return dsets
 
 
-def get_products(arc_path=common.arc_path):
+def get_products(arc_path=common.arc_path, image_only=True, latest=True):
     """Scans PDS3 datsets in the directory given by arc_path=
     and returns the dataset, product IDs and paths to each product"""
+
+    import pudb
 
     log.debug('indexing PDS products in root %s' % arc_path)
 
     cols = ['dataset', 'prod_id', 'start']
     products = pd.DataFrame([], columns=cols)
 
-    dsets = get_datasets(arc_path)
-    for dset in dsets:
+    dsets = get_datasets(arc_path, latest=latest)
+    for idx, dset in dsets.iterrows():
         log.debug('processing dataset %s' % dset)
-        dset_root = os.path.join(arc_path, dset)
-        zs_labels = glob.glob(os.path.join(dset_root, 'DATA/IMG/*ZS.LBL'))
-        for lab in zs_labels:
+        dset_root = os.path.join(arc_path, dset.name)
+        if image_only:
+            labels = glob.glob(os.path.join(dset_root, 'DATA/IMG/*ZS.LBL'))
+        else:
+            labels = glob.glob(os.path.join(dset_root, 'DATA/*.LBL'))
+        for lab in labels:
             label = pvl.load(lab)
             prod_id = label['PRODUCT_ID'].encode()
             start = pd.Timestamp(label['START_TIME'])
-            products = products.append( pd.DataFrame([[dset, prod_id, start]], columns=cols), ignore_index=True )
+            products = products.append( pd.DataFrame([[dset.name, prod_id, start]], columns=cols), ignore_index=True )
 
+    products.sort_values('start', inplace=True)
     log.info('located %d products in %d datasets' % (len(products), len(dsets)))
 
     return products
 
 
-def get_tgt_history(arc_path=common.arc_path):
+def get_tgt_history(arc_path=common.arc_path, latest=True):
     """Scans PDS3 datasets for the (cumulative) scan history. Using the latest dataset
     available the files (one per target) are read into a Pandas DataFrame"""
 
-    dsets = get_datasets(arc_path)
-    last_dset = max(dsets.iterkeys(), key=(lambda key: dsets[key][0]))
+    dsets = get_datasets(arc_path, latest=latest)
+    last_dset = dsets.sort_values('stop_time').iloc[-1].name
     log.debug('Latest dataset ID: %s' % last_dset)
     dset_root = os.path.join(arc_path, last_dset)
     tgh_files = glob.glob(os.path.join(dset_root, 'DATA/TGH*.TAB'))
@@ -91,13 +109,12 @@ def get_tgt_history(arc_path=common.arc_path):
 
     return history
 
-
-def get_tip_history(arc_path=common.arc_path):
+def get_tip_history(arc_path=common.arc_path, latest=True):
     """Scans PDS3 datasets for the (cumulative) cantilever history. Using the latest dataset
     available the files (one per target) are read into a Pandas DataFrame"""
 
-    dsets = get_datasets(arc_path)
-    last_dset = max(dsets.iterkeys(), key=(lambda key: dsets[key][0]))
+    dsets = get_datasets(arc_path, latest=latest)
+    last_dset = dsets.sort_values('stop_time').iloc[-1].name
     log.debug('Latest dataset ID: %s' % last_dset)
     dset_root = os.path.join(arc_path, last_dset)
     tgh_files = glob.glob(os.path.join(dset_root, 'DATA/CAH*.TAB'))
@@ -120,18 +137,18 @@ def get_tip_history(arc_path=common.arc_path):
     return history
 
 
-def get_events(arc_path=common.arc_path):
+def get_events(arc_path=common.arc_path, latest=True):
     """Extracts event information from all datasets found in the root
     folder given by arc_path and returns as a pandas DataFrame"""
 
-    dsets = get_datasets(arc_path)
+    dsets = get_datasets(arc_path, latest=latest)
 
     columns = ['start_sc', 'start_utc', 'event_cnt', 'event_id', 'event']
     event_list = []
 
-    for dset in dsets:
+    for idx, dset in dsets.iterrows():
         log.debug('processing dataset %s' % dset)
-        dset_root = os.path.join(arc_path, dset)
+        dset_root = os.path.join(arc_path, dset.name)
         event_files = glob.glob(os.path.join(dset_root, 'DATA/EVN/EVN_*.TAB'))
         event_list.append(pd.concat((pd.read_csv(f, skipinitialspace=True, names=columns) for f in event_files)))
 
@@ -142,6 +159,35 @@ def get_events(arc_path=common.arc_path):
     log.info('%d events read from %d datsets' % (len(events), len(dsets)))
 
     return events
+
+
+def get_fscans(arc_path=common.arc_path):
+    """Extracts frequency scan (FSC) data fro mall datasets found in
+    the root folder given by arc_path and returns a pandas DataFrame"""
+
+    dsets = get_datasets(arc_path)
+
+    columns = ['start_time', 'start_freq', 'fstep', 'num_cycles', 'tip_num', 'exc_lvl', 'ac_gain']
+    fscan_list = []
+
+    for dset in dsets:
+        log.debug('processing dataset %s' % dset)
+        dset_root = os.path.join(arc_path, dset)
+        fscan_files = glob.glob(os.path.join(dset_root, 'DATA/FSC/FSC_*.DAT'))
+
+
+    # events = pd.concat(event_list)
+    # events.start_utc = pd.to_datetime(events.start_utc)
+    # events.event.apply( lambda event: event.strip() )
+    # events.sort_values(by='start_utc', inplace=True)
+    # log.info('%d events read from %d datsets' % (len(events), len(dsets)))
+
+    return events
+
+
+
+    return fscans
+
 
 
 def scan2arc(scanfile, arc_path=common.arc_path):

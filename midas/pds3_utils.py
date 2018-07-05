@@ -194,7 +194,8 @@ def scan2arc(scanfile, arc_path=common.arc_path):
     """Accepts a scan file string and attempts to locate the corresponding
     image in the archive. This is done simply by comparing the date to
     a list of dataset start/end times and then grepping the image labels
-    to find one in the archive"""
+    to find one in the archive. If more than one version of an archive
+    product is available, the latest will be returned."""
 
     import ros_tm
     import pvl
@@ -211,11 +212,11 @@ def scan2arc(scanfile, arc_path=common.arc_path):
     # img_start = image.start_time.round('100ms')
     log.debug('scan file start time: %s' % image.start_time)
 
-    dsets = get_datasets(arc_path)
-    for dset in dsets:
-        start, stop = dsets[dset]
+    dsets = get_datasets(arc_path, latest=True)
+    for idx, dset in dsets.iterrows():
+        start, stop = dsets.loc[dset.name][['start_time', 'stop_time']].values
         if start < image.start_time < stop:
-            dset_matches.append(dset)
+            dset_matches.append(dset.name)
 
     if len(dset_matches)==0:
         log.warning('no archive products found with start time %s' % img_start)

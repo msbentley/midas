@@ -39,9 +39,9 @@ def get_datasets(arc_path=common.arc_path, latest=True):
         stop = label['DATA_SET']['DATA_SET_INFORMATION']['STOP_TIME']
         dset_id = label['DATA_SET']['DATA_SET_ID']
         vid = float(dset_id.split('-V')[-1])
-        lid = dset_id.split('-V')[0] 
-        dsets.update( {dset_id: (start, stop, lid, vid)})
-        
+        lid = dset_id.split('-V')[0]
+        dsets.update({dset_id: (start, stop, lid, vid)})
+
     dsets = pd.DataFrame(dsets).T
     dsets.columns=['start_time', 'stop_time', 'lid', 'vid']
     dsets.sort_values(['lid', 'vid'], inplace=True)
@@ -52,13 +52,20 @@ def get_datasets(arc_path=common.arc_path, latest=True):
     return dsets
 
 
-def get_products(arc_path=common.arc_path, image_only=True, latest=True):
+def get_products(arc_path=common.arc_path, what='data', latest=True):
     """Scans PDS3 datsets in the directory given by arc_path=
-    and returns the dataset, product IDs and paths to each product"""
-
-    import pudb
+    and returns the dataset, product IDs and paths to each product.
+    what can be
+        data - all products in the data collections
+        images - all midas images
+        all - every product in the dataset"""
 
     log.debug('indexing PDS products in root %s' % arc_path)
+
+    valid = ['data', 'images', 'all']
+    if what not in valid:
+        log.error('option what not valid!')
+        return None
 
     cols = ['dataset', 'prod_id', 'start']
     products = pd.DataFrame([], columns=cols)
@@ -67,15 +74,19 @@ def get_products(arc_path=common.arc_path, image_only=True, latest=True):
     for idx, dset in dsets.iterrows():
         log.debug('processing dataset %s' % dset)
         dset_root = os.path.join(arc_path, dset.name)
-        if image_only:
-            labels = glob.glob(os.path.join(dset_root, 'DATA/IMG/*ZS.LBL'))
+        if what == 'images':
+            image_root = os.path.join(dset_root, 'DATA/IMG') 
+            labels = common.select_files('*.LBL', directory=image_root, recursive=True)
+        elif what == 'data':
+            data_root = os.path.join(dset_root, 'DATA')
+            labels = common.select_files('*.LBL', directory=data_root, recursive=True)
         else:
-            labels = glob.glob(os.path.join(dset_root, 'DATA/*.LBL'))
+            labels = common.select_files('*.LBL', directory=dset_root, recursive=True)
         for lab in labels:
             label = pvl.load(lab)
             prod_id = label['PRODUCT_ID'].encode()
-            start = pd.Timestamp(label['START_TIME'])
-            products = products.append( pd.DataFrame([[dset.name, prod_id, start]], columns=cols), ignore_index=True )
+            start = pd.Timestamp(label['START_TIME']) if 'START_TIME' in label.keys() else pd.NaT
+            products = products.append(pd.DataFrame([[dset.name, prod_id, start]], columns=cols), ignore_index=True)
 
     products.sort_values('start', inplace=True)
     log.info('located %d products in %d datasets' % (len(products), len(dsets)))
@@ -108,6 +119,7 @@ def get_tgt_history(arc_path=common.arc_path, latest=True):
     history.sort_values(by='start_utc', inplace=True)
 
     return history
+
 
 def get_tip_history(arc_path=common.arc_path, latest=True):
     """Scans PDS3 datasets for the (cumulative) cantilever history. Using the latest dataset
@@ -154,7 +166,7 @@ def get_events(arc_path=common.arc_path, latest=True):
 
     events = pd.concat(event_list)
     events.start_utc = pd.to_datetime(events.start_utc)
-    events.event.apply( lambda event: event.strip() )
+    events.event.apply(lambda event: event.strip())
     events.sort_values(by='start_utc', inplace=True)
     log.info('%d events read from %d datsets' % (len(events), len(dsets)))
 
@@ -180,14 +192,9 @@ def get_fscans(arc_path=common.arc_path):
     # events.start_utc = pd.to_datetime(events.start_utc)
     # events.event.apply( lambda event: event.strip() )
     # events.sort_values(by='start_utc', inplace=True)
-    # log.info('%d events read from %d datsets' % (len(events), len(dsets)))
-
-    return events
-
-
+    # log.info('%d events read from %d datsets' % (len(events), len(dsets)
 
     return fscans
-
 
 
 def scan2arc(scanfile, arc_path=common.arc_path):
@@ -203,7 +210,7 @@ def scan2arc(scanfile, arc_path=common.arc_path):
     dset_matches = []
 
     image = ros_tm.load_images(data=False).query('scan_file==@scanfile')
-    if len(image)==0:
+    if len(image) == 0:
         log.error('scan file %s not found in the image database' % scanfile)
         return None
     else:
@@ -218,7 +225,7 @@ def scan2arc(scanfile, arc_path=common.arc_path):
         if start < image.start_time < stop:
             dset_matches.append(dset.name)
 
-    if len(dset_matches)==0:
+    if len(dset_matches) == 0:
         log.warning('no archive products found with start time %s' % img_start)
         return None
     elif len(dset_matches) > 1:
@@ -255,7 +262,6 @@ def arc2scan(arcfile, arc_path=common.arc_path):
 
     import ros_tm
     import pvl
-    import glob
 
     arcfile += '.LBL'
     arcfiles = common.locate(arcfile, arc_path)
@@ -272,8 +278,8 @@ def arc2scan(arcfile, arc_path=common.arc_path):
     images = ros_tm.load_images(data=False)
     # images['start_time_s'] = images.start_time.apply(lambda x: x.round('100ms'))
     delta = pd.Timedelta(seconds=0.5)
-    image = images[ ((images.start_time-delta) < start) & ((images.start_time+delta) > start )]
-    if len(image)==0:
+    image = images[((images.start_time-delta) < start) & ((images.start_time+delta) > start)]
+    if len(image) == 0:
         log.error('no matching image found with start time %s' % start)
         return None
     else:
@@ -282,3 +288,30 @@ def arc2scan(arcfile, arc_path=common.arc_path):
     scanfile = image.scan_file
 
     return scanfile
+
+
+def read_catalogue(dset_path='.'):
+
+    label_file = os.path.join(dset_path, 'DOCUMENT', 'MID_PARTICLE_TABLE.LBL')
+    label = pvl.load(label_file)
+    table_meta = label['PARTICLE_TABLE']
+
+    # extract the column names from the label file
+    cols = []
+    for item in table_meta:
+        if item[0] != 'COLUMN':
+            continue
+        cols.append(item[1]['NAME'])
+
+    # read the CSV file
+    cat_file = os.path.join(dset_path, 'DOCUMENT', 'MID_PARTICLE_TABLE.TAB')
+    catalogue = pd.read_table(cat_file, sep=',', delim_whitespace=False, names=cols)
+
+    # tidy it up a bits
+    for col in catalogue.columns:
+        if catalogue[col].dtype == 'O':
+            catalogue[col] = catalogue[col].str.strip()
+
+    catalogue.FLAG_2 = catalogue.FLAG_2.replace(r'^\s*$', 0, regex=True).astype(int)
+
+    return catalogue

@@ -1055,7 +1055,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, mode
 
                 if channel.ctrl_image:
                     # check for control data packets sent between image start and image end (+/- 5 minutes)
-                    telem = tm(scan['filename'].iloc[0], mode=model)
+                    telem = tm(scan['filename'].iloc[0], model=model)
                     ctrl = telem.get_ctrl_data()
                     if ctrl is not None:
 

@@ -956,7 +956,7 @@ def save_fits(images, outputdir='.'):
 
     return
 
-def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
+def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, model='FM'):
     """Accepts one or more sets of image data from get_images() and returns individual
     GWY files, with multiple channels combined in single files and all meta-data.
 
@@ -1055,7 +1055,7 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None):
 
                 if channel.ctrl_image:
                     # check for control data packets sent between image start and image end (+/- 5 minutes)
-                    telem = tm(scan['filename'].iloc[0])
+                    telem = tm(scan['filename'].iloc[0], mode=model)
                     ctrl = telem.get_ctrl_data()
                     if ctrl is not None:
 
@@ -1740,8 +1740,8 @@ def show(images, units='real', planesub='poly', title=True, cbar=True, fig=None,
 
     if fig is None and show:
         plt.show()
+        return fig, ax
 
-    return figure, axis
 
 
 def locate_scans(images):
@@ -3001,7 +3001,6 @@ class tm:
 
         return pkts
 
-
     def dds_time(self, pkts):
         """Unpacks the DDS header and returns the UTC time (including time correlation, but
         does not account for leap seconds!) and adds this to the pkts dataframe"""
@@ -3035,6 +3034,7 @@ class tm:
         pkts.dds_time = pd.to_datetime(pkts.dds_time, errors='raise')
 
         return pkts
+
 
 
 
@@ -3541,8 +3541,8 @@ class tm:
         return pd.DataFrame( zip(indices,tcs), columns=['index','telecommand'] ).set_index('index')
 
 
-    def check_seq(self, apids=False, html=False, verbose=False):
         """Checks the packet sequence counter for gaps. If apids= is set then only
+    def check_seq(self, apids=False, html=False, verbose=False):
         these APIDs are checked, otherwise all MIDAS APIDs are used.
 
         If verbose=True a description of lost packets and their OBTs is given."""
@@ -4869,15 +4869,19 @@ class tm:
 
         obt = obt_epoch + timedelta(seconds=obt_s)
 
-        if self.model=='FS': # don't apply time correlation
+        if self.model == 'FS': # don't apply time correlation
             return obt
         else:
-            if obt<self.tcorr.index[0]:
+            if obt < self.tcorr.index[0]:
                 tcp = self.tcorr.iloc[0]
             else:
-                tcp = self.tcorr[self.tcorr.index<obt].iloc[-1]
+                tcp = self.tcorr[self.tcorr.index < obt].iloc[-1]
             utc_s = tcp.gradient * obt_s + tcp.offset
             obt_corr = sun_mjt_epoch + timedelta(seconds=utc_s)
+
+            # M.S. Bentley 27/03/2019 - need to do a linear interpolation here
+            # to correctly get the time correlation (to match the archive)
+            
 
             return obt_corr
 

@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 isofmt = '%Y-%m-%dT%H%M%SZ'
 
 obt_epoch = datetime(year=2003, month=1, day=1, hour=0, minute=0, second=0) # , tzinfo=pytz.UTC)
+fs_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0) # , tzinfo=pytz.UTC)
 sun_mjt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0)
 dds_obt_epoch = datetime(year=1970, month=1, day=1, hour=0, minute=0, second=0, tzinfo=pytz.UTC)
 
@@ -1063,7 +1064,8 @@ def save_gwy(images, outputdir='.', save_png=False, pngdir='.', telem=None, mode
                         (ctrl.tip_num==channel.tip_num) & (ctrl.in_image) &
                         (ctrl.obt > (channel.start_time-pd.Timedelta(minutes=5))) &
                         (ctrl.obt < (channel.end_time+pd.Timedelta(minutes=5)))]
-                    if telem is None:
+
+                    if telem is not None:
 
                         if len(ctrl)>0:
 
@@ -2380,12 +2382,15 @@ class tm:
                 # Check for out-of-sync packets - MIDAS telemetry packets are not time synchronised when the MSB
                 # of the 32 bit coarse time (= seconds since reference date) is set to "1".
                 pkt['tsync'] = not bool(pkt_header.obt_sec >> 31)
-
-                obt_s = pkt_header.obt_sec + pkt_header.obt_frac / 2.**16
-                if self.model=='FM' and pkt['tsync']:
+                obt_mask = 2**31-1 # needed to remove sync bit (MSB of coarse time)
+                obt_s = float(pkt_header.obt_sec & obt_mask) + (pkt_header.obt_frac / 2.**16)
+                if pkt['tsync']:
                     obt = self.correlate_time(obt_s)
                 else:
-                    obt = obt_epoch + timedelta(seconds=long(obt_s))
+                    if self.model == 'FS':
+                        obt = fs_epoch + timedelta(seconds=obt_s)
+                    else:
+                        obt = obt_epoch + timedelta(seconds=obt_s)
 
                 pkt['offset'] = offset
                 pkt['type'] = pkt_header.pkt_type
@@ -3028,8 +3033,10 @@ class tm:
                 if dds_header.time_qual != 0:
                     log.debug('bad DDS time stamp at %s' % (dds_obt_epoch + delta_t))
 
-            pkts.dds_time = pkts.dds_time.astype(pd.Timestamp)
             pkts.dds_time.loc[offsets.index] = dds_time
+            pkts.dds_time = pkts.dds_time.dt.tz_localize(None)
+
+            # pkts.dds_time = pkts.dds_time.astype(pd.Timestamp)
 
         pkts.dds_time = pd.to_datetime(pkts.dds_time, errors='raise')
 
@@ -4870,7 +4877,7 @@ class tm:
         obt = obt_epoch + timedelta(seconds=obt_s)
 
         if self.model == 'FS': # don't apply time correlation
-            return obt
+            return fs_epoch + timedelta(seconds=obt_s)
         else:
             if obt < self.tcorr.index[0]:
                 tcp = self.tcorr.iloc[0]
